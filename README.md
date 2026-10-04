@@ -6,11 +6,19 @@ speaker diarization, local transcripts, and a read-only MCP server.
 ## Run
 
 Open `~/Applications/WorkScribe.app` (the installed build), or `dist/WorkScribe.app`
-after a default build. Start a recording from its window or menu bar icon.
-The microphone is always included; optionally include system audio for calls
-and media. macOS requests microphone and screen/system-audio permissions.
-Press **Start recording**, or enable **Settings → Auto-record calls**. Stop finalizes
-and saves the transcript and audio tracks. No title is required upfront.
+after a default build. Click the menu bar icon and press **Start recording**,
+press **⌥⌘R** from any app, or enable **Settings → Auto-record calls**. Stop
+finalizes and saves the transcript and audio tracks. No title is required upfront.
+
+The microphone is always included. System audio (the other side of calls)
+needs Screen & System Audio Recording permission. When that permission is
+missing, the popover says so before you record, and a recording falls back to
+the microphone alone instead of failing. The setting is remembered.
+
+The menu bar icon shows the state while the popover is closed: dimmed while the
+speech model loads, a red dot with elapsed time while recording, and a warning
+icon after a failure. Automatic recordings post a notification when they start,
+fail, or are saved.
 
 The shipped app includes the models and native libraries. It does not start
 an HTTP service, open a local port, invoke a model subprocess, or upload audio.
@@ -19,12 +27,28 @@ notarized distribution release.
 
 ## Transcript
 
-The menu-bar popover shows the full live transcript with colored speaker
-labels and Mic/System audio sources. Clicking the icon opens it directly;
-there is no separate transcript window or launcher menu. Words without
-reliable speaker attribution show **Identifying speaker…** until finalized.
-The gear-shaped **Settings** menu contains Auto-record calls, Include system
-audio, and Follow live transcript. Disable following to read earlier passages.
+The popover has three modes:
+
+- **Idle:** status, Start recording, and Recent. Each row shows time, length,
+  and speakers, or why a recording failed. Search matches titles and transcript
+  text and shows the matching passage. Right-click a row to move it to the Trash.
+- **Recording:** elapsed time, live Mic and System level meters, and the live
+  transcript. Scrolling up pauses following; **Jump to live** resumes it.
+- **Reviewing:** back to Recent, a title you edit in place, details, and one ⋯
+  menu for export, voice matching, undo, and Move to Trash. A failed recording
+  explains what happened and offers the fix.
+
+The window button next to Settings opens a resizable panel that floats above
+other apps, for following a call. Dragging the popover away also detaches it.
+
+Consecutive lines from one person are grouped. When the microphone hears only
+one voice, it is labeled **You**. Click a speaker's name to name them; the change
+applies to all their lines unless **Only this line** is checked, and an undo
+toast follows. Remembering a new person's voice is opt-in. Voice-match
+suggestions appear once per speaker, with **Confirm** and **Not them**.
+
+**Settings** holds only settings: Auto-record calls, Include system audio, the
+⌥⌘R shortcut, Remembered voices, Note Pro, and Copy MCP config.
 
 ## Automatic recording and titles
 

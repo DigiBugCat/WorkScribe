@@ -7,9 +7,13 @@ import WorkScribeCore
 struct RecorderView: View {
     @ObservedObject var model: AppModel
     var openPlaud: () -> Void = {}
+    /// Opens the floating window; nil when this view already is that window.
+    var openWindow: (() -> Void)?
+    var inWindow = false
     @State private var followLive = true
-    @State private var speakerEdit: SpeakerEditTarget?
     @State private var showingVoices = false
+    @State private var query = ""
+    @State private var pendingDelete: Meeting?
     @State private var editingTitle = false
     @State private var titleDraft = ""
 
@@ -28,7 +32,7 @@ struct RecorderView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            StatusHeader(model: model, showingVoices: $showingVoices, openPlaud: openPlaud)
+            StatusHeader(model: model, showingVoices: $showingVoices, openPlaud: openPlaud, openWindow: openWindow)
                 .padding(.horizontal, 16).padding(.vertical, 12)
             Divider()
             Group {
@@ -39,10 +43,61 @@ struct RecorderView: View {
                 }
             }.frame(maxHeight: .infinity, alignment: .top)
         }
-        .frame(width: 400, height: 580)
-        .sheet(item: $speakerEdit) { target in SpeakerNamingView(model: model, target: target) }
+        .frame(minWidth: inWindow ? 360 : 400, idealWidth: 400, maxWidth: inWindow ? .infinity : 400,
+               minHeight: inWindow ? 420 : 580, idealHeight: 580, maxHeight: inWindow ? .infinity : 580)
+        .overlay(alignment: .bottom) { toast }
         .sheet(isPresented: $showingVoices) { RememberedVoicesView(model: model) }
         .onChange(of: model.selectedID) { _, _ in editingTitle = false }
+        .confirmationDialog("Move “\(pendingDelete?.title ?? "")” to the Trash?", isPresented: Binding(
+            get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
+            Button("Move to Trash", role: .destructive) { if let entry = pendingDelete { model.deleteRecording(id: entry.id) }; pendingDelete = nil }
+            Button("Cancel", role: .cancel) { pendingDelete = nil }
+        } message: { Text("Its audio and transcript go to the Trash, where you can still restore them.") }
+    }
+
+    /// Undo for speaker-name changes, shown for a few seconds after each one.
+    @ViewBuilder private var toast: some View {
+        if let toast = model.speakerToast {
+            HStack(spacing: 10) {
+                Text(toast.text).font(.callout).lineLimit(1)
+                Button("Undo") { model.undoSpeakerChange(id: toast.meetingID) }
+                    .buttonStyle(.borderless).fontWeight(.semibold)
+                    .disabled(model.speakerUndo[toast.meetingID] == nil)
+            }
+            .padding(.horizontal, 14).padding(.vertical, 8)
+            .background(.regularMaterial, in: Capsule()).shadow(radius: 4, y: 2)
+            .padding(.bottom, 70)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .task(id: toast.id) {
+                try? await Task.sleep(nanoseconds: 6_000_000_000)
+                if model.speakerToast?.id == toast.id { withAnimation { model.speakerToast = nil } }
+            }
+        }
+    }
+
+    /// Shown before recording when system audio is on but macOS won't allow it.
+    @ViewBuilder private var screenAccessBanner: some View {
+        if model.includeSystemAudio && !model.screenAccess {
+            VStack(alignment: .leading, spacing: 6) {
+                Label("System audio needs permission", systemImage: "speaker.slash").font(.callout.weight(.semibold))
+                Text("Allow Screen & System Audio Recording so WorkScribe can hear the other side of calls. Until then it records your microphone only.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                HStack {
+                    Button("Allow…") { model.requestScreenAccess() }.controlSize(.small)
+                    Button("Use mic only") { model.includeSystemAudio = false }.controlSize(.small).buttonStyle(.borderless)
+                }
+            }
+            .padding(10).frame(maxWidth: .infinity, alignment: .leading)
+            .background(.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+        }
+    }
+
+    private var filteredLibrary: [Meeting] {
+        let term = query.trimmingCharacters(in: .whitespaces)
+        guard !term.isEmpty else { return model.library }
+        return model.library.filter { entry in
+            entry.title.localizedCaseInsensitiveContains(term) || entry.segments.contains { $0.text.localizedCaseInsensitiveContains(term) }
+        }
     }
 
     // MARK: Idle
@@ -63,9 +118,14 @@ struct RecorderView: View {
                 .buttonStyle(.borderedProminent).tint(.teal).controlSize(.large)
                 .keyboardShortcut("r", modifiers: .command)
                 .disabled(model.phase == "starting" || (!model.speechReady && model.phase != "error"))
+                if model.globalShortcut && model.speechReady {
+                    Text("Or press ⌥⌘R from any app").font(.caption2).foregroundStyle(.tertiary)
+                        .frame(maxWidth: .infinity)
+                }
                 if let note = transientNote {
                     Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
+                screenAccessBanner
             }.padding(.horizontal, 16).padding(.top, 14)
 
             if model.library.isEmpty {
@@ -75,9 +135,22 @@ struct RecorderView: View {
                         .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }.padding(.horizontal, 16)
             } else {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("RECENT").font(.caption2.weight(.semibold)).tracking(0.6).foregroundStyle(.secondary)
-                        .padding(.horizontal, 16)
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 8) {
+                        Text("RECENT").font(.caption2.weight(.semibold)).tracking(0.6).foregroundStyle(.secondary)
+                        Spacer()
+                        HStack(spacing: 4) {
+                            Image(systemName: "magnifyingglass").font(.caption).foregroundStyle(.secondary)
+                            TextField("Search transcripts", text: $query).textFieldStyle(.plain).font(.caption)
+                                .accessibilityLabel("Search recordings and transcripts")
+                            if !query.isEmpty {
+                                Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
+                                    .buttonStyle(.borderless).foregroundStyle(.secondary).accessibilityLabel("Clear search")
+                            }
+                        }
+                        .padding(.horizontal, 7).padding(.vertical, 4).frame(width: 190)
+                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
+                    }.padding(.horizontal, 16)
                     ScrollView {
                         LazyVStack(spacing: 2) {
                             if let status = model.importStatus, model.importActive {
@@ -87,10 +160,18 @@ struct RecorderView: View {
                                     Spacer(minLength: 0)
                                 }.padding(.horizontal, 8).padding(.vertical, 7)
                             }
-                            ForEach(model.library) { entry in
-                                RecordingRow(entry: entry, naming: model.namingIDs.contains(entry.id)) {
+                            ForEach(filteredLibrary) { entry in
+                                RecordingRow(entry: entry, naming: model.namingIDs.contains(entry.id), query: query) {
                                     model.selectedID = entry.id
                                 }
+                                .contextMenu {
+                                    Button("Open") { model.selectedID = entry.id }
+                                    Button("Move to Trash…", role: .destructive) { pendingDelete = entry }
+                                }
+                            }
+                            if filteredLibrary.isEmpty {
+                                Text("No recordings mention “\(query)”.").font(.callout).foregroundStyle(.secondary)
+                                    .frame(maxWidth: .infinity, alignment: .leading).padding(8)
                             }
                         }.padding(.horizontal, 8).padding(.bottom, 8)
                     }
@@ -124,15 +205,34 @@ struct RecorderView: View {
                         .foregroundStyle(meeting.titleOrigin == "pending" ? .secondary : .primary)
                 }
                 Spacer(minLength: 8)
-                Toggle(isOn: $followLive) { Image(systemName: "arrow.down.to.line") }
-                    .toggleStyle(.button).buttonStyle(.borderless).controlSize(.small)
-                    .help(followLive ? "Following live speech. Click to stop following." : "Follow live speech")
-                    .accessibilityLabel("Follow live transcript")
+                if #unavailable(macOS 15) {
+                    Toggle(isOn: $followLive) { Image(systemName: "arrow.down.to.line") }
+                        .toggleStyle(.button).buttonStyle(.borderless).controlSize(.small)
+                        .help(followLive ? "Following live speech. Click to stop following." : "Follow live speech")
+                        .accessibilityLabel("Follow live transcript")
+                }
             }
             .font(.callout.weight(.medium)).lineLimit(1)
-            .padding(.horizontal, 16).padding(.vertical, 10)
+            .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 6)
 
-            TranscriptView(meeting: meeting, live: true, followLive: $followLive, nameSpeaker: edit(meeting))
+            if model.phase == "recording" {
+                LevelMeters(levels: model.levels, systemBlocked: model.systemAudioBlocked, systemOff: !model.includeSystemAudio)
+                    .padding(.horizontal, 16).padding(.bottom, 8)
+            }
+            if model.systemAudioBlocked {
+                HStack(spacing: 8) {
+                    Image(systemName: "speaker.slash").foregroundStyle(.orange)
+                    Text("Recording your mic only. System audio needs Screen Recording permission.")
+                        .font(.caption).fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    Button("Allow…") { model.requestScreenAccess() }.controlSize(.small)
+                }
+                .padding(8).background(.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal, 16).padding(.bottom, 8)
+            }
+            Divider()
+
+            TranscriptView(meeting: meeting, live: true, followLive: $followLive, editor: editor(meeting))
 
             Divider()
             HStack {
@@ -170,6 +270,7 @@ struct RecorderView: View {
                         .disabled(model.speakerUndo[meeting.id] == nil)
                     Divider()
                     Button("Show recordings in Finder") { model.revealRecordings() }
+                    Button("Move to Trash…", role: .destructive) { pendingDelete = meeting }
                 } label: { Image(systemName: "ellipsis.circle") }
                     .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
                     .accessibilityLabel("Recording actions")
@@ -210,21 +311,27 @@ struct RecorderView: View {
                 Text(note).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.bottom, 8)
             }
 
-            SuggestionStrip(meeting: meeting, voices: model.voices) { segment in
-                speakerEdit = SpeakerEditTarget(meetingID: meeting.id, segment: segment)
-            }
+            SuggestionStrip(meeting: meeting, confirm: { segment, suggestion in
+                model.nameSpeaker(meetingID: meeting.id, segmentID: segment.id, name: suggestion.name,
+                                  profileID: suggestion.profileID, wholeSpeaker: true, remember: true)
+            }, reject: { segment in
+                model.clearSpeaker(meetingID: meeting.id, segmentID: segment.id, wholeSpeaker: true)
+            })
 
             Divider()
             if meeting.segments.isEmpty && meeting.status == "failed" {
                 Spacer()
             } else {
-                TranscriptView(meeting: meeting, live: false, followLive: .constant(false), nameSpeaker: edit(meeting))
+                TranscriptView(meeting: meeting, live: false, followLive: .constant(false), editor: editor(meeting))
             }
         }
     }
 
-    private func edit(_ meeting: Meeting) -> (Segment) -> Void {
-        { segment in speakerEdit = SpeakerEditTarget(meetingID: meeting.id, segment: segment) }
+    /// The naming popover shown on a speaker's label.
+    private func editor(_ meeting: Meeting) -> (Segment, @escaping () -> Void) -> AnyView {
+        { segment, done in
+            AnyView(SpeakerNamingView(model: model, target: SpeakerEditTarget(meetingID: meeting.id, segment: segment), done: done))
+        }
     }
     private func beginRename(_ meeting: Meeting) { titleDraft = meeting.title; editingTitle = true }
 }
@@ -235,6 +342,7 @@ private struct StatusHeader: View {
     @ObservedObject var model: AppModel
     @Binding var showingVoices: Bool
     let openPlaud: () -> Void
+    let openWindow: (() -> Void)?
 
     var body: some View {
         HStack(alignment: .center, spacing: 10) {
@@ -252,6 +360,11 @@ private struct StatusHeader: View {
                 Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
             }
             Spacer(minLength: 8)
+            if let openWindow {
+                Button(action: openWindow) { Image(systemName: "macwindow.on.rectangle") }
+                    .buttonStyle(.borderless).foregroundStyle(.secondary)
+                    .help("Keep open in a floating window").accessibilityLabel("Open in a floating window")
+            }
             settings
         }
     }
@@ -287,7 +400,7 @@ private struct StatusHeader: View {
         switch model.phase {
         case "recording":
             let trigger = model.meeting?.recordingTrigger ?? "manual"
-            let source = model.includeSystemAudio ? "Mic + system audio" : "Mic only"
+            let source = model.systemAudioBlocked ? "Mic only, system audio blocked" : model.includeSystemAudio ? "Mic + system audio" : "Mic only"
             return trigger.hasPrefix("call:") ? "\(trigger.dropFirst(5)) call · started automatically · \(source)" : "\(source) · saved on this Mac"
         case "starting": return model.message
         case "finalizing": return "Finishing the last words…"
@@ -302,6 +415,7 @@ private struct StatusHeader: View {
             Section("Recording") {
                 Toggle("Auto-record calls", isOn: $model.autoRecordCalls).disabled(model.busy)
                 Toggle("Include system audio", isOn: $model.includeSystemAudio).disabled(model.busy)
+                Toggle("Start and stop with ⌥⌘R", isOn: $model.globalShortcut)
             }
             Section("Speakers") {
                 Button("Remembered voices…") { showingVoices = true }
@@ -333,6 +447,7 @@ private struct StatusHeader: View {
 private struct RecordingRow: View {
     let entry: Meeting
     let naming: Bool
+    var query = ""
     let open: () -> Void
     @State private var hovering = false
 
@@ -344,6 +459,7 @@ private struct RecordingRow: View {
                         .foregroundStyle(failed ? .secondary : .primary)
                     Text(failed ? Self.failureSummary(entry) : Self.metadata(entry))
                         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
+                    if let snippet { Text(snippet).font(.caption).foregroundStyle(.secondary).lineLimit(2).italic() }
                 }
                 Spacer(minLength: 6)
                 if naming { ProgressView().controlSize(.mini) }
@@ -365,6 +481,16 @@ private struct RecordingRow: View {
     }
 
     private var failed: Bool { entry.status == "failed" || entry.status == "interrupted" }
+    /// When a search matches the transcript, show where.
+    private var snippet: String? {
+        let term = query.trimmingCharacters(in: .whitespaces)
+        guard !term.isEmpty, !entry.title.localizedCaseInsensitiveContains(term),
+              let text = entry.orderedSegments.first(where: { $0.text.localizedCaseInsensitiveContains(term) })?.text,
+              let range = text.range(of: term, options: [.caseInsensitive, .diacriticInsensitive]) else { return nil }
+        let start = text.index(range.lowerBound, offsetBy: -40, limitedBy: text.startIndex) ?? text.startIndex
+        let end = text.index(range.upperBound, offsetBy: 60, limitedBy: text.endIndex) ?? text.endIndex
+        return (start > text.startIndex ? "…" : "") + text[start..<end] + (end < text.endIndex ? "…" : "")
+    }
 
     static func metadata(_ entry: Meeting) -> String {
         var parts = [when(entry.startedAt)]
@@ -400,7 +526,7 @@ private struct RecordingRow: View {
 
 // MARK: - Failure explanation
 
-private struct FailureCallout: View {
+struct FailureCallout: View {
     let failure: String
     let captured: Bool
 
@@ -445,8 +571,8 @@ private struct FailureCallout: View {
 
 private struct SuggestionStrip: View {
     let meeting: Meeting
-    let voices: [VoiceProfile]
-    let review: (Segment) -> Void
+    let confirm: (Segment, VoiceSuggestion) -> Void
+    let reject: (Segment) -> Void
 
     var body: some View {
         let pending = (meeting.speakerSuggestions ?? [:]).compactMap { speaker, suggestion -> (Segment, VoiceSuggestion)? in
@@ -462,12 +588,48 @@ private struct SuggestionStrip: View {
                         Image(systemName: "person.wave.2").foregroundStyle(.teal)
                         Text("\(Meeting.originalSpeakerName(segment.speaker)) sounds like **\(suggestion.name)**")
                         Spacer()
-                        Button("Review") { review(segment) }.controlSize(.small)
+                        Button("Confirm") { confirm(segment, suggestion) }.controlSize(.small)
+                        Button("Not them") { reject(segment) }.controlSize(.small).buttonStyle(.borderless)
                     }.font(.caption)
                 }
             }
             .padding(8).background(.teal.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
             .padding(.horizontal, 16).padding(.bottom, 10)
         }
+    }
+}
+
+// MARK: - Input levels
+
+private struct LevelMeters: View {
+    @ObservedObject var levels: LevelMonitor
+    let systemBlocked: Bool
+    let systemOff: Bool
+
+    var body: some View {
+        HStack(spacing: 14) {
+            meter("Mic", systemImage: "mic.fill", value: levels.microphone)
+            if systemBlocked || systemOff {
+                Label(systemBlocked ? "System blocked" : "System off", systemImage: "speaker.slash")
+                    .font(.caption2).foregroundStyle(.secondary)
+            } else {
+                meter("System", systemImage: "speaker.wave.2.fill", value: levels.system ?? 0)
+            }
+        }
+    }
+    private func meter(_ title: String, systemImage: String, value: Float) -> some View {
+        HStack(spacing: 6) {
+            Image(systemName: systemImage).font(.caption2).foregroundStyle(.secondary).frame(width: 12)
+            GeometryReader { proxy in
+                ZStack(alignment: .leading) {
+                    Capsule().fill(Color.primary.opacity(0.10))
+                    Capsule().fill(value > 0.9 ? Color.orange : Color.green)
+                        .frame(width: max(3, proxy.size.width * CGFloat(value)))
+                        .animation(.linear(duration: 0.1), value: value)
+                }
+            }.frame(height: 5)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("\(title) level \(Int(value * 100)) percent")
     }
 }

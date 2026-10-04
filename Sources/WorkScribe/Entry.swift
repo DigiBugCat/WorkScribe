@@ -3,6 +3,7 @@ import SwiftUI
 import Combine
 import WorkScribeCore
 import WorkScribePlaud
+import UserNotifications
 
 @main
 enum Entry {
@@ -92,7 +93,7 @@ enum Entry {
 }
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPopoverDelegate, UNUserNotificationCenterDelegate {
     private let model = AppModel()
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
@@ -102,12 +103,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let plaud = PlaudHandoffController()
     private var plaudWindow: NSWindow?
     private var plaudObservation: AnyCancellable?
+    private var transcriptWindow: NSPanel?
+    private var hotKey: GlobalHotKey?
+    private var shortcutObservation: AnyCancellable?
     private var qaWindow: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Stable capture surface for synthetic UI testing; never enabled in the app bundle.
         if ProcessInfo.processInfo.environment["WORKSCRIBE_QA_WINDOW"] == "1" {
-            let controller = NSHostingController(rootView: RecorderView(model: model, openPlaud: { [weak self] in self?.showPlaud() }))
+            let controller = NSHostingController(rootView: RecorderView(model: model, openPlaud: { [weak self] in self?.showPlaud() },
+                                                                         openWindow: { [weak self] in self?.showTranscriptWindow() }))
             let window = NSWindow(contentViewController: controller)
             window.title = "WorkScribe QA"; window.styleMask = [.titled, .closable]
             window.center(); window.makeKeyAndOrderFront(nil); qaWindow = window
@@ -121,12 +126,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             button.target = self
             button.action = #selector(togglePopover)
         }
-        let hosting = NSHostingController(rootView: RecorderView(model: model, openPlaud: { [weak self] in self?.showPlaud() }))
+        let hosting = NSHostingController(rootView: RecorderView(model: model, openPlaud: { [weak self] in self?.showPlaud() },
+                                                                  openWindow: { [weak self] in self?.showTranscriptWindow() }))
         hosting.sizingOptions = [.preferredContentSize]
         popover.contentViewController = hosting
         popover.contentSize = hosting.view.fittingSize
         popover.behavior = .transient
         popover.animates = false
+        popover.delegate = self
+        if Notifier.available { UNUserNotificationCenter.current().delegate = self }
+        shortcutObservation = model.$globalShortcut.receive(on: RunLoop.main).sink { [weak self] enabled in
+            guard let self else { return }
+            hotKey = enabled ? GlobalHotKey { [weak self] in Task { @MainActor in self?.toggleRecording() } } : nil
+        }
         phaseObservation = model.$phase.combineLatest(model.$speechReady)
             .receive(on: RunLoop.main)
             .sink { [weak self] _, _ in self?.refreshStatusItem() }
@@ -187,6 +199,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func windowWillClose(_ notification: Notification) {
         guard (notification.object as? NSWindow) == plaudWindow else { return }
         plaud.disconnect()
+    }
+    /// Dragging the popover away turns it into a window that stays open.
+    func popoverShouldDetach(_ popover: NSPopover) -> Bool { true }
+    func userNotificationCenter(_ center: UNUserNotificationCenter, willPresent notification: UNNotification,
+                                withCompletionHandler completionHandler: @escaping (UNNotificationPresentationOptions) -> Void) {
+        completionHandler([.banner, .sound])
+    }
+    private func toggleRecording() {
+        if model.phase == "recording" { Task { await model.stop() } }
+        else if !model.busy && model.speechReady { Task { await model.start() } }
+    }
+    /// A resizable panel that floats above the call, for following along.
+    func showTranscriptWindow() {
+        if transcriptWindow == nil {
+            let view = RecorderView(model: model, openPlaud: { [weak self] in self?.showPlaud() }, openWindow: nil, inWindow: true)
+            let panel = NSPanel(contentViewController: NSHostingController(rootView: view))
+            panel.title = "WorkScribe"
+            panel.styleMask = [.titled, .closable, .resizable, .miniaturizable]
+            panel.level = .floating; panel.hidesOnDeactivate = false
+            panel.isReleasedWhenClosed = false
+            panel.setContentSize(NSSize(width: 420, height: 640))
+            panel.setFrameAutosaveName("WorkScribeTranscriptWindow")
+            if !panel.setFrameUsingName("WorkScribeTranscriptWindow") { panel.center() }
+            transcriptWindow = panel
+        }
+        popover.performClose(nil)
+        transcriptWindow?.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
     }
     @objc private func togglePopover() {
         if popover.isShown { popover.performClose(nil) } else { showPopover() }

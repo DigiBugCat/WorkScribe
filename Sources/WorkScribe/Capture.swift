@@ -14,6 +14,7 @@ final class AudioTrack {
     private var converter: AVAudioConverter?
     private var file: AVAudioFile?
     private var closed = false
+    private var level: Float = 0
     let stream: AsyncThrowingStream<Data, Error>
     private let continuation: AsyncThrowingStream<Data, Error>.Continuation
     init(url: URL) throws {
@@ -40,6 +41,7 @@ final class AudioTrack {
             guard status != .error else { throw CaptureError.message("Audio conversion failed") }
             if output.frameLength > 0 {
                 try file?.write(from: output)
+                level = Self.loudness(output)
                 let bytes = Data(bytes: output.int16ChannelData![0], count: Int(output.frameLength) * 2)
                 if case .dropped = continuation.yield(bytes) {
                     throw CaptureError.message("Transcription cannot keep up with audio. Recording stopped; captured audio is saved.")
@@ -49,7 +51,20 @@ final class AudioTrack {
     }
     func finish() {
         lock.lock(); defer { lock.unlock() }
-        closed = true; file = nil; continuation.finish()
+        closed = true; file = nil; level = 0; continuation.finish()
+    }
+    /// Loudness of the most recent buffer, 0 (silence, below -60 dBFS) to 1.
+    func currentLevel() -> Float {
+        lock.lock(); defer { lock.unlock() }
+        return closed ? 0 : level
+    }
+    private static func loudness(_ buffer: AVAudioPCMBuffer) -> Float {
+        let count = Int(buffer.frameLength)
+        guard count > 0, let samples = buffer.int16ChannelData?[0] else { return 0 }
+        var sum: Float = 0
+        for index in 0..<count { let value = Float(samples[index]) / 32768; sum += value * value }
+        let decibels = 10 * log10(max(sum / Float(count), 1e-10))
+        return min(1, max(0, (decibels + 60) / 60))
     }
 }
 
@@ -59,12 +74,15 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     private var systemTrack: AudioTrack?
     private var microphoneTrack: AudioTrack?
     var onFailure: ((Error) -> Void)?
+    /// Set when system audio couldn't start; the microphone keeps recording.
+    private(set) var systemAudioError: Error?
     func start(microphone: AudioTrack, system: AudioTrack?) async throws {
         guard await AVCaptureDevice.requestAccess(for: .audio) else {
             throw CaptureError.message("Allow microphone access in System Settings → Privacy & Security → Microphone.")
         }
         microphoneTrack = microphone; systemTrack = system
-        if system != nil {
+        systemAudioError = nil
+        if let system { do {
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
             guard let display = content.displays.first else { throw CaptureError.message("No display available for system audio capture") }
             let config = SCStreamConfiguration()
@@ -77,7 +95,11 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
             try stream.addStreamOutput(self, type: .audio, sampleHandlerQueue: DispatchQueue(label: "WorkScribe.system-audio"))
             screen = stream
             try await stream.startCapture()
-        }
+        } catch {
+            // A missing Screen Recording permission must not cost the microphone track.
+            systemAudioError = error; screen = nil
+            system.finish(); systemTrack = nil
+        } }
         let engine = AVAudioEngine(); self.engine = engine
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)

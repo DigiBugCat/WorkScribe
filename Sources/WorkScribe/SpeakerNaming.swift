@@ -51,6 +51,8 @@ struct SpeakerUndo {
             entry.speakerSuggestions = nil
             try persistIdentity(entry)
             voiceStatus = entry.status == "recording" ? "Voice samples will be learned when recording ends" : "Speaker name saved"
+            let original = Meeting.originalSpeakerName(segment.speaker)
+            speakerToast = SpeakerToast(meetingID: entry.id, text: wholeSpeaker ? "\(original) is now \(assignment.name)" : "Line renamed to \(assignment.name)")
             analyzeVoices(id: entry.id)
             return true
         } catch { voiceStatus = "Couldn’t save speaker: \(error.localizedDescription)"; return false }
@@ -70,6 +72,7 @@ struct SpeakerUndo {
             entry.voiceRevision = (entry.voiceRevision ?? 0) + 1
             entry.speakerSuggestions?.removeValue(forKey: segment.speaker)
             try persistIdentity(entry); voiceStatus = "Original speaker label restored"
+            speakerToast = SpeakerToast(meetingID: entry.id, text: "Restored \(Meeting.originalSpeakerName(segment.speaker))")
             // Do not immediately suggest the just-rejected identity again.
         } catch { voiceStatus = "Couldn’t restore speaker: \(error.localizedDescription)" }
     }
@@ -79,7 +82,7 @@ struct SpeakerUndo {
             try invalidateVoices(id: id)
             entry.speakerAssignments = undo.speakers; entry.segmentAssignments = undo.segments
             entry.speakerSuggestions = [:]; entry.voiceRevision = (entry.voiceRevision ?? 0) + 1
-            try persistIdentity(entry); speakerUndo.removeValue(forKey: id)
+            try persistIdentity(entry); speakerUndo.removeValue(forKey: id); speakerToast = nil
             analyzeVoices(id: id)
         } catch { voiceStatus = "Couldn’t undo speaker change: \(error.localizedDescription)" }
     }

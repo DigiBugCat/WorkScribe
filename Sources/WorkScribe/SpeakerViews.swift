@@ -10,62 +10,87 @@ struct SpeakerEditTarget: Identifiable {
 struct SpeakerNamingView: View {
     @ObservedObject var model: AppModel
     let target: SpeakerEditTarget
-    @Environment(\.dismiss) private var dismiss
+    var done: () -> Void = {}
     @State private var name = ""
     @State private var profileID: String?
-    @State private var wholeSpeaker = true
-    @State private var remember = true
+    @State private var onlyThisLine = false
+    @State private var remember = false
+    @FocusState private var focused: Bool
     private var entry: Meeting? { model.latestMeeting(target.meetingID) }
     private var knownSpeaker: Bool { target.segment.speaker.contains(":speaker-") && !target.segment.speaker.hasSuffix("-0") }
+    private var original: String { Meeting.originalSpeakerName(target.segment.speaker) }
+    private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
+    /// A remembered person already agreed to voice matching; a new name has to opt in.
+    private var chosenProfile: VoiceProfile? {
+        model.voices.first { $0.id == profileID && $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }
+            ?? model.voices.first { $0.name.caseInsensitiveCompare(trimmed) == .orderedSame }
+    }
+    private var completions: [VoiceProfile] {
+        let typed = trimmed
+        return model.voices.filter { typed.isEmpty || ($0.name.localizedCaseInsensitiveContains(typed) && $0.name.caseInsensitiveCompare(typed) != .orderedSame) }
+            .prefix(4).map { $0 }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            Text("Name speaker").font(.headline)
-            Text(target.segment.text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true).lineLimit(3)
-            TextField("Speaker name", text: $name).textFieldStyle(.roundedBorder).onSubmit(save)
-            if let suggestion = entry?.speakerSuggestions?[target.segment.speaker],
-               let profile = model.voices.first(where: { $0.id == suggestion.profileID }) {
-                Button("Suggested: \(profile.name)") { name = profile.name; profileID = profile.id }
-                    .font(.caption)
+        VStack(alignment: .leading, spacing: 10) {
+            Text(knownSpeaker ? "Who is \(original)?" : "Who said this?").font(.headline)
+            if let suggestion = entry?.speakerSuggestions?[target.segment.speaker], trimmed.isEmpty {
+                Button { pick(suggestion.profileID, suggestion.name) } label: {
+                    Label("Sounds like \(suggestion.name)", systemImage: "person.wave.2")
+                }.buttonStyle(.borderless).font(.callout)
             }
-            if !model.voices.isEmpty {
-                Menu("Choose a remembered person") {
-                    ForEach(model.voices) { voice in
-                        Button(voice.name) { name = voice.name; profileID = voice.id }
+            TextField("Name", text: $name).textFieldStyle(.roundedBorder).focused($focused).onSubmit(save)
+            if !completions.isEmpty {
+                VStack(alignment: .leading, spacing: 2) {
+                    ForEach(completions) { voice in
+                        Button { pick(voice.id, voice.name) } label: {
+                            Label(voice.name, systemImage: "person.crop.circle").frame(maxWidth: .infinity, alignment: .leading)
+                        }.buttonStyle(.borderless).font(.callout)
                     }
                 }
             }
-            Picker("Apply to", selection: $wholeSpeaker) {
-                Text("This segment").tag(false)
-                Text("All segments from this speaker").tag(true)
-            }.pickerStyle(.radioGroup).disabled(!knownSpeaker)
-            Toggle("Remember this voice on this Mac", isOn: $remember).font(.callout)
-            Text("Learns from clear speech after recording ends. Future matches appear as suggestions for you to confirm.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            if entry?.sourceOffsets == nil {
-                Text("This older recording can be named, but cannot supply aligned voice samples.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if knownSpeaker {
+                Toggle("Only this line", isOn: $onlyThisLine).font(.callout)
             }
-            Text(model.voiceStatus).font(.caption2).foregroundStyle(.secondary).lineLimit(3)
+            if let chosen = chosenProfile, !trimmed.isEmpty {
+                Label("Matches future recordings using \(chosen.name)’s remembered voice", systemImage: "checkmark.seal")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            } else if !trimmed.isEmpty {
+                Toggle(isOn: $remember) {
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Remember \(trimmed)’s voice").font(.callout)
+                        Text("Kept on this Mac to suggest them in future recordings.").font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+            }
             HStack {
-                Button("Restore label") {
-                    model.clearSpeaker(meetingID: target.meetingID, segmentID: target.segment.id, wholeSpeaker: wholeSpeaker)
-                    dismiss()
+                if entry.flatMap({ $0.assignment(for: target.segment) }) != nil {
+                    Button("Restore \(original)") {
+                        model.clearSpeaker(meetingID: target.meetingID, segmentID: target.segment.id, wholeSpeaker: !onlyThisLine)
+                        done()
+                    }.buttonStyle(.borderless)
                 }
                 Spacer()
-                Button("Cancel") { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Save") { save() }.keyboardShortcut(.defaultAction).disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                Button("Cancel", action: done).keyboardShortcut(.cancelAction)
+                Button("Save", action: save).keyboardShortcut(.defaultAction).disabled(trimmed.isEmpty)
             }
-        }.padding(24).frame(width: 360)
-            .onAppear {
-                if let assignment = entry?.assignment(for: target.segment) {
-                    name = assignment.name; profileID = assignment.profileID; remember = assignment.remember
-                }
-                wholeSpeaker = knownSpeaker && entry?.segmentAssignments?[target.segment.id] == nil
+        }
+        .padding(16).frame(width: 290)
+        .onAppear {
+            if let assignment = entry?.assignment(for: target.segment) {
+                name = assignment.name; profileID = assignment.profileID; remember = assignment.remember
             }
+            onlyThisLine = !knownSpeaker || entry?.segmentAssignments?[target.segment.id] != nil
+            focused = true
+        }
     }
+    private func pick(_ id: String, _ value: String) { name = value; profileID = id }
     private func save() {
-        let selected = model.voices.first { $0.id == profileID && $0.name == name }?.id
-        if model.nameSpeaker(meetingID: target.meetingID, segmentID: target.segment.id, name: name,
-                             profileID: selected, wholeSpeaker: wholeSpeaker, remember: remember) { dismiss() }
+        guard !trimmed.isEmpty else { return }
+        let profile = chosenProfile
+        if model.nameSpeaker(meetingID: target.meetingID, segmentID: target.segment.id, name: trimmed,
+                             profileID: profile?.id, wholeSpeaker: knownSpeaker && !onlyThisLine,
+                             remember: profile != nil || remember) { done() }
     }
 }
 

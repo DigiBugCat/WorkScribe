@@ -5,7 +5,10 @@ struct TranscriptView: View {
     let meeting: Meeting
     let live: Bool
     @Binding var followLive: Bool
-    var nameSpeaker: (Segment) -> Void = { _ in }
+    /// Builds the naming popover for a turn's first segment; the closure dismisses it.
+    var editor: ((Segment, @escaping () -> Void) -> AnyView)?
+    @State private var editingTurn: String?
+    @State private var hoveredTurn: String?
 
     /// Consecutive segments from the same person read as one turn.
     private struct Turn: Identifiable {
@@ -60,6 +63,7 @@ struct TranscriptView: View {
                 }
                 .padding(.horizontal, 16).padding(.vertical, 12)
             }
+            .modifier(FollowOnScroll(followLive: $followLive, live: live))
             .overlay(alignment: .bottom) {
                 if live && !followLive {
                     Button { followLive = true } label: {
@@ -80,14 +84,22 @@ struct TranscriptView: View {
     private func turnView(_ turn: Turn) -> some View {
         VStack(alignment: .leading, spacing: 4) {
             HStack(spacing: 6) {
-                Button { nameSpeaker(turn.first) } label: {
+                Button { editingTurn = turn.id } label: {
                     HStack(spacing: 6) {
                         Circle().fill(color(turn.first)).frame(width: 8, height: 8)
                         Text(turn.name).font(.caption.weight(.semibold)).foregroundStyle(color(turn.first))
+                        Image(systemName: "pencil").font(.caption2).foregroundStyle(.secondary)
+                            .opacity(hoveredTurn == turn.id || editingTurn == turn.id ? 1 : 0)
                     }.contentShape(Rectangle())
                 }
                 .buttonStyle(.plain).help("Name this speaker")
+                .onHover { inside in hoveredTurn = inside ? turn.id : (hoveredTurn == turn.id ? nil : hoveredTurn) }
                 .accessibilityLabel("\(turn.name). Name this speaker")
+                .disabled(editor == nil)
+                .popover(isPresented: Binding(get: { editingTurn == turn.id }, set: { if !$0 { editingTurn = nil } }),
+                         arrowEdge: .bottom) {
+                    editor?(turn.first) { editingTurn = nil }
+                }
                 if bothSources {
                     Image(systemName: turn.first.source == "microphone" ? "mic" : "speaker.wave.2")
                         .font(.caption2).foregroundStyle(.tertiary)
@@ -131,5 +143,33 @@ struct TranscriptView: View {
         if segment.source == "microphone" && microphoneIsSolo { return .teal }
         let palette: [Color] = [.purple, .orange, .blue, .pink, .green, .indigo, .mint, .brown]
         return palette[(number - 1 + (segment.source == "microphone" ? 4 : 0)) % palette.count]
+    }
+}
+
+/// Scrolling up pauses live following; scrolling back to the end resumes it.
+/// Only the person's own scrolling counts, not the automatic scroll to new words.
+private struct FollowOnScroll: ViewModifier {
+    @Binding var followLive: Bool
+    let live: Bool
+    @State private var userScrolling = false
+    @State private var atBottom = true
+
+    func body(content: Content) -> some View {
+        if #available(macOS 15, *) {
+            content
+                .onScrollPhaseChange { _, phase in
+                    let wasUser = userScrolling
+                    userScrolling = phase == .interacting || phase == .tracking || phase == .decelerating
+                    if live && wasUser && !userScrolling { followLive = atBottom }
+                }
+                .onScrollGeometryChange(for: Bool.self) { geometry in
+                    geometry.contentOffset.y + geometry.containerSize.height >= geometry.contentSize.height - 32
+                } action: { _, bottom in
+                    atBottom = bottom
+                    if live && userScrolling { followLive = bottom }
+                }
+        } else {
+            content
+        }
     }
 }

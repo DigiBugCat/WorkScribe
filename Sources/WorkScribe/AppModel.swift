@@ -16,7 +16,20 @@ final class AppModel: ObservableObject {
     @Published var autoStatus = "Watching for calls"
     @Published var namingIDs: Set<String> = []
     @Published var titleError: [String: String] = [:]
-    @Published var includeSystemAudio = true
+    @Published var includeSystemAudio = UserDefaults.standard.object(forKey: "includeSystemAudio") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(includeSystemAudio, forKey: "includeSystemAudio") }
+    }
+    /// Whether macOS currently allows system-audio capture (Screen Recording).
+    @Published var screenAccess = CGPreflightScreenCaptureAccess()
+    /// The current recording fell back to microphone only.
+    @Published var systemAudioBlocked = false
+    @Published var globalShortcut = UserDefaults.standard.object(forKey: "globalShortcut") as? Bool ?? true {
+        didSet { UserDefaults.standard.set(globalShortcut, forKey: "globalShortcut") }
+    }
+    @Published var speakerToast: SpeakerToast?
+    let levels = LevelMonitor()
+    private var tracks: [String: AudioTrack] = [:]
+    private var levelTask: Task<Void, Never>?
     @Published var selectedID: String?
     @Published var speechReady = false
     @Published var speechStatus = "Warming speech engine…"
@@ -95,6 +108,8 @@ final class AppModel: ObservableObject {
         }
     }
     private func checkCall() {
+        let access = CGPreflightScreenCaptureAccess()
+        if access != screenAccess { screenAccess = access }
         guard autoRecordCalls else { autoStatus = "Automatic recording off"; return }
         guard speechReady else { return }
         let snapshot = callDetector.snapshot()
@@ -138,6 +153,8 @@ final class AppModel: ObservableObject {
             let folder = try store.directory(meeting!.id)
             let mic = try AudioTrack(url: folder.appendingPathComponent("microphone.wav"))
             let system = includeSystemAudio ? try AudioTrack(url: folder.appendingPathComponent("system.wav")) : nil
+            systemAudioBlocked = false
+            tracks = ["microphone": mic]; if let system { tracks["system"] = system }
             for (source, track) in [("microphone", mic), ("system", system)].compactMap({ source, track in track.map { (source, $0) } }) {
                 let connection = SpeechConnection(runtime: runtime)
                 connection.onEvent = { [weak self] event in self?.consume(event, source: source) }
@@ -163,7 +180,18 @@ final class AppModel: ObservableObject {
             message = "Waiting for audio permissions…"
             try await capture.start(microphone: mic, system: system)
             if let errorText { throw CaptureError.message(errorText) }
+            if capture.systemAudioError != nil {
+                // Keep the microphone recording; drop the system track that never started.
+                systemAudioBlocked = true; screenAccess = false
+                connections.removeValue(forKey: "system")?.close(); tracks.removeValue(forKey: "system")
+                try? FileManager.default.removeItem(at: folder.appendingPathComponent("system.wav"))
+            }
             phase = "recording"; message = trigger.map { "Automatically recording \($0) · saved on this Mac" } ?? "Recording on this Mac · title will appear automatically"
+            startLevels()
+            if let trigger {
+                Notifier.post("Recording your \(trigger) call",
+                              systemAudioBlocked ? "Microphone only: allow Screen Recording to capture the other side." : "Transcribing on this Mac. Click the menu bar icon to follow along.")
+            }
         } catch {
             errorText = error.localizedDescription
             await capture?.stop(); capture = nil
@@ -172,7 +200,11 @@ final class AppModel: ObservableObject {
             meeting?.status = "failed"; meeting?.endedAt = Date(); meeting?.failure = errorText
             try? save(); phase = "error"; message = errorText!
             await runtime.closeStreams(); library = store.list()
-            if trigger != nil { autoPolicy.suppressCurrentCall() }
+            if let trigger {
+                autoPolicy.suppressCurrentCall()
+                Notifier.post("Couldn’t record your \(trigger) call", FailureCallout.explain(errorText ?? "").title + ". Open WorkScribe to fix it.")
+            }
+            stopLevels()
             runImports()
         }
     }
@@ -182,6 +214,7 @@ final class AppModel: ObservableObject {
         phase = "finalizing"; meeting?.status = "finalizing"; message = "Finishing the transcript…"
         try? save()
         await capture?.stop(); capture = nil
+        stopLevels()
         for pump in pumps { await pump.value }; pumps = []
         for connection in connections.values {
             do { try await connection.finish() } catch { errorText = error.localizedDescription }
@@ -197,6 +230,10 @@ final class AppModel: ObservableObject {
         message = errorText ?? "Recording saved on this Mac"
         library = store.list()
         if let id = meeting?.id { scheduleTitle(id: id, final: true); analyzeVoices(id: id) }
+        if !userInitiated, meeting?.recordingTrigger?.hasPrefix("call:") == true {
+            Notifier.post(errorText == nil ? "Call recording saved" : "Call recording stopped early",
+                          errorText == nil ? "The transcript is in WorkScribe’s Recent list." : FailureCallout.explain(errorText ?? "").title)
+        }
         runImports()
     }
     private func fail(_ error: Error) async {
@@ -292,6 +329,35 @@ final class AppModel: ObservableObject {
         if let id = meeting?.id { scheduleTitle(id: id, final: true) }
     }
     private func save() throws { if let meeting { try store.save(meeting) } }
+    private func startLevels() {
+        levelTask?.cancel()
+        levelTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self else { return }
+                levels.update(microphone: tracks["microphone"]?.currentLevel() ?? 0, system: tracks["system"]?.currentLevel())
+                try? await Task.sleep(nanoseconds: 100_000_000)
+            }
+        }
+    }
+    private func stopLevels() { levelTask?.cancel(); levelTask = nil; tracks = [:]; levels.reset() }
+    /// Moves a recording's folder to the Trash, so a mistaken delete can be recovered in Finder.
+    func deleteRecording(id: String) {
+        guard !(busy && meeting?.id == id) else { return }
+        do {
+            try invalidateVoices(id: id)
+            try FileManager.default.trashItem(at: store.directory(id), resultingItemURL: nil)
+            if selectedID == id { selectedID = nil }
+            if meeting?.id == id { meeting = nil }
+            speakerUndo.removeValue(forKey: id)
+            library = store.list(); message = "Recording moved to the Trash"
+        } catch { message = "Couldn’t move the recording to the Trash: \(error.localizedDescription)" }
+    }
+    func requestScreenAccess() {
+        screenAccess = CGRequestScreenCaptureAccess()
+        if !screenAccess, let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture") {
+            NSWorkspace.shared.open(url)
+        }
+    }
     func revealRecordings() { NSWorkspace.shared.open(store.root) }
     func copyMCPConfig() {
         let executable = Bundle.main.executableURL!.path
