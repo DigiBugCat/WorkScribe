@@ -1,0 +1,49 @@
+{
+  "verified_at": "2026-10-03T22:39:39.898296+00:00",
+  "device": "Plaud Note Pro",
+  "device_serial_suffix": "8683",
+  "native_mac_app": true,
+  "same_in_process_WorkScribe_speech_runtime": true,
+  "ble_and_cloud_binding": "passed",
+  "reconnect_after_restart": "passed",
+  "recording_stopped": true,
+  "processing_finished": true,
+  "final_transfer_confirmed": true,
+  "audio_packets": 792,
+  "wav": {
+    "channels": 1,
+    "sample_rate": 16000,
+    "sample_width": 2,
+    "frames": 253440,
+    "seconds": 15.84
+  },
+  "independent_ffmpeg_wav": {
+    "channels": 1,
+    "sample_rate": 16000,
+    "sample_width": 2,
+    "frames": 253440,
+    "seconds": 15.84
+  },
+  "pcm_correlation": 0.999993111240462,
+  "final_transcript_segments": 2,
+  "nonempty_transcript_segments": 1,
+  "local_capture_directory": "/Users/andrew.sulistio/Library/Application Support/WorkScribePlaudLab/Recordings/2C94AB87-F525-4CB6-B490-A456FDD0448B",
+  "scope": "Isolated native lab; main app UX unchanged",
+  "capture_sha256": "6d68a80f3cbb38e0298fe6cb97ee72f83fe7be692756b18396c4fa8a2d607ea2",
+  "limitations": [
+    "Short live recording and restart/reconnect tested; sustained sessions and Bluetooth drop recovery not validated."
+  ],
+  "executable_sha256": "f82ea4a42ac187b033e558414d6613662801f23f254a5754881e2daa41e1db93",
+  "source_sha256": {
+    "experiments/plaud-macos/Sources/BLETrace.swift": "e37f60c0b6c83a279b6f8764a131ffc3d0e5a72e34c88d76a4860a7efd71e5ec",
+    "experiments/plaud-macos/Sources/COpus/module.modulemap": "bbd5ad1a38ffdac6a54209fd5bf6cca8bc2081bb1ed8876eadc2efb1123b8410",
+    "experiments/plaud-macos/Sources/COpus/opus_bridge.h": "d5b82e0bdacb790106a0fee5167c0d9ed957d2f4a7c63f8b78ecb45d0041fea7",
+    "experiments/plaud-macos/Sources/EncryptedStream.swift": "e5e92b1275d6fbbe6a19ab511bb29ff488756016591d0efa0475c94c09f0dddb",
+    "experiments/plaud-macos/Sources/NativeAudio.swift": "25959846f8cf17b3b99f83e78f0f4ed5c54c3191f35ebbfbd6f1ed612a1b7b70",
+    "experiments/plaud-macos/Sources/NativeLab.swift": "b316fc993b24db7aa89035d32ae462713a9e234a205f11750f647c8fd55b808e",
+    "experiments/plaud-macos/Sources/NativeSpeech.swift": "fe725eee6a1016c09e1364ca12b938a26425da56833033f50de54bf68e7556d7",
+    "experiments/plaud-macos/Sources/OpusPacketDecoder.swift": "cdc7fab437f29d54ba65fddde163994afb701adf0cc7278a50991bca7abe28be",
+    "experiments/plaud-macos/Sources/PlaudAuth.swift": "7f8674e635ae03bd3dcb8b8dcbfe8eb0f02305729bd049ebf5b5bc42672f4e4a"
+  },
+  "shared_runtime_sha256": "404cb2dd425db5a9f29b17cee8ab262390489b7fc18227a523e6ee279fb764e8"
+}

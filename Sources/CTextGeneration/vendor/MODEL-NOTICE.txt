@@ -1,0 +1,16 @@
+Optional title models. Both are Apache-2.0 licensed.
+Only the selected model is included in a built application.
+
+Source: https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf
+Revision: 675cff42a74c774d6cb76f76d8eacb49b48c9b93
+File: gemma-4-E2B_q4_0-it.gguf
+SHA-256: fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634
+
+Source: https://huggingface.co/unsloth/Qwen3.5-2B-GGUF
+Revision: f6d5376be1edb4d416d56da11e5397a961aca8ae
+File: Qwen3.5-2B-Q4_K_M.gguf
+SHA-256: aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223
+
+Gemma 4: Google DeepMind. Qwen 3.5: Qwen Team, Alibaba Cloud.
+Qwen GGUF conversion: Unsloth.
+Native headers: ggml-org/llama.cpp commit bd4f514db14d87fded667787a7a963bfbaa98e89.
