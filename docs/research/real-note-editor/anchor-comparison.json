@@ -1,0 +1,62 @@
+{
+  "cases": [
+    {
+      "case": "typing inside block",
+      "clean": true,
+      "comments": true
+    },
+    {
+      "case": "heading before blocks",
+      "clean": true,
+      "comments": true
+    },
+    {
+      "case": "new paragraph before",
+      "clean": true,
+      "comments": true
+    },
+    {
+      "case": "copy identical block before",
+      "clean": true,
+      "comments": false
+    },
+    {
+      "case": "delete first block",
+      "clean": true,
+      "comments": true
+    },
+    {
+      "case": "split paragraph",
+      "clean": true,
+      "comments": false
+    },
+    {
+      "case": "merge paragraphs",
+      "clean": true,
+      "comments": true
+    },
+    {
+      "case": "unicode insertion",
+      "clean": true,
+      "comments": true
+    },
+    {
+      "case": "clear all",
+      "clean": true,
+      "comments": true
+    },
+    {
+      "case": "external unique reorder",
+      "clean": true,
+      "comments": true
+    },
+    {
+      "case": "edit comment accidentally",
+      "clean": true,
+      "comments": false
+    }
+  ],
+  "clean": "11/11",
+  "comments": "8/11",
+  "markerBytes": 24
+}

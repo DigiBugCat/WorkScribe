@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Region Settles</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kalam&family=Manrope:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="canvas.css">
+<script src="canvas.js"></script>
+</head>
+<body>
+<main class="stage">
+<header class="stage-head">
+<div class="head-text"><span class="label">Concept B · Canvas · 03 of 04</span><h1>After the call, the region settles</h1><p>When you press Stop, the region rearranges itself from time order into topics. It shows a brief, your enhanced notes as decisions, who owes what (hanging off each person's card), what was said but not noted, and the answers you got live. Because the meeting is part of the canvas, the review can also show what it <b>changed elsewhere</b>: a promise in the kickoff that's now out of date, a gap in the contract. Arrange can switch to Time, or to Document for a plain reading view.</p></div>
+<nav aria-label="Concept B screens"><a href="index.html">Concept</a> <a href="01-today.html">Today</a> <a href="02-live.html">Live</a> <a href="03-review.html" aria-current="page">Review</a> <a href="04-ask.html">Ask</a> <button class="theme-toggle" type="button">Theme: auto</button></nav>
+</header>
+<div class="window appwin">
+  <div class="titlebar">
+    <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+    <span class="crumbs">WorkScribe · Fieldbook v2.4 · <b>Offline sync — v2.4 scope</b></span>
+    <span class="spacer"></span>
+    <div class="seg" role="radiogroup" aria-label="Arrange region"><button role="radio" aria-checked="false">Time</button><button role="radio" aria-checked="true">Topic</button><button role="radio" aria-checked="false">Document</button></div>
+    <span class="zoom">72%</span>
+  </div>
+  <div class="canvaswrap">
+    <div class="rail" role="toolbar" aria-label="Canvas tools">
+      <button class="iconbtn" aria-label="Select" aria-pressed="true"><i data-i="select"></i></button>
+      <button class="iconbtn" aria-label="Jot a card (J)" aria-pressed="false"><i data-i="jot"></i></button>
+      <button class="iconbtn" aria-label="Connect cards (C)" aria-pressed="false"><i data-i="link"></i></button>
+      <button class="iconbtn" aria-label="Ask (slash)" aria-pressed="false"><i data-i="ask"></i></button>
+      <button class="iconbtn" aria-label="Back to start view" data-fit><i data-i="fit"></i></button>
+    </div>
+    <div class="viewport" tabindex="0" aria-label="Canvas with the settled meeting region. Scroll or drag to pan." data-x="0" data-y="0">
+      <div class="board" style="width:1960px;height:1200px">
+        <svg class="links" aria-hidden="true" style="width:100%;height:100%">
+          <path data-a="pr" data-b="aYou" data-s="br"/><path class="arrow" d=""/>
+          <path data-a="pr" data-b="aPr" data-s="lr"/>
+          <path data-a="mc" data-b="aM1" data-s="bt"/>
+          <path data-a="aM2" data-b="aYouAsk" data-s="lr"/>
+          <path data-a="enB" data-b="kq"/><path class="arrow" d=""/>
+          <path class="weak" data-a="m1" data-b="jE" data-s="bt"/>
+        </svg>
+
+        <div class="frame wash" style="left:24px;top:24px;width:1240px;height:1150px">
+          <div class="fh"><h3>Offline sync — v2.4 scope</h3><span class="caption">Tue 13 Oct · 10:02–10:34 · 32 min · settled · arranged by topic</span></div>
+        </div>
+        <div class="card" id="brief" style="left:52px;top:80px;width:760px">
+          <div class="k">Brief · from the transcript and your notes</div>
+          <div style="font-family:var(--font-serif);font-size:19px;line-height:27px">The team kept offline in v2.4 but moved the date to <b>Nov 4</b>. Checklists get a field-level merge instead of last-write-wins, the photo queue gets a hard cap, and Halvorsen leads a 40-account beta.</div>
+        </div>
+        <span class="label" style="position:absolute;left:56px;top:230px">Decisions · your notes, enhanced</span>
+        <span class="label" style="position:absolute;left:446px;top:230px">Who owes what</span>
+        <span class="label" style="position:absolute;left:856px;top:230px">Not in your notes · answered live</span>
+
+        <div class="card en" id="enA" style="left:52px;top:260px;width:360px">
+          <span class="typed">offline conflicts → LWW?? marcus pushback</span>
+          <div><span class="lead">Conflict resolution.</span> Field-level merge for checklist items; last-write-wins for everything else.</div>
+          <div class="m"><span class="extag">E1</span><span class="extag">E2</span><span class="extag hollow">E3</span> 08:12</div>
+        </div>
+        <div class="card en" id="enB" style="left:52px;top:438px;width:360px">
+          <span class="typed">ship date nov 4 not oct 28</span>
+          <div><span class="lead">Ship date.</span> Nov 4, not Oct 28, so QA gets a week on the SQLite migration.</div>
+          <div class="m"><span class="extag">E4</span><span class="extag">E5</span> 09:05</div>
+        </div>
+        <div class="card en" id="enC" style="left:52px;top:610px;width:360px">
+          <span class="typed">beta 40 accts, halvorsen first</span>
+          <div><span class="lead">Beta cohort.</span> 40 accounts; Halvorsen first because their contract names offline by year end.</div>
+          <div class="m"><span class="extag">E6</span> 10:40</div>
+        </div>
+        <div class="card en" id="enD" style="left:52px;top:782px;width:360px">
+          <span class="typed">photo uploads queue — cap?</span>
+          <div><span class="lead">Photo queue.</span> 200 photos or 1.5 GB per device, oldest first, banner at the cap.</div>
+          <div class="m"><span class="extag">E7</span><span class="extag">E8</span> 12:51</div>
+        </div>
+        <div class="card jot" id="jE" style="left:52px;top:960px;width:360px">
+          <div class="k">typed 13:58 · filled in at 22:14</div>
+          <div>android parity?</div>
+        </div>
+
+        <div class="card person" id="pr" style="left:446px;top:260px;width:340px"><span class="avatar" style="--sw:var(--spk-priya)">PR</span><span><b>Priya Raman</b><span class="m">asked for 2 · owns 1</span></span></div>
+        <div class="card" id="aYou" style="left:470px;top:340px;width:316px">
+          <div class="k"><span class="seal" aria-label="Yours"></span> You · due Thu 15 Oct</div>
+          <div><b>Update PRD v3</b> with the checklist merge rule and photo cap</div>
+          <div class="m">“Can you get that into the PRD before Marcus starts?” · Priya · 27:30</div>
+        </div>
+        <div class="card" id="aPr" style="left:470px;top:504px;width:316px">
+          <div class="k">Priya · due Fri 16 Oct</div>
+          <div><b>Email Halvorsen</b> about the Nov 4 date</div>
+          <div class="m">asked by herself · 14:05</div>
+        </div>
+        <div class="card person" id="mc" style="left:446px;top:640px;width:340px"><span class="avatar" style="--sw:var(--spk-marcus)">MC</span><span><b>Marcus Chen</b><span class="m">owns 2</span></span></div>
+        <div class="card" id="aM1" style="left:470px;top:720px;width:316px">
+          <div class="k">Marcus · due Mon 19 Oct</div>
+          <div><b>Prototype</b> field-level merge for checklists</div>
+          <div class="m">“Give me till Monday.” · asked by Priya · 08:44</div>
+        </div>
+        <div class="card" id="aM2" style="left:470px;top:860px;width:316px">
+          <div class="k">Marcus · no date</div>
+          <div><b>Measure</b> the photo queue at 200 photos on an iPhone 12</div>
+        </div>
+        <div class="card person" id="aYouAsk" style="left:470px;top:990px;width:200px"><span class="avatar" style="--sw:var(--spk-you)">Y</span><span><b>You</b><span class="m">asked · 13:52</span></span></div>
+
+        <div class="card ghost" id="m1" style="left:856px;top:260px;width:380px">
+          <div class="k">Not in your notes <span class="t">22:14–23:40</span></div>
+          <div class="q"><b>Android parity.</b> Offline for Android lands in 2.5, not 2.4; Marcus wants the merge rule shared so behavior matches.</div>
+          <div class="acts"><button class="btn text">Fill my “android parity?” card</button></div>
+        </div>
+        <div class="card ghost" id="m2" style="left:856px;top:440px;width:380px">
+          <div class="k">Not in your notes <span class="t">25:02–25:50</span></div>
+          <div class="q"><b>Sync-failure analytics.</b> Priya wants an event on every failed sync with the queue size, so support can see who's stuck.</div>
+          <div class="acts"><button class="btn text">Keep as a note</button><button class="btn text">Ignore</button></div>
+        </div>
+        <div class="card" id="ans1" style="left:856px;top:630px;width:380px">
+          <div class="k">Answered live · 12:48 · Priya asked</div>
+          <div><b>What does the Halvorsen contract commit us to on offline?</b> Capture by Dec 31, sync within 24 h <span class="cite">1</span>. Nothing on conflict handling.</div>
+        </div>
+        <div class="card" id="ans2" style="left:856px;top:790px;width:380px">
+          <div class="k">Answered live · 13:40 · pinned</div>
+          <div><b>Photo sizes on the iPhone 12?</b> 3.1 MB avg, 140–180 a day <span class="cite">1</span>; the 12 mini stalled past ~1 GB <span class="cite">2</span>.</div>
+        </div>
+
+        <!-- Elsewhere on the canvas -->
+        <div class="frame" style="left:1310px;top:24px;width:620px;height:760px">
+          <div class="fh"><h3>Halvorsen Construction</h3><span class="caption">cluster · 3 cards changed by this meeting</span></div>
+        </div>
+        <div class="card ex" id="kq" style="left:1340px;top:90px;width:290px">
+          <div class="k"><span class="spk you">You</span> <span class="t">kickoff · 8 Oct · 31:12</span></div>
+          <div class="q">“…and offline is on track for October, that's the plan.”</div>
+          <span class="chip warm">Out of date since 09:05 today</span>
+        </div>
+        <div class="card" id="msa" style="left:1340px;top:330px;width:290px">
+          <div class="k">PDF · Contracts <span class="t">p.14 §7.2</span></div>
+          <div class="q">Offline capture by Dec 31, 2026; sync within 24 h.</div>
+          <span class="chip">Silent on conflicts: the merge rule is ours</span>
+        </div>
+        <div class="card" id="clip1" style="left:1660px;top:330px;width:240px">
+          <div class="k">Web clip · Obsidian</div>
+          <div class="q"><b>Why field crews lose offline data</b></div>
+          <div class="m">highlight: “silent overwrites are the #1 complaint”</div>
+        </div>
+        <span class="ann" style="left:1660px;top:150px">this meeting changed these</span>
+        <div class="card" id="vault" style="left:1340px;top:540px;width:560px">
+          <div class="k">Saved to your Obsidian vault</div>
+          <div><b>Meetings/2026-10-13 Offline sync — v2.4 scope.md</b></div>
+          <div class="m">Brief, notes, actions as tasks, with [[Halvorsen Construction]] [[Priya Raman]] [[Marcus Chen]] [[Halvorsen MSA 2026.pdf]] links. Edits in Obsidian come back here.</div>
+        </div>
+      </div>
+    </div>
+    <div class="minimap" aria-hidden="true"></div>
+    <div class="dock">
+      <div class="field"><i data-i="ask"></i><input aria-label="Ask about this meeting" placeholder="Ask about this meeting, or jot a follow-up…"></div>
+      <div class="row"><span>Collapse region to a card</span><span>·</span><span>Copy as Markdown <span class="kbd">⌘C</span></span><span>·</span><span>Play any card's moment <span class="kbd">Space</span></span></div>
+    </div>
+  </div>
+</div>
+<div class="callouts">
+  <div><b>Owners are people, not columns</b>Action items hang off the person cards they belong to, and a line comes back from whoever asked. “Asked by Priya at 27:30” is a link you can follow, not a table cell.</div>
+  <div><b>The meeting edits your map</b>What's unique to a canvas: the review shows the cards elsewhere that this call made stale or answered, such as the kickoff promise of “October”.</div>
+  <div><b>Collapse when done</b>A settled region folds into a single meeting card (like the 30 Sep standup on the Today canvas) and keeps its links, so the canvas doesn't fill up with transcripts.</div>
+</div>
+
+
+</main>
+</body>
+</html>

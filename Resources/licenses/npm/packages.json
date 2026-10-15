@@ -1,0 +1,308 @@
+[
+  {
+    "name": "crelt",
+    "version": "1.0.7",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/marijn/crelt.git"
+    },
+    "notices": [
+      "crelt/LICENSE"
+    ]
+  },
+  {
+    "name": "esbuild",
+    "version": "0.24.2",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/evanw/esbuild.git"
+    },
+    "notices": [
+      "esbuild/LICENSE.md"
+    ]
+  },
+  {
+    "name": "moment",
+    "version": "2.31.0",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "github:moment/moment"
+    },
+    "notices": [
+      "moment/LICENSE"
+    ]
+  },
+  {
+    "name": "obsidian",
+    "version": "1.14.4",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/obsidianmd/obsidian-api.git"
+    },
+    "notices": [
+      "obsidian/LICENSE.md"
+    ]
+  },
+  {
+    "name": "playwright",
+    "version": "1.64.1",
+    "license": "Apache-2.0",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/microsoft/playwright.git"
+    },
+    "notices": [
+      "playwright/LICENSE",
+      "playwright/NOTICE"
+    ]
+  },
+  {
+    "name": "playwright-core",
+    "version": "1.64.1",
+    "license": "Apache-2.0",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/microsoft/playwright.git"
+    },
+    "notices": [
+      "playwright-core/LICENSE",
+      "playwright-core/NOTICE"
+    ]
+  },
+  {
+    "name": "style-mod",
+    "version": "4.1.4",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/marijn/style-mod.git"
+    },
+    "notices": [
+      "style-mod/LICENSE"
+    ]
+  },
+  {
+    "name": "typescript",
+    "version": "5.9.3",
+    "license": "Apache-2.0",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/microsoft/TypeScript.git"
+    },
+    "notices": [
+      "typescript/LICENSE.txt"
+    ]
+  },
+  {
+    "name": "undici-types",
+    "version": "6.21.0",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/nodejs/undici.git"
+    },
+    "notices": [
+      "undici-types/LICENSE"
+    ]
+  },
+  {
+    "name": "w3c-keyname",
+    "version": "2.2.8",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/marijnh/w3c-keyname.git"
+    },
+    "notices": [
+      "w3c-keyname/LICENSE"
+    ]
+  },
+  {
+    "name": "@codemirror/commands",
+    "version": "6.11.1",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/codemirror/commands.git"
+    },
+    "notices": [
+      "@codemirror/commands/LICENSE"
+    ]
+  },
+  {
+    "name": "@codemirror/language",
+    "version": "6.13.1",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/codemirror/language.git"
+    },
+    "notices": [
+      "@codemirror/language/LICENSE"
+    ]
+  },
+  {
+    "name": "@codemirror/state",
+    "version": "6.7.6",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/codemirror/state.git"
+    },
+    "notices": [
+      "@codemirror/state/LICENSE"
+    ]
+  },
+  {
+    "name": "@codemirror/streamparser",
+    "version": "6.0.0",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/codemirror/streamparser.git"
+    },
+    "notices": [
+      "@codemirror/streamparser/LICENSE"
+    ]
+  },
+  {
+    "name": "@codemirror/view",
+    "version": "6.43.13",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/codemirror/view.git"
+    },
+    "notices": [
+      "@codemirror/view/LICENSE"
+    ]
+  },
+  {
+    "name": "@esbuild/darwin-arm64",
+    "version": "0.24.2",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://github.com/evanw/esbuild.git"
+    },
+    "notices": [
+      "esbuild/LICENSE.md"
+    ]
+  },
+  {
+    "name": "@lezer/common",
+    "version": "1.5.3",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/lezer/common.git"
+    },
+    "notices": [
+      "@lezer/common/LICENSE"
+    ]
+  },
+  {
+    "name": "@lezer/highlight",
+    "version": "1.2.5",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/lezer/highlight.git"
+    },
+    "notices": [
+      "@lezer/highlight/LICENSE"
+    ]
+  },
+  {
+    "name": "@lezer/lr",
+    "version": "1.4.11",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/lezer/lr.git"
+    },
+    "notices": [
+      "@lezer/lr/LICENSE"
+    ]
+  },
+  {
+    "name": "@lezer/markdown",
+    "version": "1.8.0",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/lezer/markdown.git"
+    },
+    "notices": [
+      "@lezer/markdown/LICENSE"
+    ]
+  },
+  {
+    "name": "@marijn/find-cluster-break",
+    "version": "1.0.4",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "git+https://code.haverbeke.berlin/marijn/find-cluster-break.git"
+    },
+    "notices": [
+      "@marijn/find-cluster-break/LICENSE"
+    ]
+  },
+  {
+    "name": "@types/codemirror",
+    "version": "5.60.8",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+      "directory": "types/codemirror"
+    },
+    "notices": [
+      "@types/codemirror/LICENSE"
+    ]
+  },
+  {
+    "name": "@types/estree",
+    "version": "1.0.9",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+      "directory": "types/estree"
+    },
+    "notices": [
+      "@types/estree/LICENSE"
+    ]
+  },
+  {
+    "name": "@types/node",
+    "version": "22.20.5",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+      "directory": "types/node"
+    },
+    "notices": [
+      "@types/node/LICENSE"
+    ]
+  },
+  {
+    "name": "@types/tern",
+    "version": "0.23.9",
+    "license": "MIT",
+    "repository": {
+      "type": "git",
+      "url": "https://github.com/DefinitelyTyped/DefinitelyTyped.git",
+      "directory": "types/tern"
+    },
+    "notices": [
+      "@types/tern/LICENSE"
+    ]
+  }
+]

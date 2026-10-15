@@ -1,4 +1,9 @@
 .build/
-.runtime/
+.runtime
 dist/
 .DS_Store
+
+.artifacts/
+
+# Python runtime repair tools
+__pycache__/

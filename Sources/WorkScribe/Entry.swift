@@ -2,13 +2,102 @@ import AppKit
 import SwiftUI
 import Combine
 import WorkScribeCore
+#if WORKSCRIBE_PLAUD
 import WorkScribePlaud
+#endif
 import UserNotifications
+import Carbon.HIToolbox
 
 @main
 enum Entry {
     @MainActor static func main() async {
-        if CommandLine.arguments.contains("--mcp") { MCPServer().run() }
+        if let index = CommandLine.arguments.firstIndex(of: "--verify-batch-window"), index + 1 < CommandLine.arguments.count {
+            func number(_ key: String, _ fallback: Double) -> Double {
+                guard let i = CommandLine.arguments.firstIndex(of: key), i + 1 < CommandLine.arguments.count else { return fallback }
+                return Double(CommandLine.arguments[i + 1]) ?? fallback
+            }
+            do { try await TranscriptReplay.batchWindow(path: CommandLine.arguments[index + 1], start: number("--start", 0), duration: number("--duration", 60)) }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+            return
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--verify-batch-audio"), index + 1 < CommandLine.arguments.count {
+            let runtime = SpeechRuntime()
+            do {
+                let words = try await NativeBatchTranscriber(runtime: runtime).transcribe(url: URL(fileURLWithPath: CommandLine.arguments[index + 1]), offset: 0) { _ in }
+                let result: [String: Any] = ["text": words.map(\.text).joined(separator: " "),
+                    "words": words.map { ["word": $0.text, "start": $0.start, "end": $0.end] as [String: Any] }]
+                FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]))
+                await runtime.stop()
+            } catch { await runtime.stop(); FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+            return
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--polish-transcript"), index + 1 < CommandLine.arguments.count {
+            let input = URL(fileURLWithPath: CommandLine.arguments[index + 1])
+            let root = FileManager.default.temporaryDirectory.appendingPathComponent("ws-polish-" + UUID().uuidString)
+            defer { try? FileManager.default.removeItem(at: root) }
+            do {
+                let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+                let original = try decoder.decode(Meeting.self, from: Data(contentsOf: input))
+                let model = AppModel(store: MeetingStore(root: root))
+                model.meeting = original
+                try await model.polishTranscript(original.id, audioFolder: input.deletingLastPathComponent())
+                guard model.meeting?.transcriptPolishedForEnd != nil else { throw CaptureError.message("No saved audio to polish") }
+                let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601; encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+                FileHandle.standardOutput.write(try encoder.encode(model.meeting))
+                await model.runtime.stop()
+            } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+            return
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--replay-transcript"), index + 1 < CommandLine.arguments.count {
+            let paceIndex = CommandLine.arguments.firstIndex(of: "--pace")
+            let pace = paceIndex.flatMap { $0 + 1 < CommandLine.arguments.count ? Double(CommandLine.arguments[$0 + 1]) : nil } ?? 1
+            do { try await TranscriptReplay.run(path: CommandLine.arguments[index + 1], pace: pace) }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+            return
+        }
+        if CommandLine.arguments.contains("--doctor") {
+            do {
+                let code = try await Task.detached(priority: .utility) {
+                    try RuntimeDoctor.run(checkOnly: CommandLine.arguments.contains("--check")) { line in
+                        FileHandle.standardOutput.write(Data((line + "\n").utf8))
+                    }
+                }.value
+                exit(code)
+            } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if let position = CommandLine.arguments.firstIndex(of: "--bench-vectors"),
+           position + 1 < CommandLine.arguments.count, let count = Int(CommandLine.arguments[position + 1]) {
+            do {
+                var result = try await Task.detached(priority: .utility) { try VectorBenchmark.run(count: count) }.value
+                if let real = try await EmbeddingVectorBenchmark.runIfAvailable() { result["real_model"] = real }
+                FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]))
+                FileHandle.standardOutput.write(Data("\n".utf8))
+            } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if CommandLine.arguments.contains("--bench-real-vectors") {
+            do {
+                let result = try await EmbeddingVectorBenchmark.runIfAvailable() ?? ["unavailable": true]
+                FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]))
+                FileHandle.standardOutput.write(Data("\n".utf8))
+            } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if CommandLine.arguments.contains("--mcp") { MCPServer(embedder: CoreMLEmbedder.bundled()).run() }
+        else if let i = CommandLine.arguments.firstIndex(of: "--bench-scenes"), CommandLine.arguments.count > i + 2 {
+            do { try await ScreenSceneBenchmark.run(directory: URL(fileURLWithPath: CommandLine.arguments[i+1]), output: URL(fileURLWithPath: CommandLine.arguments[i+2])) }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if CommandLine.arguments.contains("--verify-image-note") {
+            do { try await ImageVerification.note() }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if CommandLine.arguments.contains("--verify-images") {
+            do { try await ImageVerification.run() }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if CommandLine.arguments.contains("--verify-embedding") {
+            do { try await EmbeddingVerification.run() }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
         else if let index = CommandLine.arguments.firstIndex(of: "--verify-voices"), index + 1 < CommandLine.arguments.count {
             do {
                 let engine = VoiceEngine()
@@ -28,6 +117,23 @@ enum Entry {
             do { try await AudioVerification.verifyWarm(path: CommandLine.arguments[index + 1]) }
             catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
         }
+        else if let index = CommandLine.arguments.firstIndex(of: "--verify-screen") {
+            let seconds = index + 1 < CommandLine.arguments.count ? Double(CommandLine.arguments[index + 1]) ?? 10 : 10
+            do { try await ScreenVerification.run(seconds: min(max(seconds, 1), 120)) }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if CommandLine.arguments.contains("--serve-api-for-tests") {
+            do { try await APIVerification.serveForTests() }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if CommandLine.arguments.contains("--verify-purge") {
+            do { try await PurgeVerification.run() }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if CommandLine.arguments.contains("--verify-api") {
+            do { try await APIVerification.run() }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
         else if CommandLine.arguments.contains("--verify-detection") {
             let snapshot = CallDetector().snapshot()
             let data = try! JSONSerialization.data(withJSONObject: ["available": snapshot.available,
@@ -43,6 +149,7 @@ enum Entry {
             } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
         }
         else if let index = CommandLine.arguments.firstIndex(of: "--verify-import"), index + 1 < CommandLine.arguments.count {
+            #if WORKSCRIBE_PLAUD
             // Imports one WAV as a Note Pro recording into a throwaway library.
             let root = FileManager.default.temporaryDirectory.appendingPathComponent("workscribe-import-" + UUID().uuidString)
             defer { try? FileManager.default.removeItem(at: root) }
@@ -64,6 +171,9 @@ enum Entry {
                 "text": entry.orderedSegments.map(\.text).joined(separator: " "), "files": files.sorted(),
                 "import_status": model.importStatus ?? "", "elapsed_seconds": seconds]
             FileHandle.standardOutput.write(try! JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]))
+            #else
+            FileHandle.standardError.write(Data("--verify-import requires WORKSCRIBE_PLAUD=1 at build time.\n".utf8)); exit(1)
+            #endif
         }
         else if let index = CommandLine.arguments.firstIndex(of: "--verify-audio"), index + 1 < CommandLine.arguments.count {
             do { try await AudioVerification.run(path: CommandLine.arguments[index + 1]) }
@@ -82,6 +192,40 @@ enum Entry {
                 FileHandle.standardOutput.write(data)
             } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
         }
+        else if let index = CommandLine.arguments.firstIndex(of: "--verify-notes"), index + 1 < CommandLine.arguments.count {
+            // Enhances the notes in a transcript.json with the bundled (or given) model; prints notes, missed topics and raw output.
+            do {
+                func argument(_ key: String) -> String? {
+                    guard let index = CommandLine.arguments.firstIndex(of: key), index + 1 < CommandLine.arguments.count else { return nil }
+                    return CommandLine.arguments[index + 1]
+                }
+                let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
+                let meeting = try decoder.decode(Meeting.self, from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[index + 1])))
+                let selected = argument("--title-model").flatMap(TitleModel.init(rawValue:)) ?? .bundled
+                let started = Date()
+                let generator: (any AnswerGenerator)?
+                if argument("--note-provider") == "apple" {
+                    guard let apple = AnswerGenerators.appleIntelligence(), apple.isAvailable else { throw CaptureError.message("Apple Intelligence is unavailable") }
+                    generator = apple
+                } else if argument("--note-provider") == "cloud" {
+                    guard CloudSettings.useCloud, let key = CloudSettings.apiKey() else { throw CaptureError.message("Cloud notes require the enabled cloud setting and a configured key") }
+                    generator = OpenAIResponsesGenerator(credential: StoredAPIKey(key: key), model: CloudSettings.model)
+                } else { generator = nil }
+                let prepared: NoteDraft?
+                if argument("--note-provider") == "local-final" {
+                    prepared = NoteEnhancer.extractive(NoteDraft(plan: try NotePlanner.finalPlan(meeting), output: ""), meeting: meeting)
+                } else {
+                    prepared = try await NoteEnhancer(generator: generator).enhance(meeting, incremental: CommandLine.arguments.contains("--incremental"),
+                        missedTopics: true, model: selected, modelPath: argument("--model-path"))
+                }
+                guard let draft = prepared else { FileHandle.standardOutput.write(Data("{\"skipped\": true}".utf8)); return }
+                let result = NoteEnhancement.apply(draft.output, plan: draft.plan, to: meeting.notes ?? [])
+                let value: [String: Any] = ["seconds": Date().timeIntervalSince(started), "prompt": NotePrompt.instruction(draft.plan), "output": draft.output,
+                    "notes": result.notes.map { ["text": $0.text, "enhanced": $0.enhanced ?? "", "refs": $0.excerptRefs ?? []] },
+                    "missed": (result.missed ?? []).map { ["topic": $0.topic, "text": $0.text, "refs": $0.excerptRefs] }]
+                FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys]))
+            } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
         else {
             let application = NSApplication.shared
             let delegate = AppDelegate()
@@ -95,18 +239,29 @@ enum Entry {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPopoverDelegate, UNUserNotificationCenterDelegate {
     private let model = AppModel()
+    private var runtimeStatus: String?
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var phaseObservation: AnyCancellable?
     private var elapsedTimer: Timer?
     // Owned here, not by a view, so a transfer survives the popover closing.
+    #if WORKSCRIBE_PLAUD
     private let plaud = PlaudHandoffController()
     private var plaudWindow: NSWindow?
     private var plaudObservation: AnyCancellable?
+    #endif
     private var transcriptWindow: NSPanel?
     private var hotKey: GlobalHotKey?
     private var shortcutObservation: AnyCancellable?
     private var qaWindow: NSWindow?
+    private var search: SearchHookup?
+    private var vault: VaultHookup?
+    private lazy var ask = AskService(model: model)
+    private lazy var api = LocalAPI(model: model, ask: ask)
+    private lazy var quickAsk = QuickAskController(ask: ask, model: model)
+    private var quickAskHotKey: GlobalHotKey?
+    private var cloudWindow: NSWindow?
+    private var observers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Stable capture surface for synthetic UI testing; never enabled in the app bundle.
@@ -139,14 +294,98 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
             guard let self else { return }
             hotKey = enabled ? GlobalHotKey { [weak self] in Task { @MainActor in self?.toggleRecording() } } : nil
         }
-        phaseObservation = model.$phase.combineLatest(model.$speechReady)
+        // ⌥⌘K quick ask, from any app (also while recording: the live call is searched first).
+        quickAskHotKey = UserDefaults.standard.object(forKey: "quickAskShortcut") as? Bool ?? true
+            ? GlobalHotKey(keyCode: kVK_ANSI_K, modifiers: cmdKey | optionKey, id: 2) { [weak self] in
+                Task { @MainActor in self?.quickAsk.toggle() } }
+            : nil
+        quickAsk.openLink = { [weak self] link in self?.openLink(link) }
+        let center = NotificationCenter.default
+        observers.append(center.addObserver(forName: .workScribeShowQuickAsk, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.popover.performClose(nil); self?.quickAsk.show() }
+        })
+        observers.append(center.addObserver(forName: .workScribeShowCloudSettings, object: nil, queue: .main) { [weak self] _ in
+            MainActor.assumeIsolated { self?.showCloudSettings() }
+        })
+        phaseObservation = Publishers.CombineLatest4(model.$phase, model.$speechReady, model.$screenAccess, model.$includeSystemAudio)
             .receive(on: RunLoop.main)
-            .sink { [weak self] _, _ in self?.refreshStatusItem() }
+            .sink { [weak self] _, _, _, _ in DispatchQueue.main.async { self?.refreshStatusItem() } }
         elapsedTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { if self?.model.phase == "recording" { self?.refreshStatusItem() } }
         }
         model.activate()
-        DispatchQueue.main.async { [weak self] in self?.showPopover() }
+        Task { [weak self] in
+            self?.runtimeStatus = "Getting models ready…"
+            self?.refreshStatusItem()
+            let code = try? await Task.detached(priority: .utility) {
+                try RuntimeDoctor.run { [weak self] line in
+                    Task { @MainActor in
+                        self?.runtimeStatus = line.hasPrefix("Getting models ready") ? line.components(separatedBy: " · ").prefix(2).joined(separator: " · ") : "Getting models ready…"
+                        self?.refreshStatusItem()
+                    }
+                }
+            }.value
+            self?.runtimeStatus = code == 0 ? nil : "Models need attention · run --doctor"
+            self?.refreshStatusItem()
+            // Recover each capability independently even if an optional repair failed.
+            if let model = self?.model {
+                try? await model.prepareSpeech()
+                if model.speechReady && model.message.hasPrefix("Couldn’t prepare speech:") {
+                    model.phase = "ready"
+                    model.message = "Record locally. Ask questions as the conversation unfolds."
+                }
+            }
+            await self?.search?.service.refreshRuntime()
+        }
+        // Opening/migrating a multi-million-chunk index must not stall app launch or recording.
+        Task { [weak self, store = model.store] in
+            let service = await Task.detached(priority: .utility) { IndexService.make(store: store) }.value
+            guard let self else { return }
+            if let service { self.search = SearchHookup(model: model, service: service) }
+            self.vault = VaultHookup(model: model, index: service)
+            self.ask.index = service
+            let retention = MeetingRetention(model: model, ask: ask, vault: self.vault!.store, index: service)
+            model.retentionService = retention
+            retention.start()
+        }
+        // The local API for the Obsidian plugin (docs/api/local-api.md).
+        if ProcessInfo.processInfo.environment["WORKSCRIBE_DISABLE_API"] != "1" {
+            Task { [weak self] in
+                guard let self else { return }
+                do { try await api.start() }
+                catch { model.message = "Couldn’t start the local API: \(error.localizedDescription)" }
+            }
+        }
+        if ProcessInfo.processInfo.environment["WORKSCRIBE_SHOW_QUICK_ASK"] == "1" {
+            // Verification hook: open quick ask instead of the popover.
+            DispatchQueue.main.async { [weak self] in self?.quickAsk.show() }
+        } else {
+            DispatchQueue.main.async { [weak self] in self?.showPopover() }
+        }
+    }
+    /// Citations and links: meetings open in the floating transcript at the moment; files at their page or time.
+    private func openLink(_ link: WorkScribeLink) {
+        model.open(link)
+        if case .meeting = link { showTranscriptWindow() }
+    }
+    private func showCloudSettings() {
+        popover.performClose(nil)
+        if cloudWindow == nil {
+            let view = CloudSettingsView { [weak self] in
+                guard let self else { return }
+                ask.setGenerator(AnswerGenerators.preferred())
+                cloudWindow?.performClose(nil)
+            }
+            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
+            window.title = "Answers"; window.styleMask = [.titled, .closable]; window.isReleasedWhenClosed = false
+            window.center(); cloudWindow = window
+        }
+        cloudWindow?.makeKeyAndOrderFront(nil)
+        NSApplication.shared.activate(ignoringOtherApps: true)
+    }
+    /// workscribe:// links from MCP clients, notes and search results.
+    func application(_ application: NSApplication, open urls: [URL]) {
+        for link in urls.compactMap(WorkScribeLink.init(url:)) { openLink(link) }
     }
     /// The popover is usually closed, so the icon has to say whether WorkScribe is recording.
     private func refreshStatusItem() {
@@ -155,25 +394,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         switch model.phase {
         case "recording": symbol = "record.circle.fill"; description = "WorkScribe is recording"
         case "error": symbol = "exclamationmark.triangle"; description = "WorkScribe couldn’t record"
+        case _ where model.includeSystemAudio && !model.screenAccess:
+            symbol = "exclamationmark.triangle"; description = "WorkScribe needs Screen Recording permission for system audio"
         default: symbol = "waveform"; description = model.speechReady ? "WorkScribe" : "WorkScribe is getting ready"
         }
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
-        image?.isTemplate = model.phase != "recording"
+        let attention = symbol == "exclamationmark.triangle"
+        image?.isTemplate = model.phase != "recording" && !attention
+        // Trust-first states: recording = the one vermilion dot; needs attention = ochre.
         button.image = model.phase == "recording"
-            ? image?.withSymbolConfiguration(.init(paletteColors: [.systemRed]))
-            : image
+            ? image?.withSymbolConfiguration(.init(paletteColors: [Theme.vermilionNS]))
+            : attention ? image?.withSymbolConfiguration(.init(paletteColors: [Theme.ochreNS])) : image
         button.appearsDisabled = model.phase == "ready" && !model.speechReady
         if model.phase == "recording", let started = model.meeting?.startedAt {
             button.title = " " + AppModel.timestamp(Date().timeIntervalSince(started))
             button.font = .monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
             button.imagePosition = .imageLeading
         } else {
-            button.title = ""
-            button.imagePosition = .imageOnly
+            button.title = runtimeStatus.map { " " + $0 } ?? ""
+            button.imagePosition = runtimeStatus == nil ? .imageOnly : .imageLeading
         }
-        button.toolTip = description
+        button.toolTip = runtimeStatus ?? description
     }
     func showPlaud() {
+        #if WORKSCRIBE_PLAUD
         if plaudObservation == nil {
             // Saved recordings join the library as soon as they are verified.
             plaudObservation = plaud.$phase.receive(on: RunLoop.main).sink { [weak self] phase in
@@ -191,14 +435,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         popover.performClose(nil)
         plaudWindow?.makeKeyAndOrderFront(nil)
         NSApplication.shared.activate(ignoringOtherApps: true)
+        #endif
     }
     func windowShouldClose(_ sender: NSWindow) -> Bool {
+        #if WORKSCRIBE_PLAUD
         guard sender == plaudWindow else { return true }
         return !plaud.busy
+        #else
+        return true
+        #endif
     }
     func windowWillClose(_ notification: Notification) {
+        #if WORKSCRIBE_PLAUD
         guard (notification.object as? NSWindow) == plaudWindow else { return }
         plaud.disconnect()
+        #endif
     }
     /// Dragging the popover away turns it into a window that stays open.
     func popoverShouldDetach(_ popover: NSPopover) -> Bool { true }
@@ -239,10 +490,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         if let qaWindow { qaWindow.makeKeyAndOrderFront(nil) } else { showPopover() }; return true
     }
+    private let recordingQuit = RecordingQuit()
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        if model.phase == "starting" || model.phase == "finalizing" { return .terminateCancel }
-        if plaud.busy { showPlaud(); return .terminateCancel }
-        Task { @MainActor in await model.prepareToQuit(); sender.reply(toApplicationShouldTerminate: true) }
-        return .terminateLater
+        #if WORKSCRIBE_PLAUD
+        let deviceBusy = plaud.busy
+        if deviceBusy { showPlaud() }
+        #else
+        let deviceBusy = false
+        #endif
+        return recordingQuit.request(phase: model.phase, blocked: deviceBusy, confirm: {
+            let alert = NSAlert()
+            alert.messageText = "Stop and save ‘\(model.meeting?.title ?? "this recording")’, then quit?"
+            alert.informativeText = "Your recording and notes will be saved on this Mac."
+            alert.addButton(withTitle: "Stop and save…")
+            alert.addButton(withTitle: "Keep recording")
+            return alert.runModal() == .alertFirstButtonReturn
+        }, save: { [self] in
+            await model.prepareToQuit()
+        }, complete: { [self] in
+            // Keep API, vault and capture ownership intact until the save has settled.
+            vault?.stop(); api.stop()
+            sender.reply(toApplicationShouldTerminate: true)
+        })
     }
 }

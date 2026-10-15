@@ -1,3 +1,4 @@
+#if WORKSCRIBE_PLAUD
 import Foundation
 @preconcurrency import AVFoundation
 import WorkScribeCore
@@ -7,7 +8,6 @@ import WorkScribePlaud
 /// Imports share the warm speech engine, so they pause while a live recording
 /// runs and resume afterwards from the start of the interrupted file.
 @MainActor extension AppModel {
-    nonisolated static let plaudSource = "recorder"
 
     func importPlaud(_ recordings: [PlaudSavedRecording]) {
         let known = Set(library.compactMap(\.recordingTrigger)).union(importQueue.map { "plaud:" + $0.id })
@@ -122,4 +122,16 @@ import WorkScribePlaud
         try await connection.finish()
         return segments
     }
+}
+
+#endif
+
+// Existing recorder audio can still be read without the proprietary device SDK.
+@MainActor extension AppModel {
+    nonisolated static let plaudSource = "recorder"
+#if !WORKSCRIBE_PLAUD
+    var importActive: Bool { false }
+    func runImports() {}
+    func pauseImports() async {}
+#endif
 }

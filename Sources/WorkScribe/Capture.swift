@@ -1,6 +1,7 @@
 import AVFoundation
 import ScreenCaptureKit
 import CoreMedia
+import WorkScribeCore
 
 enum CaptureError: LocalizedError {
     case message(String)
@@ -15,12 +16,12 @@ final class AudioTrack {
     private var file: AVAudioFile?
     private var closed = false
     private var level: Float = 0
-    let stream: AsyncThrowingStream<Data, Error>
-    private let continuation: AsyncThrowingStream<Data, Error>.Continuation
+    private var firstSample: Date?
+    var firstCaptureAt: Date? { lock.withLock { firstSample } }
+    let backlog: AudioBacklog
+    var onFailure: ((Error) -> Void)?
     init(url: URL) throws {
-        var captured: AsyncThrowingStream<Data, Error>.Continuation!
-        stream = AsyncThrowingStream(bufferingPolicy: .bufferingOldest(128)) { captured = $0 }
-        continuation = captured
+        backlog = try AudioBacklog(url: url.appendingPathExtension("transcribing.pcm"))
         file = try AVAudioFile(forWriting: url, settings: format.settings, commonFormat: .pcmFormatInt16, interleaved: true)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
@@ -40,18 +41,17 @@ final class AudioTrack {
             if let error { throw error }
             guard status != .error else { throw CaptureError.message("Audio conversion failed") }
             if output.frameLength > 0 {
+                if firstSample == nil { firstSample = Date() }
                 try file?.write(from: output)
                 level = Self.loudness(output)
                 let bytes = Data(bytes: output.int16ChannelData![0], count: Int(output.frameLength) * 2)
-                if case .dropped = continuation.yield(bytes) {
-                    throw CaptureError.message("Transcription cannot keep up with audio. Recording stopped; captured audio is saved.")
-                }
+                try backlog.append(bytes)
             }
-        } catch { closed = true; file = nil; continuation.finish(throwing: error) }
+        } catch { closed = true; file = nil; backlog.finish(throwing: error); onFailure?(error) }
     }
     func finish() {
         lock.lock(); defer { lock.unlock() }
-        closed = true; file = nil; level = 0; continuation.finish()
+        closed = true; file = nil; level = 0; backlog.finish()
     }
     /// Loudness of the most recent buffer, 0 (silence, below -60 dBFS) to 1.
     func currentLevel() -> Float {
@@ -109,9 +109,11 @@ final class AudioCapture: NSObject, SCStreamOutput, SCStreamDelegate {
     }
     func stop() async {
         engine?.inputNode.removeTap(onBus: 0); engine?.stop(); engine = nil
-        if let screen { try? await screen.stopCapture() }; screen = nil
+        // Close audio files immediately, even if ScreenCaptureKit takes time to stop.
         microphoneTrack?.finish(); systemTrack?.finish()
         microphoneTrack = nil; systemTrack = nil
+        let stopping = screen; screen = nil
+        if let stopping { try? await stopping.stopCapture() }
     }
     func stream(_ stream: SCStream, didStopWithError error: Error) { onFailure?(error) }
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {

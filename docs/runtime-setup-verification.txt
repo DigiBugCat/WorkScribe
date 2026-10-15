@@ -1,0 +1,50 @@
+Runtime setup verification — 2026-10-14T22:38:21-07:00
+
+swift test: 160 tests passed
+Python runtime repair: 11 tests passed
+--verify-api: passed (401 without token, 403 foreign Host, meeting/status response)
+--verify-purge: passed
+Plugin npm test: passed
+Plugin npm run build: passed
+Plugin npm run smoke: passed
+WORKSCRIBE_API_BINARY=../.build/debug/WorkScribe npm test: 84 passed
+Menu-bar visual verification: not completed; the computer-use tool could not target the menu-only test app.
+
+Real WorkScribe --doctor output:
+Runtime home: $WORKSCRIBE_RUNTIME_HOME
+models/Qwen3.5-2B-Q4_K_M.gguf: present
+models/gemma-4-E2B_q4_0-it.gguf: present
+models/vision/mmproj-gemma-4-E2B-it-Q8_0.gguf: present
+models/vision/gemma-4-E2B-it-Q4_0.gguf: present
+models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf: present
+models/Nemotron-3-Diarization.q8_0.gguf: present
+models/wespeaker_v2.mlmodelc/metadata.json: present
+models/wespeaker_v2.mlmodelc/model.mil: present
+models/wespeaker_v2.mlmodelc/coremldata.bin: present
+models/wespeaker_v2.mlmodelc/weights/weight.bin: present
+models/wespeaker_v2.mlmodelc/analytics/coremldata.bin: present
+EmbeddingGemma2Text.mlmodelc: present
+EmbeddingGemma2Audio.mlmodelc: present
+EmbeddingGemma2Vision.mlmodelc: present
+EmbeddingGemma2Text 70fcf18f already prepared
+EmbeddingGemma2Vision 3f978ddf already prepared
+EmbeddingGemma2Audio c0fefd0a already prepared
+EmbeddingGemma 2 verified in $WORKSCRIBE_RUNTIME_HOME/models/embeddinggemma-2-coreml
+nemo: present
+models/vision/bin/image-caption: present
+models/vision/lib: present
+models/vision: present
+models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf: present
+models/Nemotron-3-Diarization.q8_0.gguf: present
+speaker (legacy, unused): present
+Final models/Qwen3.5-2B-Q4_K_M.gguf: present
+Final models/vision: present
+Final models/wespeaker_v2.mlmodelc: present
+Final models/embeddinggemma-2-coreml: present
+Models ready
+
+Final --doctor --check: passed; all required assets present and verified.
+
+Build-app verification: passed; signed bundle at <temporary-output>/WorkScribe.app.
+Bundled WorkScribe --doctor --check: passed (Models ready).
+Post-doctor codesign --verify --deep --strict: passed. Python bytecode writes are disabled; regression test passed.

@@ -1,6 +1,7 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+runtime_home="${WORKSCRIBE_RUNTIME_HOME:-$HOME/Library/Application Support/WorkScribe/Runtime}"
 case "${1:-qwen35}" in
   gemma4)
     repo=google/gemma-4-E2B-it-qat-q4_0-gguf
@@ -16,9 +17,9 @@ case "${1:-qwen35}" in
     ;;
   *) echo 'Usage: download-title-model.sh gemma4|qwen35' >&2; exit 2 ;;
 esac
-mkdir -p .runtime/models
-target=".runtime/models/$file"
-if [ -f "$target" ]; then
+mkdir -p "$runtime_home/models"
+target="$runtime_home/models/$file"
+if [ -f "$target" ] && [[ "$(stat -f %Sf "$target")" != *dataless* ]]; then
   actual="$(shasum -a 256 "$target" | awk '{print $1}')"
   if [ "$actual" = "$expected" ]; then printf 'Verified %s\n' "$target"; exit 0; fi
 fi

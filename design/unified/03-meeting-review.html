@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700&family=Kalam&display=swap">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="app.css">
+<script src="shared.js"></script>
+<style>
+  .split { display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 100%; }
+  .people { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); align-items: center; }
+  .people .v { font-size: 12px; line-height: 16px; color: var(--leaf); font-weight: 600; margin-left: 6px; }
+
+  .enh { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+  .enh li { display: grid; grid-template-columns: 52px minmax(0, 1fr); padding: var(--space-2) var(--space-2) var(--space-2) 0; border-radius: var(--radius-sm); }
+  .enh li .tm { font-size: 12px; line-height: 22px; color: var(--ink-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .enh li .en { font-size: 15px; line-height: 24px; max-width: 66ch; }
+  .enh li .meta { font-size: 12px; line-height: 16px; color: var(--ink-muted); margin-top: 6px; display: flex; gap: 4px; align-items: center; flex-wrap: wrap; font-weight: 500; }
+  .enh li.hov { background: color-mix(in srgb, var(--indigo-wash) 30%, transparent); }
+
+  /* Missed topics: a quiet sky field, the one place for a handwritten note */
+  .missed { background: color-mix(in srgb, var(--sky) 65%, var(--surface-raised)); border-radius: var(--radius-md); padding: var(--space-4) var(--space-4) var(--space-2); position: relative; max-width: 74ch; display: flex; flex-direction: column; gap: var(--space-2); }
+  .missed .room-h { border-bottom-color: color-mix(in srgb, var(--indigo) 50%, transparent); }
+  .missed ul { list-style: none; margin: 0; padding: 0; }
+  .missed li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px var(--space-3); padding: var(--space-3) 0; border-top: var(--stroke-hair) solid color-mix(in srgb, var(--indigo) 22%, transparent); }
+  .missed li:first-child { border-top: 0; }
+  .missed .topic { font-size: 15px; line-height: 24px; }
+  .missed .ev { grid-column: 1; font-size: 12px; line-height: 16px; color: var(--ink-muted); display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-weight: 500; }
+  .missed .btn { grid-row: 1 / span 2; grid-column: 2; align-self: center; }
+  .hand-note { position: absolute; right: var(--space-4); top: -14px; transform: rotate(-3deg); display: flex; align-items: flex-end; gap: 2px; }
+  .hand-note svg { width: 30px; height: 22px; }
+
+  .tablewrap { overflow-x: auto; }
+  table.ev { width: 100%; min-width: 600px; border-collapse: collapse; font-size: 14px; line-height: 20px; }
+  table.ev th { font-size: 11px; line-height: 16px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-muted); text-align: left; font-weight: 700; padding: 4px var(--space-3) 6px 0; border-bottom: var(--stroke-hair) solid var(--line); }
+  table.ev td { padding: var(--space-3) var(--space-3) var(--space-3) 0; border-bottom: var(--stroke-hair) solid var(--line); vertical-align: top; }
+  table.ev td.n { font-size: 13px; color: var(--ink-muted); white-space: nowrap; font-variant-numeric: tabular-nums; font-weight: 600; }
+  table.ev tr.mine td { background: color-mix(in srgb, var(--blush) 30%, transparent); }
+  table.ev tr.mine td:first-child { padding-left: 6px; }
+  .quote { font-size: 13px; line-height: 18px; color: var(--ink-muted); display: block; margin-top: 2px; }
+
+  .answers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr)); gap: var(--space-4); }
+  .answers .livecard { background: var(--surface); box-shadow: none; }
+
+  /* Transcript rail */
+  .rail { border-left: var(--stroke-hair) solid var(--line); background: var(--surface); display: flex; flex-direction: column; position: sticky; top: 0; height: 817px; }
+  .rail-h { padding: var(--space-4) var(--space-4) var(--space-3); border-bottom: var(--stroke-hair) solid var(--line); display: flex; flex-direction: column; gap: var(--space-2); }
+  .tl { width: 100%; height: auto; display: block; }
+  .player { display: flex; align-items: center; gap: var(--space-2); font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; }
+  .player .pl { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--indigo); display: grid; place-items: center; color: var(--indigo); background: transparent; cursor: pointer; padding: 0; }
+  .player b { color: var(--ink); font-variant-numeric: tabular-nums; }
+  .rail .scroll { overflow: auto; padding: var(--space-2) var(--space-4) var(--space-4); flex: 1; }
+
+  @media (max-width: 1100px) { .split { grid-template-columns: 1fr; } .rail { position: static; height: auto; border-left: 0; border-top: var(--stroke-hair) solid var(--line); } }
+  @media (max-width: 520px) { .enh li { grid-template-columns: 1fr; } .enh li .tm { line-height: 16px; } .missed li { grid-template-columns: 1fr; } .missed .btn { grid-row: auto; grid-column: 1; justify-self: start; } .hand-note { right: var(--space-2); } }
+
+  .vaultbox { background: var(--surface); border-radius: var(--radius-md); padding: var(--space-4); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: var(--space-4) var(--space-6); max-width: 900px; }
+  .md { margin: 0; font: 500 12.5px/19px var(--font-sans); background: var(--surface-raised); box-shadow: var(--emb); border-radius: var(--radius-sm); padding: var(--space-3); white-space: pre-wrap; overflow-wrap: anywhere; color: var(--ink); }
+  .md .fm { color: var(--ink-muted); }
+  .md .h { font-weight: 700; }
+  .vaultbox ul { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 21px; display: grid; gap: 4px; }
+  .vaultbox .acts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  @media (max-width: 760px) { .vaultbox { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="stage">
+  <header class="stage-head">
+    <div class="head-text">
+      <span class="label">Concept A · Workspace · screen 03 of 05</span>
+      <h1>Meeting review</h1>
+      <p>After Stop, the same page turns into a reading document: brief, your enhanced notes, what was discussed but not in your notes, action items with owner and asker, the answers you got live, and the transcript with your notes on the voice timeline. It's also a Markdown file in your Obsidian vault.</p>
+    </div>
+    <nav aria-label="Pages"><a href="02-meeting-live.html">Live meeting</a><a href="index.html">Index</a><a href="04-search.html">Next: search</a><button class="theme-toggle" type="button">Theme</button></nav>
+  </header>
+
+  <div class="window app soak" role="group" aria-label="WorkScribe window, meeting review">
+    <div class="titlebar">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <button class="iconbtn" type="button" aria-label="Hide sidebar"><svg class="ico" aria-hidden="true"><use href="#i-sidebar"/></svg></button>
+      <button class="iconbtn" type="button" aria-label="Back"><svg class="ico" aria-hidden="true"><use href="#i-back"/></svg></button>
+      <button class="iconbtn" type="button" aria-label="Forward"><svg class="ico" aria-hidden="true"><use href="#i-chev"/></svg></button>
+      <span class="crumb">Meetings <small>· Offline sync — v2.4 scope</small></span>
+      <span class="tools">
+        <button class="btn text" type="button"><svg class="ico" aria-hidden="true" style="width:14px;height:14px"><use href="#i-ask"/></svg>Ask this meeting</button>
+        <button class="iconbtn" type="button" aria-label="Export"><svg class="ico" aria-hidden="true"><use href="#i-share"/></svg></button>
+        <button class="iconbtn" type="button" aria-label="Meeting actions: rename, show in Finder, delete"><svg class="ico" aria-hidden="true"><use href="#i-more"/></svg></button>
+      </span>
+    </div>
+    <div class="app-body">
+      <nav class="side" aria-label="WorkScribe">
+        <div class="search" role="search"><svg class="ico" aria-hidden="true" style="color:var(--indigo)"><use href="#i-search"/></svg><span>Search everything</span><span class="kbd">⌘K</span></div>
+        <a href="01-home-chat.html"><svg class="ico ic" aria-hidden="true"><use href="#i-ask"/></svg>Ask</a>
+        <a href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-today"/></svg>Today</a>
+        <a class="on" href="03-meeting-review.html" aria-current="page"><svg class="ico ic" aria-hidden="true"><use href="#i-meetings"/></svg>Meetings<span class="n">46</span></a>
+        <a href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-notes"/></svg>Notes<span class="n">128</span></a>
+        <a href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-people"/></svg>People<span class="n">17</span></a>
+        <a href="04-search.html"><svg class="ico ic" aria-hidden="true"><use href="#i-folder"/></svg>Sources<span class="n">10</span></a>
+        <div class="grp label">This week</div>
+        <a class="file on" href="03-meeting-review.html"><svg class="ico ic" aria-hidden="true"><use href="#i-meetings"/></svg><span class="t">Offline sync — v2.4 scope</span></a>
+        <a class="file" href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-meetings"/></svg><span class="t">Design crit — inspection checklist</span></a>
+        <a class="file" href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-meetings"/></svg><span class="t">Halvorsen kickoff</span></a>
+        <a class="file" href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-meetings"/></svg><span class="t">Note Pro · walk-and-talk with Marcus</span></a>
+        <div class="foot">
+          <span class="vault"><svg class="ico" aria-hidden="true"><use href="#i-md"/></svg>Obsidian vault · Work</span>
+          <span>~/Obsidian/Work/WorkScribe</span>
+          <span class="row">On this Mac · nothing uploaded</span>
+        </div>
+      </nav>
+      <div class="page">
+        <div class="split">
+          <article class="doc">
+            <div class="doc-head">
+              <span class="label">Meeting · Tue 13 Oct 2026 · 10:02–10:34 · 32 min · Zoom, auto-recorded</span>
+              <h1>Offline sync — v2.4 scope</h1>
+              <div class="people">
+                <span class="spk you">You</span>
+                <span><span class="spk priya">Priya Raman</span><span class="v">✓ voice remembered</span></span>
+                <span><span class="spk marcus">Marcus Chen</span><span class="v">✓ voice remembered</span></span>
+                <span class="caption">4 notes · 2 answers · 4 actions</span></div>
+              <div style="display:flex;flex-wrap:wrap;gap:var(--space-2);align-items:center"><span class="filechip"><svg class="ico" aria-hidden="true"><use href="#i-md"/></svg><span>Work vault / Meetings / 2026-10-13 Offline sync — v2.4 scope.md</span></span><span class="caption">saved as Markdown · edits in Obsidian come back here</span>
+              </div>
+            </div>
+
+            <section class="room">
+              <div class="room-h"><h2>Brief</h2><span class="aside">From the transcript and your notes</span></div>
+              <p class="lede">The team kept offline for v2.4 but moved the date to <b>Nov 4</b>. Checklists get a field-level merge instead of last-write-wins, the photo queue gets a hard cap, and Halvorsen leads a 40-account beta.</p>
+            </section>
+
+            <section class="room">
+              <div class="room-h"><h2>Your notes, enhanced</h2><span class="aside">Hover a note to see its excerpts in the transcript</span></div>
+              <ul class="enh">
+                <li class="hov"><span class="tm">08:12</span><div><div class="en"><span class="lead">Conflict resolution.</span> Marcus warned last-write-wins would silently drop inspectors' checklist edits; the team agreed on a field-level merge for checklist items and last-write-wins for everything else.</div><div class="meta"><span class="typed"><span class="vh">You typed: </span>offline conflicts → LWW?? marcus pushback</span><span class="extag">E1</span><span class="extag">E2</span><span class="extag hollow">E3</span></div></div></li>
+                <li><span class="tm">09:05</span><div><div class="en"><span class="lead">Ship date.</span> v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration; Priya will tell Halvorsen on Friday.</div><div class="meta"><span class="typed"><span class="vh">You typed: </span>ship date nov 4 not oct 28</span><span class="extag">E4</span><span class="extag">E5</span></div></div></li>
+                <li><span class="tm">10:40</span><div><div class="en"><span class="lead">Beta cohort.</span> 40 accounts, Halvorsen Construction first because their contract names offline capture by year end.</div><div class="meta"><span class="typed"><span class="vh">You typed: </span>beta 40 accts, halvorsen first</span><span class="extag">E6</span><span class="cite">MSA §7.2</span></div></div></li>
+                <li><span class="tm">12:51</span><div><div class="en"><span class="lead">Photo queue.</span> Cap at 200 photos or 1.5 GB per device, upload oldest first on reconnect, and show inspectors a banner at the cap.</div><div class="meta"><span class="typed"><span class="vh">You typed: </span>photo uploads queue — cap?</span><span class="extag">E7</span><span class="extag">E8</span><span class="extag">E9</span></div></div></li>
+              </ul>
+            </section>
+
+            <section class="room">
+              <div class="missed">
+                <div class="room-h"><h2>Discussed, not in your notes</h2><span class="aside">Speech none of your notes drew from</span></div>
+                <span class="hand-note" aria-hidden="true"><svg viewBox="0 0 30 22"><g filter="url(#iw-wobble)"><path class="iw-line" d="M27 5c-9 1-17 5-22 13"/><path class="iw-line" d="M4.5 11.5 5 18l6.2-2"/></g></svg><span class="hand">return to this</span></span>
+                <ul>
+                  <li><div class="topic"><span class="lead">Android parity.</span> Offline for Android lands in 2.5, not 2.4; Marcus wants the merge rule shared so behavior matches.</div><div class="ev"><span class="spk marcus">Marcus</span><span class="num">22:14–23:40</span>· answers your “android parity?” note</div><button class="btn" type="button">Add to notes</button></li>
+                  <li><div class="topic"><span class="lead">Sync-failure analytics.</span> Priya asked for an event on every failed sync with the queue size, so support can see who is stuck.</div><div class="ev"><span class="spk priya">Priya</span><span class="num">25:02–25:50</span></div><button class="btn" type="button">Add to notes</button></li>
+                </ul>
+              </div>
+            </section>
+
+            <section class="room">
+              <div class="room-h"><h2>Action items</h2><span class="aside">Owners are named voices, not “Remote” · ⌘C copies as Markdown</span></div>
+              <div class="tablewrap"><table class="ev">
+                <thead><tr><th style="width:22px"><span class="vh">Done</span></th><th>Owner</th><th>Action</th><th>Asked by</th><th>Said at</th><th>Due</th></tr></thead>
+                <tbody>
+                  <tr class="mine"><td><span class="seal" aria-label="For you" role="img"></span></td><td><span class="spk you">You</span></td><td>Update PRD v3 with the checklist merge rule and photo cap<span class="quote">“Can you get that into the PRD before Marcus starts?”</span></td><td><span class="spk priya">Priya</span></td><td class="n">27:30</td><td class="n">Thu 15 Oct</td></tr>
+                  <tr><td><span class="box" aria-hidden="true"></span></td><td><span class="spk marcus">Marcus</span></td><td>Prototype field-level merge for checklists<span class="quote">“Give me till Monday.”</span></td><td><span class="spk priya">Priya</span></td><td class="n">08:44</td><td class="n">Mon 19 Oct</td></tr>
+                  <tr><td><span class="box" aria-hidden="true"></span></td><td><span class="spk marcus">Marcus</span></td><td>Measure the photo queue at 200 photos on an iPhone 12</td><td><span class="spk you">You</span></td><td class="n">13:52</td><td class="n">—</td></tr>
+                  <tr><td><span class="box" aria-hidden="true"></span></td><td><span class="spk priya">Priya</span></td><td>Email Halvorsen about the Nov 4 date<span class="quote">“I'll tell them Friday, before they hear it elsewhere.”</span></td><td class="caption">herself</td><td class="n">14:05</td><td class="n">Fri 16 Oct</td></tr>
+                </tbody>
+              </table></div>
+            </section>
+
+            <section class="room">
+              <div class="room-h"><h2>Answered during the meeting</h2><span class="aside">2 questions detected · 1 added to notes</span></div>
+              <div class="answers">
+                <div class="livecard"><div class="caption"><span class="num">12:48</span> · <span class="spk priya">Priya</span> asked</div><p class="q">What does the Halvorsen contract commit us to on offline?</p><p class="a">Offline capture of inspections and photos by Dec 31, with sync within 24 hours of reconnecting <span class="cite">1</span>. Nothing on conflict handling <span class="cite">1</span>; PRD v3 still says last-write-wins <span class="cite">2</span>.</p><div class="src"><span><b>1</b>Halvorsen MSA 2026.pdf · p.14 §7.2</span><span><b>2</b>Offline PRD v3.md · “Sync model”</span></div></div>
+                <div class="livecard"><div class="caption"><span class="num">13:40</span> · <span class="spk marcus">Marcus</span> asked</div><p class="q">What did we measure for photo sizes on the iPhone 12 last time?</p><p class="a">3.1 MB average after HEIC compression; a full site day ran 140–180 photos <span class="cite">1</span>. The 12 mini stalled above about 1 GB queued <span class="cite">2</span>.</p><div class="src"><span><b>1</b>Photo pipeline benchmarks.numbers</span><span><b>2</b>Note Pro · walk-and-talk · 6 Oct · 11:24</span></div></div>
+              </div>
+            </section>
+          
+            <section class="room">
+              <div class="room-h"><h2>In your vault</h2><span class="aside">Proposal · see open questions</span></div>
+              <div class="vaultbox">
+                <pre class="md" aria-label="Start of the Markdown file"><span class="fm">---
+type: meeting
+date: 2026-10-13T10:02
+duration: 32m
+people: [[[You]], [[Priya Raman]], [[Marcus Chen]]]
+customer: [[Halvorsen Construction]]
+audio: .workscribe/rec/2026-10-13-1002.m4a
+---</span>
+<span class="h"># Offline sync — v2.4 scope</span>
+## Notes
+- **Conflict resolution.** Field-level merge for checklists… ^e1
+- **Ship date.** Nov 4, not Oct 28…
+## Action items
+- [ ] [[You]]: Update PRD v3 (asked by [[Priya Raman]], 27:30) due:: 2026-10-15</pre>
+                <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+                  <p class="caption" style="color:var(--ink)">The write-up is a plain Markdown file in the Obsidian vault you picked. People and customers become <span class="wl">[[links]]</span>, so Obsidian's backlinks and graph work for free. The transcript and audio stay in a hidden folder; the file links to them.</p>
+                  <ul>
+                    <li>Action items are Markdown tasks, so Obsidian's Tasks plugin can list them.</li>
+                    <li>Edits you make in Obsidian are read back; WorkScribe never overwrites a section you changed.</li>
+                    <li>Clips from Obsidian's Web Clipper in the same vault are a source (see Search).</li>
+                  </ul>
+                  <div class="acts"><button class="btn" type="button">Open in Obsidian</button><button class="btn text" type="button">Show in Finder</button></div>
+                </div>
+              </div>
+            </section>
+</article>
+          <aside class="rail" aria-label="Transcript">
+            <div class="rail-h">
+              <div style="display:flex;align-items:baseline;gap:var(--space-2)"><span class="label">Transcript</span><button class="btn text" type="button" style="margin-left:auto">Export</button></div>
+              <svg class="tl" viewBox="0 0 328 92" role="img" aria-label="Timeline of the 32-minute meeting. Top row: when you typed each note. Below: when You, Priya and Marcus spoke. Two shaded bands at 22 and 25 minutes mark topics none of your notes covered. The playhead is at 7:58.">
+                <!-- missed-topic spans: quiet sky wash -->
+                <g filter="url(#iw-gouache)">
+                  <rect x="242" y="22" width="15" height="56" rx="3" class="iw-sky"/>
+                  <rect x="266" y="22" width="9" height="56" rx="3" class="iw-sky"/>
+                </g>
+                <!-- speaker lanes, painted -->
+                <g filter="url(#iw-gouache)">
+                  <g style="fill:var(--spk-you)"><rect x="56" y="32" width="8" height="8" rx="2"/><rect x="120" y="32" width="6" height="8" rx="2"/><rect x="140" y="32" width="12" height="8" rx="2"/><rect x="214" y="32" width="10" height="8" rx="2"/><rect x="304" y="32" width="12" height="8" rx="2"/></g>
+                  <g style="fill:var(--spk-priya)"><rect x="50" y="48" width="12" height="8" rx="2"/><rect x="92" y="48" width="8" height="8" rx="2"/><rect x="126" y="48" width="8" height="8" rx="2"/><rect x="158" y="48" width="12" height="8" rx="2"/><rect x="267" y="48" width="7" height="8" rx="2"/><rect x="250" y="48" width="8" height="8" rx="2"/></g>
+                  <g style="fill:var(--spk-marcus)"><rect x="66" y="64" width="12" height="8" rx="2"/><rect x="94" y="64" width="6" height="8" rx="2"/><rect x="116" y="64" width="6" height="8" rx="2"/><rect x="146" y="64" width="12" height="8" rx="2"/><rect x="243" y="64" width="13" height="8" rx="2"/><rect x="230" y="64" width="10" height="8" rx="2"/></g>
+                </g>
+                <!-- notes: when you typed -->
+                <g class="iw-indigo"><rect x="120" y="8" width="2" height="12"/><rect x="129" y="11" width="2" height="9"/><rect x="144" y="11" width="2" height="9"/><rect x="162" y="11" width="2" height="9"/></g>
+                <rect x="74.5" y="12.5" width="6" height="6" rx="1" class="iw-line" style="fill:var(--surface)"/>
+                <g class="iw-t-muted" font-size="10" font-weight="700"><text x="0" y="18">Notes</text><text x="0" y="40">You</text><text x="0" y="56">Priya</text><text x="0" y="72">Marcus</text></g>
+                <line class="iw-line iw-line-strong" x1="119" y1="4" x2="119" y2="80"/>
+                <g class="iw-t-muted" font-size="10" font-weight="600"><text x="50" y="91">0:00</text><text x="328" y="91" text-anchor="end">32:04</text></g>
+              </svg>
+              <div class="player"><button class="pl" type="button" aria-label="Play E1"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-play"/></svg></button><b>07:58</b><span>playing E1 · both tracks</span></div>
+            </div>
+            <div class="scroll">
+              <div class="turn"><div class="who"><span class="spk priya">Priya</span><span class="t">07:31</span></div><p>So the real question for offline is what happens when two people touch the same inspection.</p></div>
+              <div class="turn"><div class="who"><span class="spk marcus">Marcus</span><span class="t">07:58</span></div><p><span class="extag">E1</span><mark class="ex">If it's last-write-wins, an inspector's checklist edits just vanish when the office touches the same job.</mark> And nobody finds out until the report's wrong.</p></div>
+              <div class="turn"><div class="who"><span class="spk you">You</span><span class="t">08:14</span></div><p>Does merging per field get us most of the way? Checklists are mostly booleans and notes.</p></div>
+              <div class="turn"><div class="who"><span class="spk priya">Priya</span><span class="t">08:31</span></div><p><span class="extag">E2</span><mark class="ex">Okay — merge at the field level for checklists, keep last-write-wins for the rest.</mark> Marcus, can you prototype that?</p></div>
+              <div class="turn"><div class="who"><span class="spk marcus">Marcus</span><span class="t">08:44</span></div><p>Yeah. Give me till Monday.</p><p>Notes fields we'll just keep both versions and flag it.</p></div>
+              <div class="turn"><div class="who"><span class="spk priya">Priya</span><span class="t">09:02</span></div><p>Which brings us to the date. I don't think October 28th survives this.</p></div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <div><b>One document, in order of use</b>Brief, notes, missed topics, action items, answers. Each is a Newsreader heading on one indigo rule; only missed topics get a painted ground, because it's the part you didn't write.</div>
+    <div><b>Notes on the voice timeline</b>The rail plots your typing moments above the speaker lanes. Sky bands are speech nobody wrote down; the hollow tick is the meaning-only match.</div>
+    <div><b>Attribution you can check</b>Every action item keeps the sentence it came from, who asked, and the second it was said. The vermilion seal marks the only one that's yours.</div>
+    <div><b>Portable by default (proposed)</b>The write-up lives as Markdown with frontmatter and [[links]] to people, so it survives WorkScribe and works in Obsidian.</div>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "WorkScribe Clip",
+  "version": "0.1.0",
+  "description": "Clip the current page into the meeting WorkScribe is recording, or ask WorkScribe about it. Acts only when you click.",
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAp+7AYUUFNaBowpAFTwYiEHqbLtXwjn3V4HfFbqVKse94ZXAiszh3lE8W8R+Rcc+JV92/TCsJPtXaOOGbf8FRmyiZXObwyls//S/P+bEGLPvg0brYtRFk481bxa8fxbJT89sKu9xJ44MPUDzudWt9j2hiSuu9TTuRv0ePoCf1X/d74tPg0njwFsNrx1iN9L5AOgznRn6Fvx9WmWmasZQNq3075Hp4575l1JyqZassiyONQgv+7rxx2SEZNfGloSJpVEqZx0hDlzxAXCAGWr/f7egRc3O8Ioc3CaZOJX7HjtQA1bqiVX1rHSxQXxN/1AGS8exBE5aoB39+S0xB3S2+TwIDAQAB",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "scripting", "contextMenus", "nativeMessaging"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "action": { "default_title": "Clip to WorkScribe", "default_popup": "popup.html" }
+}

@@ -1,0 +1,152 @@
+[
+  {
+    "path": "nemo/",
+    "url": "https://github.com/NVIDIA/NeMo-Speech.cpp/releases/download/v0.2.0/nemo-speech-0.2.0-macos-aarch64-metal.tar.gz",
+    "sha256": "5cb02ba7c04f0b5585ce5cde9c830be5f0b7dfb4c83083c500109c381b4f2da9",
+    "bytes": 5031510
+  },
+  {
+    "path": "models/Qwen3.5-2B-Q4_K_M.gguf",
+    "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+    "url": "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf",
+    "bytes": 1280835840
+  },
+  {
+    "path": "models/gemma-4-E2B_q4_0-it.gguf",
+    "sha256": "fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634",
+    "url": "https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/675cff42a74c774d6cb76f76d8eacb49b48c9b93/gemma-4-E2B_q4_0-it.gguf",
+    "bytes": 3349516256
+  },
+  {
+    "path": "models/vision/mmproj-gemma-4-E2B-it-Q8_0.gguf",
+    "sha256": "9406f99c16d68cda4f1f0552192dcc99021ea1fc6d2fd50b1dc3ccf30d04b292",
+    "url": "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/b4243c156154b6dca9324415f8c7ccc098b4aed1/mmproj-gemma-4-E2B-it-Q8_0.gguf",
+    "bytes": 557368064
+  },
+  {
+    "path": "models/vision/gemma-4-E2B-it-Q4_0.gguf",
+    "sha256": "8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52",
+    "url": "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/b4243c156154b6dca9324415f8c7ccc098b4aed1/gemma-4-E2B-it-Q4_0.gguf",
+    "bytes": 2841481184
+  },
+  {
+    "path": "models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf",
+    "sha256": "a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae",
+    "url": "https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b/resolve/1c8deaecc64b91f034d73e08dd8b64625eb3395d/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf",
+    "bytes": 741548352
+  },
+  {
+    "path": "models/Nemotron-3-Diarization.q8_0.gguf",
+    "sha256": "08456d9e22cd9a323c0364d98375f3746d6e68507ebb705cd46438c534c7a3a1",
+    "url": "https://huggingface.co/nvidia/Nemotron-3-Diarization/resolve/f667ed73aee57d40cc39428eb768b4fd87a0a29e/Nemotron-3-Diarization.q8_0.gguf",
+    "bytes": 107012128
+  },
+  {
+    "path": "models/wespeaker_v2.mlmodelc/metadata.json",
+    "sha256": "ddc4858b4051254098015cd0b97080149839d697faf7b036f933190e70b26758",
+    "url": "https://huggingface.co/FluidInference/speaker-diarization-coreml/resolve/df2625ac79a7ac6b65ad868fee6d80f320da4232/wespeaker_v2.mlmodelc/metadata.json",
+    "bytes": 2738
+  },
+  {
+    "path": "models/wespeaker_v2.mlmodelc/model.mil",
+    "sha256": "2850f775d6ba659f01f616fed77ce6a45a25de3eb7e4bf3a4b07b658be4e13dd",
+    "url": "https://huggingface.co/FluidInference/speaker-diarization-coreml/resolve/df2625ac79a7ac6b65ad868fee6d80f320da4232/wespeaker_v2.mlmodelc/model.mil",
+    "bytes": 706900
+  },
+  {
+    "path": "models/wespeaker_v2.mlmodelc/coremldata.bin",
+    "sha256": "6feb2472a71fa9d8a84020c85206138a4f6261c565c9884bf518d59dd5838da7",
+    "url": "https://huggingface.co/FluidInference/speaker-diarization-coreml/resolve/df2625ac79a7ac6b65ad868fee6d80f320da4232/wespeaker_v2.mlmodelc/coremldata.bin",
+    "bytes": 359
+  },
+  {
+    "path": "models/wespeaker_v2.mlmodelc/weights/weight.bin",
+    "sha256": "34004f6798d35cad7071e2fdc67e63faaa782f53697e1cb49bcb452cf81ae151",
+    "url": "https://huggingface.co/FluidInference/speaker-diarization-coreml/resolve/df2625ac79a7ac6b65ad868fee6d80f320da4232/wespeaker_v2.mlmodelc/weights/weight.bin",
+    "bytes": 7243904
+  },
+  {
+    "path": "models/wespeaker_v2.mlmodelc/analytics/coremldata.bin",
+    "sha256": "d2b1fcde6121aea3ff0e14c1dc50d09dacb0314a2e89156353c31804230a422f",
+    "url": "https://huggingface.co/FluidInference/speaker-diarization-coreml/resolve/df2625ac79a7ac6b65ad868fee6d80f320da4232/wespeaker_v2.mlmodelc/analytics/coremldata.bin",
+    "bytes": 243
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/config.json",
+    "sha256": "4ff891a28a5d55562b55ff3aa4ef362968d378629f9453f337cb70a9e1b45f61",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/70fcf18f32c8cffc173fea982d5652d0bd1de8ea/config.json",
+    "bytes": 1084
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/tokenizer.json",
+    "sha256": "4d777ef5bdc1aa36227abdfb77c3e49e7b9c892d16e1b6bda41c393504828be4",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/70fcf18f32c8cffc173fea982d5652d0bd1de8ea/tokenizer.json",
+    "bytes": 32170510
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/embeddings.bf16",
+    "sha256": "56ebbdbfd706c827f3fae1d97aa39135c7ddc0f1e6d9b12f8565f84bbfbda877",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/70fcf18f32c8cffc173fea982d5652d0bd1de8ea/embeddings.bf16",
+    "bytes": 268435456
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/position_embeddings.f16",
+    "sha256": "17de9480acc23638c0634a97ed89e51ed664433256d7d6f109587dcd91c79124",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/3f978ddf92cac9aa07eb2dcf6eb36cf450f3dba4/position_embeddings.f16",
+    "bytes": 3145728
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/EmbeddingGemma2Text.mlpackage/Manifest.json",
+    "sha256": "83eace80b69b46f8415af620ba1b40d7c490d00f7c00ba9dedd2e29da6e9ac19",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/70fcf18f32c8cffc173fea982d5652d0bd1de8ea/EmbeddingGemma2Text.mlpackage/Manifest.json",
+    "bytes": 617
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/EmbeddingGemma2Text.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+    "sha256": "0df9aca02807cf490db6d4f1c68607a8c7f486ad23b376d1968fd3be5eb14677",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/70fcf18f32c8cffc173fea982d5652d0bd1de8ea/EmbeddingGemma2Text.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+    "bytes": 7323423
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/EmbeddingGemma2Text.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+    "sha256": "75b97ab036ca87eae60560c4034a63d604201498dc4b6f6971dd0b1e4558d61f",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/70fcf18f32c8cffc173fea982d5652d0bd1de8ea/EmbeddingGemma2Text.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+    "bytes": 276815424
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/EmbeddingGemma2Audio.mlpackage/Manifest.json",
+    "sha256": "65c8e9811516e7916a3d742261c7d5a02d4e43c113b437330ce86f98b3da3514",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/c0fefd0ab4c1140ab35fb582ddbe51b4f93205e1/EmbeddingGemma2Audio.mlpackage/Manifest.json",
+    "bytes": 617
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/EmbeddingGemma2Audio.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+    "sha256": "d40896e5c88d62b02d15cc975f27e254c28a5774a1702e09bf5483071623548d",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/c0fefd0ab4c1140ab35fb582ddbe51b4f93205e1/EmbeddingGemma2Audio.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+    "bytes": 1059089
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/EmbeddingGemma2Audio.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+    "sha256": "41d7b552caabe376e377dcbe1c8c5f9879853bc4f384a161bb1f886f19e84b56",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/c0fefd0ab4c1140ab35fb582ddbe51b4f93205e1/EmbeddingGemma2Audio.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+    "bytes": 586817408
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/EmbeddingGemma2Vision.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+    "sha256": "0085b5e04a13d000fe5969adeaa13d897f5a3cb7be60c76c8685c023747f89ef",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/3f978ddf92cac9aa07eb2dcf6eb36cf450f3dba4/EmbeddingGemma2Vision.mlpackage/Data/com.apple.CoreML/model.mlmodel",
+    "bytes": 2053174
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/EmbeddingGemma2Vision.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+    "sha256": "5b5b6dd8d80aa438bf91ba143fbe90d56a2e25bfcf685a56b990aad71cf75232",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/3f978ddf92cac9aa07eb2dcf6eb36cf450f3dba4/EmbeddingGemma2Vision.mlpackage/Data/com.apple.CoreML/weights/weight.bin",
+    "bytes": 304078400
+  },
+  {
+    "path": "models/embeddinggemma-2-coreml/EmbeddingGemma2Vision.mlpackage/Manifest.json",
+    "sha256": "376afe7b51608637312cd15a0a89b1d7863f9779502aaf5f12fa6b14c4272d8d",
+    "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/3f978ddf92cac9aa07eb2dcf6eb36cf450f3dba4/EmbeddingGemma2Vision.mlpackage/Manifest.json",
+    "bytes": 617
+  }
+]

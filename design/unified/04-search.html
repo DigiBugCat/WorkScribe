@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Search Moments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700&family=Kalam&display=swap">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="app.css">
+<script src="shared.js"></script>
+<style>
+  .srch { display: grid; grid-template-columns: 210px minmax(0, 1fr) 360px; height: 100%; min-height: 0; }
+  .filters { background: var(--surface); border-right: var(--stroke-hair) solid var(--line); padding: var(--space-4) var(--space-3); overflow: auto; display: flex; flex-direction: column; gap: var(--space-4); font-size: 13px; line-height: 18px; }
+  .flist { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+  .flist li { display: flex; align-items: center; gap: var(--space-2); padding: 5px 6px; border-radius: var(--radius-sm); font-weight: 500; }
+  .flist li .n { margin-left: auto; font-size: 12px; color: var(--ink-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .flist li.on { background: color-mix(in srgb, var(--indigo-wash) 55%, transparent); font-weight: 700; }
+  .flist li.off { color: var(--ink-muted); }
+  .flist small { display: block; font-size: 11.5px; line-height: 15px; color: var(--ink-muted); font-weight: 500; }
+  .results { overflow: auto; min-height: 0; padding: var(--space-4) var(--space-6) var(--space-8); display: flex; flex-direction: column; gap: var(--space-4); }
+  .qbar { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: center; }
+  .qfield { flex: 1 1 280px; display: flex; align-items: center; gap: var(--space-2); background: var(--surface-raised); box-shadow: var(--shadow-cutout); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-size: 16px; line-height: 22px; font-weight: 500; min-width: 0; }
+  .qfield .ico { color: var(--indigo); flex: none; }
+  .qfield span { min-width: 0; overflow-wrap: anywhere; }
+  .grp-h { display: flex; align-items: baseline; gap: var(--space-2); border-bottom: var(--stroke-line) solid var(--indigo); padding-bottom: 4px; margin-top: var(--space-2); }
+  .grp-h h2 { font-size: 17px; line-height: 22px; font-weight: 600; }
+  .grp-h .caption { margin-left: auto; }
+  .mo .tt .site { font-weight: 500; color: var(--ink-muted); }
+  .hl { background: color-mix(in srgb, var(--ochre) 40%, transparent); border-radius: 2px; padding: 0 2px; }
+  .pv { background: var(--surface); border-left: var(--stroke-hair) solid var(--line); overflow: auto; min-height: 0; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+  .pv h3 { font-size: 19px; line-height: 24px; font-weight: 600; }
+  .frame { border-radius: var(--radius-md); overflow: hidden; box-shadow: var(--shadow-cutout); }
+  .frame svg { display: block; width: 100%; height: auto; }
+  .scrub { width: 100%; height: auto; display: block; }
+  .pv .acts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  @media (max-width: 1150px) { .srch { grid-template-columns: minmax(0, 1fr) 340px; } .filters { display: none; } }
+  @media (max-width: 900px) { .srch { grid-template-columns: 1fr; height: auto; } .results, .pv { overflow: visible; } .pv { border-left: 0; border-top: var(--stroke-hair) solid var(--line); } .results { padding: var(--space-4); } }
+</style>
+</head>
+<body>
+<main class="stage">
+  <header class="stage-head">
+    <div class="head-text">
+      <span class="label">Concept A · Workspace · screen 04 of 05</span>
+      <h1>One search, returning moments</h1>
+      <p><span class="kbd">⌘K</span> searches meetings, notes, web clips, documents, audio, video and images at once, and every result is a moment: a speaker turn, a passage, a highlight, a second in a recording, a frame in a video, a page. The selected result previews on the right and plays from that second. <b>Ask instead</b> turns the same query into a cited answer in chat.</p>
+    </div>
+    <nav aria-label="Pages"><a href="03-meeting-review.html">Review</a><a href="index.html">Index</a><a href="05-menubar-notifications.html">Next: menu bar</a><button class="theme-toggle" type="button">Theme</button></nav>
+  </header>
+
+  <div class="window app soak" role="group" aria-label="WorkScribe window, search results">
+    <div class="titlebar">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <button class="iconbtn" type="button" aria-label="Show sidebar"><svg class="ico" aria-hidden="true"><use href="#i-sidebar"/></svg></button>
+      <button class="iconbtn" type="button" aria-label="Back"><svg class="ico" aria-hidden="true"><use href="#i-back"/></svg></button>
+      <button class="iconbtn" type="button" aria-label="Forward"><svg class="ico" aria-hidden="true"><use href="#i-chev"/></svg></button>
+      <span class="crumb">Search</span>
+    </div>
+    <div class="app-body railed">
+      <nav class="side rail" aria-label="WorkScribe">
+        <a href="01-home-chat.html" title="Ask"><svg class="ico ic" aria-hidden="true"><use href="#i-ask"/></svg><span class="vh vh-rail">Ask</span></a>
+        <a href="index.html#not-mocked" title="Today"><svg class="ico ic" aria-hidden="true"><use href="#i-today"/></svg><span class="vh vh-rail">Today</span></a>
+        <a href="03-meeting-review.html" title="Meetings"><svg class="ico ic" aria-hidden="true"><use href="#i-meetings"/></svg><span class="vh vh-rail">Meetings</span></a>
+        <a href="index.html#not-mocked" title="Notes"><svg class="ico ic" aria-hidden="true"><use href="#i-notes"/></svg><span class="vh vh-rail">Notes</span></a>
+        <a href="index.html#not-mocked" title="People"><svg class="ico ic" aria-hidden="true"><use href="#i-people"/></svg><span class="vh vh-rail">People</span></a>
+        <a class="on" href="04-search.html" aria-current="page" title="Search"><svg class="ico ic" aria-hidden="true"><use href="#i-search"/></svg><span class="vh vh-rail">Search</span></a>
+      </nav>
+      <div class="page" style="overflow:hidden">
+        <div class="srch">
+          <aside class="filters" aria-label="Filters">
+            <div><span class="label">Kind</span>
+              <ul class="flist">
+                <li class="on">All moments<span class="n">8</span></li>
+                <li>Meetings<span class="n">2</span></li>
+                <li>Notes<span class="n">1</span></li>
+                <li>Web clips<span class="n">1</span></li>
+                <li>Documents<span class="n">1</span></li>
+                <li>Audio<span class="n">1</span></li>
+                <li>Video<span class="n">1</span></li>
+                <li>Images<span class="n">1</span></li>
+              </ul>
+            </div>
+            <div><span class="label">Sources</span>
+              <ul class="flist">
+                <li><span>Meetings<small>46 · WorkScribe + Note Pro</small></span></li>
+                <li><span>Work vault<small>Obsidian · 128 notes · 37 clips</small></span></li>
+                <li><span>Contracts<small>12 PDFs</small></span></li>
+                <li><span>Product docs<small>8 files</small></span></li>
+                <li><span>Field recordings<small>23 audio</small></span></li>
+                <li><span>Site walkthroughs<small>14 videos</small></span></li>
+                <li><span>Site photos<small>412 images</small></span></li>
+                <li class="off"><span>People ops<small>off in search</small></span></li>
+              </ul>
+            </div>
+            <div><span class="label">People</span>
+              <ul class="flist"><li><span class="spk marcus">Marcus Chen</span></li><li><span class="spk priya">Priya Raman</span></li></ul>
+            </div>
+          </aside>
+
+          <section class="results" aria-label="Results">
+            <div class="qbar">
+              <div class="qfield" role="search"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg><span>inspector's phone ran out of storage on site</span></div>
+              <button class="btn" type="button"><svg class="ico" aria-hidden="true" style="width:14px;height:14px"><use href="#i-ask"/></svg>Ask instead</button>
+            </div>
+            <p class="caption">8 moments in 8 files · ranked by meaning · all on this Mac</p>
+
+            <div class="grp-h"><h2>Said in meetings</h2><span class="caption">by transcript, so the exact turn and speaker</span></div>
+            <ul class="moments">
+              <li class="mo"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><g filter="url(#iw-gouache)"><rect x="0" y="0" width="88" height="56" class="iw-sky"/><rect x="8" y="30" width="5" height="12" rx="2" style="fill:var(--spk-marcus)"/><rect x="16" y="22" width="5" height="20" rx="2" style="fill:var(--spk-marcus)"/><rect x="24" y="27" width="5" height="15" rx="2" style="fill:var(--spk-marcus)"/><rect x="40" y="31" width="5" height="11" rx="2" style="fill:var(--spk-you)"/><rect x="48" y="25" width="5" height="17" rx="2" style="fill:var(--spk-you)"/><rect x="64" y="29" width="5" height="13" rx="2" style="fill:var(--spk-marcus)"/></g></svg></span><span class="k"><span class="kind">meeting</span>6 Oct · 11:24 · <span class="spk marcus">Marcus</span></span><span class="tt">Note Pro · walk-and-talk with Marcus</span><span class="x">“The 12 mini just stalled once the queue went past a gig, and it never told anyone.”</span><button class="btn" type="button" aria-label="Play the walk-and-talk at 11:24"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-play"/></svg>Play</button></li>
+              <li class="mo"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><g filter="url(#iw-gouache)"><rect x="0" y="0" width="88" height="56" class="iw-sky"/><rect x="10" y="26" width="5" height="16" rx="2" style="fill:var(--spk-marcus)"/><rect x="18" y="20" width="5" height="22" rx="2" style="fill:var(--spk-marcus)"/><rect x="34" y="30" width="5" height="12" rx="2" style="fill:var(--spk-priya)"/><rect x="42" y="24" width="5" height="18" rx="2" style="fill:var(--spk-priya)"/><rect x="58" y="28" width="5" height="14" rx="2" style="fill:var(--spk-you)"/></g></svg></span><span class="k"><span class="kind">meeting</span>13 Oct · 12:40 · <span class="spk marcus">Marcus</span></span><span class="tt">Offline sync — v2.4 scope</span><span class="x">“…if we cap the queue we need to tell them what happens at the cap, not just silently stop.”</span><button class="btn" type="button" aria-label="Play Offline sync at 12:40"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-play"/></svg>Play</button></li>
+            </ul>
+
+            <div class="grp-h"><h2>In your vault</h2><span class="caption">notes and web clips, by passage or highlight</span></div>
+            <ul class="moments">
+              <li class="mo"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><rect x="0" y="0" width="88" height="56" class="iw-raised"/><g filter="url(#iw-gouache)"><rect x="10" y="22" width="52" height="8" rx="1" class="iw-blush"/></g><g class="iw-hair"><path d="M10 12h56M10 17h40M10 36h60M10 41h48M10 46h30"/></g></svg></span><span class="k"><span class="kind">note</span>9 Oct · Work vault</span><span class="tt">Halvorsen site visit</span><span class="x">“Two inspectors had to delete photos mid-inspection — <span class="wl">[[Halvorsen Construction]]</span> phones are 64 GB.”</span><button class="btn" type="button" aria-label="Open the note Halvorsen site visit">Open</button></li>
+              <li class="mo"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><rect x="0" y="0" width="88" height="56" class="iw-raised"/><rect x="0" y="0" width="88" height="10" class="iw-linefill" opacity=".6"/><g filter="url(#iw-gouache)"><rect x="10" y="26" width="58" height="7" rx="1" class="iw-ochre" opacity=".6"/></g><g class="iw-hair"><path d="M10 18h50M10 40h62M10 45h40"/></g></svg></span><span class="k"><span class="kind">clip</span>support.apple.com · clipped 2 Oct · 1 highlight</span><span class="tt">If your iPhone storage is full <span class="site">· Apple Support</span></span><span class="x">Your highlight: “<span class="hl">Some apps can't save new photos when storage is almost full</span>.”</span><button class="btn" type="button" aria-label="Open the clip in your vault">Open</button></li>
+            </ul>
+
+            <div class="grp-h"><h2>In your files</h2><span class="caption">a page, a second, a frame</span></div>
+            <ul class="moments">
+              <li class="mo on" aria-current="true"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><g filter="url(#iw-gouache)"><rect x="0" y="0" width="88" height="56" class="iw-sky"/><path d="M0 34 C20 26 40 30 88 24 V56 H0Z" class="iw-sage"/><rect x="48" y="16" width="26" height="20" rx="2" class="iw-ochre"/><path d="M0 44 C30 40 60 46 88 42 V56 H0Z" class="iw-sage-deep"/></g><rect x="56" y="43" width="28" height="10" rx="2" style="fill:var(--ink)" opacity=".72"/><text x="70" y="51" text-anchor="middle" font-size="8" font-weight="700" style="fill:var(--surface-raised);font-family:var(--font-sans)">03:05</text></svg></span><span class="k"><span class="kind">video</span>at 03:05 · frame</span><span class="tt">Halvorsen yard walkthrough.mov</span><span class="x">The phone shows “Storage almost full” beside the inspection form</span><button class="btn" type="button" aria-label="Open the walkthrough video at 3:05"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-play"/></svg>03:05</button></li>
+              <li class="mo"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><rect x="0" y="0" width="88" height="56" class="iw-raised"/><g filter="url(#iw-gouache)" class="iw-wash"><rect x="8" y="24" width="4" height="8" rx="2"/><rect x="15" y="18" width="4" height="20" rx="2"/><rect x="22" y="12" width="4" height="32" rx="2"/><rect x="29" y="20" width="4" height="16" rx="2"/><rect x="36" y="15" width="4" height="26" rx="2"/><rect x="50" y="21" width="4" height="14" rx="2"/><rect x="57" y="10" width="4" height="36" rx="2"/><rect x="64" y="19" width="4" height="18" rx="2"/><rect x="71" y="24" width="4" height="8" rx="2"/></g><line class="iw-line iw-line-strong" x1="44" y1="6" x2="44" y2="50"/></svg></span><span class="k"><span class="kind">audio</span>at 14:32</span><span class="tt">Halvorsen yard memo.m4a</span><span class="x">Field recording · sound matched by meaning</span><button class="btn" type="button" aria-label="Play Halvorsen yard memo from 14:32"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-play"/></svg>14:32</button></li>
+              <li class="mo"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><rect x="0" y="0" width="88" height="56" class="iw-linefill" opacity=".45"/><g filter="url(#iw-gouache)"><rect x="28" y="5" width="34" height="46" rx="2" class="iw-raised"/><rect x="33" y="24" width="24" height="7" rx="1" class="iw-wash"/></g><g class="iw-hair"><path d="M33 12h22M33 16h18M33 36h22M33 40h20M33 44h14"/></g></svg></span><span class="k"><span class="kind">PDF</span>page 6</span><span class="tt">Photo pipeline spec.pdf</span><span class="x">“Uploads pause when free space drops below 2 GB; the queue is kept on disk.”</span><button class="btn" type="button" aria-label="Open Photo pipeline spec at page 6">p. 6</button></li>
+              <li class="mo"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><g filter="url(#iw-gouache)"><rect x="0" y="0" width="88" height="56" class="iw-wash"/><rect x="10" y="18" width="30" height="38" rx="2" class="iw-sage-deep"/><rect x="34" y="10" width="44" height="46" rx="3" class="iw-blush"/><rect x="44" y="20" width="24" height="16" rx="2" class="iw-raised"/></g></svg></span><span class="k"><span class="kind">image</span>9 Oct</span><span class="tt">IMG_2291.heic</span><span class="x">Screenshot of iOS storage settings on an inspector's phone</span><button class="btn" type="button" aria-label="Open IMG_2291">Open</button></li>
+            </ul>
+          </section>
+
+          <aside class="pv" aria-label="Preview">
+            <span class="label">Preview · video · Site walkthroughs</span>
+            <h3>Halvorsen yard walkthrough.mov</h3>
+            <div class="frame">
+              <svg viewBox="0 0 320 180" role="img" aria-label="Painted placeholder for the matched video frame at 3 minutes 5 seconds: a phone held over an inspection form in a yard.">
+                <g filter="url(#iw-gouache)">
+                  <rect width="320" height="180" class="iw-sky"/>
+                  <path d="M0 110 C80 88 160 100 320 80 V180 H0Z" class="iw-sage"/>
+                  <path d="M0 146 C110 132 220 150 320 138 V180 H0Z" class="iw-sage-deep"/>
+                  <rect x="176" y="46" width="86" height="70" rx="4" class="iw-ochre"/>
+                  <rect x="110" y="40" width="54" height="96" rx="8" class="iw-indigo"/>
+                  <rect x="116" y="52" width="42" height="72" rx="3" class="iw-raised"/>
+                  <rect x="120" y="58" width="34" height="12" rx="2" class="iw-blush"/>
+                </g>
+              </svg>
+            </div>
+            <svg class="scrub" viewBox="0 0 320 30" role="img" aria-label="Video timeline 0:00 to 6:40, matched at 3:05 and 3:08.">
+              <line class="iw-axis" x1="2" y1="14" x2="318" y2="14"/>
+              <g filter="url(#iw-gouache)"><rect x="142" y="8" width="10" height="12" rx="2" class="iw-wash"/></g>
+              <line class="iw-line iw-line-strong" x1="146" y1="4" x2="146" y2="24"/>
+              <g class="iw-t-muted" font-size="10" font-weight="600"><text x="2" y="29">0:00</text><text x="146" y="29" text-anchor="middle">3:05</text><text x="318" y="29" text-anchor="end">6:40</text></g>
+            </svg>
+            <p class="caption">Matched a frame every 3 s and the soundtrack around it:</p>
+            <div class="turn"><div class="who"><span class="spk unk">Inspector, on site</span><span class="t">03:04</span></div><p><mark class="ex">It's saying storage almost full again, I can't add the roof photos.</mark></p></div>
+            <div class="acts"><button class="btn primary" type="button"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-play"/></svg>Play from 03:05</button><button class="btn text" type="button">Add to today's note</button></div>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <div><b>Moments, grouped by where they live</b>Said in meetings, in your vault, in your files. A meeting can return several turns; a file returns the page, second or frame that matched, not the file.</div>
+    <div><b>Web clips are a source</b>Pages clipped with Obsidian's Web Clipper land in the vault with title, site, date and your highlights. WorkScribe reads them like any note and cites the highlight.</div>
+    <div><b>Search and Ask share a field</b>⌘K is search; Ask instead sends the same words to chat, which answers in a paragraph and cites these same moments.</div>
+    <div><b>Filters follow the sources</b>People ops is off for search here, the same per-source switch that keeps it off screen during meetings.</div>
+  </div>
+</main>
+</body>
+</html>

@@ -17,9 +17,8 @@ actor VoiceEngine: VoiceExtracting {
     private var extractor: EmbeddingExtractor?
     private func load() throws -> EmbeddingExtractor {
         if let extractor { return extractor }
-        let url = Bundle.main.resourceURL?.appendingPathComponent("Models/wespeaker_v2.mlmodelc")
-        let development = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent(".runtime/models/wespeaker_v2.mlmodelc")
-        let selected = url.flatMap { FileManager.default.fileExists(atPath: $0.path) ? $0 : nil } ?? development
+        let selected = RuntimeAssets.model("wespeaker_v2.mlmodelc")
+        try RuntimeAssets.require(selected)
         let configuration = MLModelConfiguration()
         configuration.computeUnits = .all
         let model = try MLModel(contentsOf: selected, configuration: configuration)
@@ -67,10 +66,10 @@ actor VoiceEngine: VoiceExtracting {
         for key in grouped.keys.sorted() {
             for segment in grouped[key]!.sorted(by: { $0.end - $0.start > $1.end - $1.start }).prefix(3) {
                 try Task.checkCancellation()
-                guard ["system", "microphone", AppModel.plaudSource].contains(segment.source), let offset = meeting.sourceOffsets?[segment.source] else { continue }
+                guard ["system", "microphone", AppModel.plaudSource].contains(segment.source), let location = meeting.audioLocation(for: segment) else { continue }
                 let duration = min(10, segment.end - segment.start)
-                let start = segment.start - offset + max(0, (segment.end - segment.start - duration) / 2)
-                let samples = try readSamples(url: folder.appendingPathComponent(segment.source + ".wav"), start: start, duration: duration)
+                let start = segment.start - location.offset + max(0, (segment.end - segment.start - duration) / 2)
+                let samples = try readSamples(url: folder.appendingPathComponent(location.file), start: start, duration: duration)
                 // Quiet clips do not prevent other speakers being processed.
                 guard samples.reduce(Float(0), { $0 + $1 * $1 }) / Float(samples.count) > 0.000001 else { continue }
                 let vector = try embedding(samples: samples)

@@ -1,0 +1,746 @@
+{
+  "activeLine": {
+    "widgets": 0,
+    "source": "---\ndate: 2026-10-14 22:26\ntags:\n  - meeting\nworkscribe: \"m-live-mv93j56e\"\n---\n\n- ship date nov 4 not oct 28\n- beta 40 accts, halvorsen first\n- pricing for the beta?"
+  },
+  "rewrite": {
+    "before": {
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 165,
+            "head": 165
+          }
+        ],
+        "main": 0
+      },
+      "source": "---\ndate: 2026-10-14 22:26\ntags:\n  - meeting\nworkscribe: \"m-live-mv93j56e\"\n---\n\n- ship date nov 4 not oct 28\n- beta 40 accts, halvorsen first\n- pricing for the beta?",
+      "caret": 76.75
+    },
+    "after": {
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 165,
+            "head": 165
+          }
+        ],
+        "main": 0
+      },
+      "source": "---\ndate: 2026-10-14 22:26\ntags:\n  - meeting\nworkscribe: \"m-live-mv93j56e\"\n---\n\n- ship date nov 4 not oct 28\n- beta 40 accts, halvorsen first\n- pricing for the beta?",
+      "caret": 77.671875
+    },
+    "wet": 7,
+    "focused": true
+  },
+  "alignment": [
+    {
+      "text": "v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday. The rollout follows the migration review.\nType to make it yours",
+      "expected": 399.421875,
+      "actual": 399.421875,
+      "delta": 0,
+      "gap": 6.421875
+    },
+    {
+      "text": "40 accounts, Halvorsen Construction first because their contract names offline capture by year end.\nType to make it yours",
+      "expected": 399.421875,
+      "actual": 399.421875,
+      "delta": 0,
+      "gap": 7
+    },
+    {
+      "text": "Listening for this\nType to make it yours",
+      "expected": 399.421875,
+      "actual": 399.421875,
+      "delta": 0,
+      "gap": null
+    }
+  ],
+  "beforeOwned": [
+    {
+      "x": 399.421875,
+      "y": 277.171875,
+      "width": 29.703125,
+      "height": 18
+    },
+    {
+      "x": 399.421875,
+      "y": 277.171875,
+      "width": 29.703125,
+      "height": 18
+    },
+    {
+      "x": 429.125,
+      "y": 277.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 433.109375,
+      "y": 277.171875,
+      "width": 44.71875,
+      "height": 18
+    },
+    {
+      "x": 433.109375,
+      "y": 277.171875,
+      "width": 44.71875,
+      "height": 18
+    },
+    {
+      "x": 477.828125,
+      "y": 277.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 481.8125,
+      "y": 277.171875,
+      "width": 31.90625,
+      "height": 18
+    },
+    {
+      "x": 481.8125,
+      "y": 277.171875,
+      "width": 31.90625,
+      "height": 18
+    },
+    {
+      "x": 513.71875,
+      "y": 277.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 517.703125,
+      "y": 277.171875,
+      "width": 24.859375,
+      "height": 18
+    },
+    {
+      "x": 517.703125,
+      "y": 277.171875,
+      "width": 24.859375,
+      "height": 18
+    },
+    {
+      "x": 542.5625,
+      "y": 277.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 546.546875,
+      "y": 277.171875,
+      "width": 18.171875,
+      "height": 18
+    },
+    {
+      "x": 546.546875,
+      "y": 277.171875,
+      "width": 18.171875,
+      "height": 18
+    },
+    {
+      "x": 564.71875,
+      "y": 277.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 568.703125,
+      "y": 277.171875,
+      "width": 13.734375,
+      "height": 18
+    },
+    {
+      "x": 568.703125,
+      "y": 277.171875,
+      "width": 13.734375,
+      "height": 18
+    },
+    {
+      "x": 582.4375,
+      "y": 277.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 586.421875,
+      "y": 277.171875,
+      "width": 27.140625,
+      "height": 18
+    },
+    {
+      "x": 586.421875,
+      "y": 277.171875,
+      "width": 27.140625,
+      "height": 18
+    },
+    {
+      "x": 613.5625,
+      "y": 277.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 617.546875,
+      "y": 277.171875,
+      "width": 9.421875,
+      "height": 18
+    },
+    {
+      "x": 617.546875,
+      "y": 277.171875,
+      "width": 9.421875,
+      "height": 18
+    },
+    {
+      "x": 626.96875,
+      "y": 277.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 630.953125,
+      "y": 277.171875,
+      "width": 16.25,
+      "height": 18
+    },
+    {
+      "x": 630.953125,
+      "y": 277.171875,
+      "width": 16.25,
+      "height": 18
+    },
+    {
+      "x": 647.203125,
+      "y": 277.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 651.1875,
+      "y": 277.171875,
+      "width": 20.703125,
+      "height": 18
+    },
+    {
+      "x": 651.1875,
+      "y": 277.171875,
+      "width": 20.703125,
+      "height": 18
+    },
+    {
+      "x": 671.890625,
+      "y": 277.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 399.421875,
+      "y": 299.671875,
+      "width": 29.9375,
+      "height": 18
+    },
+    {
+      "x": 399.421875,
+      "y": 299.671875,
+      "width": 29.9375,
+      "height": 18
+    },
+    {
+      "x": 429.359375,
+      "y": 299.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 433.34375,
+      "y": 299.671875,
+      "width": 8.046875,
+      "height": 18
+    },
+    {
+      "x": 433.34375,
+      "y": 299.671875,
+      "width": 8.046875,
+      "height": 18
+    },
+    {
+      "x": 441.390625,
+      "y": 299.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 445.375,
+      "y": 299.671875,
+      "width": 20.84375,
+      "height": 18
+    },
+    {
+      "x": 445.375,
+      "y": 299.671875,
+      "width": 20.84375,
+      "height": 18
+    },
+    {
+      "x": 466.21875,
+      "y": 299.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 470.203125,
+      "y": 299.671875,
+      "width": 35.671875,
+      "height": 18
+    },
+    {
+      "x": 470.203125,
+      "y": 299.671875,
+      "width": 35.671875,
+      "height": 18
+    },
+    {
+      "x": 505.875,
+      "y": 299.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 509.859375,
+      "y": 299.671875,
+      "width": 17.15625,
+      "height": 18
+    },
+    {
+      "x": 509.859375,
+      "y": 299.671875,
+      "width": 17.15625,
+      "height": 18
+    },
+    {
+      "x": 527.015625,
+      "y": 299.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 531,
+      "y": 299.671875,
+      "width": 22.15625,
+      "height": 18
+    },
+    {
+      "x": 531,
+      "y": 299.671875,
+      "width": 22.15625,
+      "height": 18
+    },
+    {
+      "x": 553.15625,
+      "y": 299.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 557.140625,
+      "y": 299.671875,
+      "width": 45.859375,
+      "height": 18
+    },
+    {
+      "x": 557.140625,
+      "y": 299.671875,
+      "width": 45.859375,
+      "height": 18
+    },
+    {
+      "x": 603,
+      "y": 299.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 606.984375,
+      "y": 299.671875,
+      "width": 64.5625,
+      "height": 18
+    },
+    {
+      "x": 606.984375,
+      "y": 299.671875,
+      "width": 64.5625,
+      "height": 18
+    },
+    {
+      "x": 671.546875,
+      "y": 299.671875,
+      "width": 4.21875,
+      "height": 18
+    },
+    {
+      "x": 671.546875,
+      "y": 299.671875,
+      "width": 4.21875,
+      "height": 18
+    },
+    {
+      "x": 675.765625,
+      "y": 299.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 399.421875,
+      "y": 322.171875,
+      "width": 33.90625,
+      "height": 18
+    },
+    {
+      "x": 399.421875,
+      "y": 322.171875,
+      "width": 33.90625,
+      "height": 18
+    },
+    {
+      "x": 433.328125,
+      "y": 322.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 437.3125,
+      "y": 322.171875,
+      "width": 28.1875,
+      "height": 18
+    },
+    {
+      "x": 437.3125,
+      "y": 322.171875,
+      "width": 28.1875,
+      "height": 18
+    },
+    {
+      "x": 465.5,
+      "y": 322.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 469.484375,
+      "y": 322.171875,
+      "width": 68.546875,
+      "height": 18
+    },
+    {
+      "x": 469.484375,
+      "y": 322.171875,
+      "width": 68.546875,
+      "height": 18
+    },
+    {
+      "x": 538.03125,
+      "y": 322.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 542.015625,
+      "y": 322.171875,
+      "width": 17.15625,
+      "height": 18
+    },
+    {
+      "x": 542.015625,
+      "y": 322.171875,
+      "width": 17.15625,
+      "height": 18
+    },
+    {
+      "x": 559.171875,
+      "y": 322.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 563.15625,
+      "y": 322.171875,
+      "width": 40.84375,
+      "height": 18
+    },
+    {
+      "x": 563.15625,
+      "y": 322.171875,
+      "width": 40.84375,
+      "height": 18
+    },
+    {
+      "x": 604,
+      "y": 322.171875,
+      "width": 4.21875,
+      "height": 18
+    },
+    {
+      "x": 604,
+      "y": 322.171875,
+      "width": 4.21875,
+      "height": 18
+    },
+    {
+      "x": 608.21875,
+      "y": 322.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 612.203125,
+      "y": 322.171875,
+      "width": 26.203125,
+      "height": 18
+    },
+    {
+      "x": 612.203125,
+      "y": 322.171875,
+      "width": 26.203125,
+      "height": 18
+    },
+    {
+      "x": 638.40625,
+      "y": 322.171875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 399.421875,
+      "y": 344.671875,
+      "width": 43.375,
+      "height": 18
+    },
+    {
+      "x": 399.421875,
+      "y": 344.671875,
+      "width": 43.375,
+      "height": 18
+    },
+    {
+      "x": 442.796875,
+      "y": 344.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 446.78125,
+      "y": 344.671875,
+      "width": 47.734375,
+      "height": 18
+    },
+    {
+      "x": 446.78125,
+      "y": 344.671875,
+      "width": 47.734375,
+      "height": 18
+    },
+    {
+      "x": 494.515625,
+      "y": 344.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 498.5,
+      "y": 344.671875,
+      "width": 22.15625,
+      "height": 18
+    },
+    {
+      "x": 498.5,
+      "y": 344.671875,
+      "width": 22.15625,
+      "height": 18
+    },
+    {
+      "x": 520.65625,
+      "y": 344.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 524.640625,
+      "y": 344.671875,
+      "width": 64.5625,
+      "height": 18
+    },
+    {
+      "x": 524.640625,
+      "y": 344.671875,
+      "width": 64.5625,
+      "height": 18
+    },
+    {
+      "x": 589.203125,
+      "y": 344.671875,
+      "width": 3.984375,
+      "height": 18
+    },
+    {
+      "x": 593.1875,
+      "y": 344.671875,
+      "width": 43.4375,
+      "height": 18
+    },
+    {
+      "x": 593.1875,
+      "y": 344.671875,
+      "width": 43.4375,
+      "height": 18
+    },
+    {
+      "x": 636.625,
+      "y": 344.671875,
+      "width": 4.21875,
+      "height": 18
+    },
+    {
+      "x": 636.625,
+      "y": 344.671875,
+      "width": 4.21875,
+      "height": 18
+    }
+  ],
+  "glyphsBefore": {
+    "first": {
+      "x": 399.421875,
+      "y": 277.171875,
+      "width": 7.90625,
+      "height": 18
+    },
+    "last": {
+      "x": 636.625,
+      "y": 344.671875,
+      "width": 4.21875,
+      "height": 18
+    }
+  },
+  "ownedBeforeStyle": {
+    "text": "v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday. The rollout follows the migration review.",
+    "rect": {
+      "x": 399.421875,
+      "y": 275.171875,
+      "width": 277.578125,
+      "height": 90,
+      "top": 275.171875,
+      "right": 677,
+      "bottom": 365.171875,
+      "left": 399.421875
+    },
+    "font": "15px / 22.5px \"??\", \"??\", ui-sans-serif, -apple-system, \"system-ui\", system-ui, \"Segoe UI\", \"Google Sans Flex\", Roboto, \"Inter Variable\", Inter, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", sans-serif",
+    "spacing": "normal",
+    "whiteSpace": "pre-wrap"
+  },
+  "owned": {
+    "source": "---\n# anchor-shift regression\ndate: 2026-10-14 22:26\ntags:\n  - meeting\nworkscribe: \"m-live-mv93j56e\"\n---\n\n- ship date nov 4 not oct 28\n  v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday. The rollout follows the migration review.!\n- beta 40 accts, halvorsen first\n- pricing for the beta?",
+    "owned": 1
+  },
+  "glyphsAfter": {
+    "first": {
+      "x": 399.421875,
+      "y": 277.171875,
+      "width": 7.90625,
+      "height": 18
+    },
+    "last": {
+      "x": 636.5625,
+      "y": 344.671875,
+      "width": 4.234375,
+      "height": 18
+    }
+  },
+  "afterOwned": {
+    "text": "  v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday. The rollout follows the migration review.!",
+    "html": "<span class=\"cm-hmd-list-indent cm-hmd-list-indent-1\"><span class=\"cm-indent-spacing\">  </span></span><span class=\"cm-list-1\">v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday. The rollout follows the migration review.!</span>",
+    "rect": {
+      "x": 376,
+      "y": 274.171875,
+      "width": 301,
+      "height": 98,
+      "top": 274.171875,
+      "right": 677,
+      "bottom": 372.171875,
+      "left": 376
+    },
+    "font": "15px / 22.5px \"??\", \"??\", ui-sans-serif, -apple-system, \"system-ui\", system-ui, \"Segoe UI\", \"Google Sans Flex\", Roboto, \"Inter Variable\", Inter, \"Apple Color Emoji\", \"Segoe UI Emoji\", \"Segoe UI Symbol\", sans-serif",
+    "spacing": "normal",
+    "whiteSpace": "pre-wrap"
+  },
+  "question": {
+    "tab": "ask",
+    "focused": true
+  },
+  "unrelatedShortcut": true,
+  "finalizeScrollBefore": 155,
+  "final": {
+    "source": "---\n# anchor-shift regression\ndate: 2026-10-14 22:26\nduration: 1 min\nattendees:\n  - \"[[Marcus Chen]]\"\n  - \"[[Priya Raman]]\"\ntags:\n  - meeting\nworkscribe: \"m-live-mv93j56e\"\n---\n\n*The team kept offline for v2.4 and moved the date to Nov 4.*\n\n- ship date nov 4 not oct 28\n  v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday. The rollout follows the migration review.!\n- beta 40 accts, halvorsen first\n  *40 accounts, Halvorsen Construction first because their contract names offline capture by year end.*\n- pricing for the beta?\n\n## Also discussed\n\n- *Android parity. Android offline follows in 2.5.*\n\n## Action items\n\n- [ ] [[Priya Raman]] Email Halvorsen about the Nov 4 date 📅 2026-10-16\n",
+    "finalized": true,
+    "widgets": 0
+  },
+  "finalizeScrollAfter": 155,
+  "undo": {
+    "source": "---\n# anchor-shift regression\ndate: 2026-10-14 22:26\nduration: 1 min\nattendees:\n  - \"[[Marcus Chen]]\"\n  - \"[[Priya Raman]]\"\ntags:\n  - meeting\nworkscribe: \"m-live-mv93j56e\"\n---\n\n- ship date nov 4 not oct 28\n  v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday. The rollout follows the migration review.!\n- beta 40 accts, halvorsen first\n- pricing for the beta?",
+    "finalized": false
+  },
+  "listAlignment": [
+    {
+      "line": "- outer",
+      "expected": 427.921875,
+      "actual": 427.921875
+    },
+    {
+      "line": "  - inner",
+      "expected": 436.296875,
+      "actual": 436.296875
+    },
+    {
+      "line": "    - deepest",
+      "expected": 463.921875,
+      "actual": 463.921875
+    },
+    {
+      "line": "1. number",
+      "expected": 434.890625,
+      "actual": 434.890625
+    },
+    {
+      "line": "   2. child",
+      "expected": 447.453125,
+      "actual": 447.453125
+    },
+    {
+      "line": "      1. grandchild",
+      "expected": 479.265625,
+      "actual": 479.265625
+    },
+    {
+      "line": "- [ ] task",
+      "expected": 435.34375,
+      "actual": 435.34375
+    },
+    {
+      "line": "  - [ ] nested task",
+      "expected": 443.71875,
+      "actual": 443.71875
+    },
+    {
+      "line": "    - [ ] deepest task",
+      "expected": 471.34375,
+      "actual": 471.34375
+    }
+  ],
+  "composerBounds": {
+    "bottom": 1056,
+    "statusTop": 1073
+  },
+  "errors": []
+}

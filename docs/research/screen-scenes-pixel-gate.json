@@ -1,0 +1,41 @@
+{
+  "fixtures": [
+    {
+      "fixture": "slideshow",
+      "marked_boundaries": [
+        20,
+        40
+      ],
+      "old_ocr_calls_per_minute": 3,
+      "sampled_frames": 24
+    },
+    {
+      "fixture": "scrolling-document",
+      "marked_boundaries": [],
+      "old_ocr_calls_per_minute": 23,
+      "sampled_frames": 24
+    },
+    {
+      "fixture": "call-grid",
+      "marked_boundaries": [],
+      "old_ocr_calls_per_minute": 16,
+      "sampled_frames": 24
+    },
+    {
+      "fixture": "app-switches",
+      "marked_boundaries": [
+        20,
+        40
+      ],
+      "old_ocr_calls_per_minute": 3,
+      "sampled_frames": 24
+    },
+    {
+      "fixture": "game-stream",
+      "marked_boundaries": [],
+      "old_ocr_calls_per_minute": 24,
+      "sampled_frames": 24
+    }
+  ],
+  "scope": "Pixel-gate admissions only. Vision failed with OSStatus -6662; failed-inference CPU and wall times are excluded."
+}

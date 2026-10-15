@@ -1,0 +1,314 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>The AI Line</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="care.css">
+<style>
+  .wide { max-width: 1180px; }
+  /* a piece of Obsidian page, at 1:1 */
+  .sheet { background: var(--ob-bg); color: var(--ob-text); font-family: var(--f-ob); font-size: 16px; line-height: 1.5; border-radius: 10px; box-shadow: var(--shadow); padding: 22px 64px 22px 40px; min-width: 0; position: relative; }
+  .sheet .lines { gap: 7px; }
+  .sheet.tight { padding: 18px 60px 18px 36px; }
+  .anat { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  @media (max-width: 860px) { .anat { grid-template-columns: minmax(0, 1fr); } }
+  .spec { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 10px 18px; font-size: 14.5px; line-height: 1.5; margin: 0; }
+  .spec dt { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--pencil); padding-top: 3px; }
+  .spec dd { margin: 0; }
+  .spec code { color: var(--ink); }
+
+  .states { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); gap: 28px 24px; }
+  .state { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .state h3 { font-family: var(--f-body); font-size: 15.5px; font-weight: 600; letter-spacing: 0; display: flex; gap: 10px; align-items: baseline; }
+  .state h3 .mono { color: var(--faint); font-weight: 400; font-size: 11.5px; }
+  .state p { font-size: 14px; line-height: 1.55; color: var(--pencil); }
+  .state .copy { font-size: 13px; color: var(--ink); }
+  .state .copy q { font-style: normal; }
+  .sheet .chiprow { display: flex; justify-content: flex-end; gap: 6px; margin: 8px -44px -6px 0; }
+  .mchip { font-size: 11.5px; color: var(--ob-muted); background: var(--ob-side); box-shadow: 0 0 0 1px var(--ob-border); border-radius: 6px; padding: 2px 7px; display: inline-flex; gap: 5px; align-items: center; white-space: nowrap; }
+  .mchip .acc { color: var(--ob-accent-text); }
+  .headnote { font-size: 12px; color: var(--ob-muted); display: inline-flex; gap: 6px; align-items: center; margin-bottom: 10px; background: var(--ob-side); border-radius: 999px; padding: 2px 10px 2px 8px; box-shadow: 0 0 0 1px var(--ob-border); }
+  .headnote i { width: 6px; height: 6px; border-radius: 50%; background: var(--ob-orange); }
+
+  /* timing diagram */
+  .timing { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 10px 16px; font-size: 13.5px; align-items: center; }
+  .timing .lbl { color: var(--ink); }
+  .timing .lbl small { display: block; color: var(--pencil); font-size: 12px; }
+  .track { position: relative; height: 20px; background: var(--wash); border-radius: 4px; }
+  .track b { position: absolute; top: 3px; bottom: 3px; border-radius: 3px; background: var(--pencil); }
+  .track b.k { background: var(--blue); }
+  .track b.grad { background: linear-gradient(90deg, var(--blue), color-mix(in srgb, var(--blue) 12%, transparent)); }
+  .axis { position: relative; height: 18px; font-family: var(--f-mono); font-size: 11px; color: var(--faint); grid-column: 2; }
+  .axis span { position: absolute; transform: translateX(-50%); font-variant-numeric: tabular-nums; }
+  .axis span:first-child { transform: none; }
+  .axis span:last-child { transform: translateX(-100%); }
+  @media (max-width: 640px) { .timing { grid-template-columns: minmax(0, 1fr); } .axis { grid-column: 1; } }
+  .slowmo { display: flex; flex-direction: column; gap: 14px; }
+
+  .rules { counter-reset: r; list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: 14px 32px; }
+  .rules li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 0; font-size: 14.5px; line-height: 1.55; padding-top: 10px; border-top: 1px solid var(--rule); }
+  .rules li::before { counter-increment: r; content: counter(r); font-family: var(--f-mono); font-size: 12px; color: var(--faint); padding-top: 2px; }
+  .rules b { font-weight: 600; }
+
+  /* final forms */
+  .forms { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+  @media (max-width: 1000px) { .forms { grid-template-columns: minmax(0, 1fr); } }
+  .form { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .form h3 { font-family: var(--f-body); font-size: 16px; font-weight: 600; letter-spacing: 0; display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .form h3 .verdict { font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--pencil); font-weight: 400; }
+  .form.pick h3 .verdict { color: var(--sheet); background: var(--blue); padding: 2px 7px; border-radius: 4px; }
+  .src { margin: 0; background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 12px 14px; font-family: var(--f-mono); font-size: 12px; line-height: 1.6; color: var(--ink); overflow-x: auto; white-space: pre; }
+  .src .m { color: var(--pencil); }
+  .rv { background: var(--ob-bg); color: var(--ob-text); font-family: var(--f-ob); font-size: 15px; line-height: 1.5; border-radius: 8px; box-shadow: var(--shadow); padding: 14px 16px 14px 12px; display: flex; flex-direction: column; gap: 6px; }
+  .rv .li { display: grid; grid-template-columns: 22px minmax(0, 1fr); }
+  .rv .li::before { content: ""; width: 5px; height: 5px; border-radius: 50%; background: var(--ob-text); opacity: .55; margin: 9px 0 0 8px; }
+  .rv em { font-style: italic; }
+  .rv .bq { border-left: 2px solid var(--ob-accent); padding-left: 12px; margin: 4px 0 2px; }
+  .rv .co { border-radius: 4px; background: color-mix(in srgb, var(--ob-accent) 9%, transparent); padding: 8px 12px; margin: 4px 0 2px; }
+  .rv .co .ct { font-weight: 600; color: var(--ob-accent-text); font-size: 14px; display: flex; gap: 6px; align-items: center; }
+  .rv .co .ct svg.i { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .pros { font-size: 14px; line-height: 1.55; color: var(--pencil); display: flex; flex-direction: column; gap: 6px; }
+  .pros b { color: var(--ink); font-weight: 600; }
+  @media (max-width: 600px) { .sheet, .sheet.tight { padding: 18px 18px 18px 30px; } .ln .why { display: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar"><div class="wide">
+    <a class="brand" href="index.html">WorkScribe <span>Care</span></a>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="live.html">Live note</a>
+      <a href="line.html" aria-current="page">The AI line</a>
+      <a href="finalize.html">Stop → Finalize</a>
+      <a href="menubar.html">Menu bar</a>
+    </nav>
+    <button class="themebtn" data-theme-btn type="button">Theme: auto</button>
+  </div></header>
+
+  <div class="wide">
+    <div class="mhead">
+      <div>
+        <p class="eyebrow">Spec · 1:1 in Obsidian’s default theme</p>
+        <h1>The AI line</h1>
+      </div>
+      <p>Your words are ink. WorkScribe’s are pencil: the same typeface, a little smaller, a little lighter, sitting directly under the line they belong to. Pencil can be rubbed out and rewritten. At Finalize it is inked.</p>
+    </div>
+
+    <section class="section" style="padding-top:20px">
+      <h2>Anatomy</h2>
+      <div class="anat">
+        <div class="sheet">
+          <div class="lines" id="anat"></div>
+        </div>
+        <dl class="spec">
+          <dt>What it is</dt><dd>A CodeMirror block decoration after your line. It is not document text, so undo, search and sync only ever see what you typed.</dd>
+          <dt>Indent</dt><dd>Aligned to your text, not to the bullet. It reads as the second half of your thought.</dd>
+          <dt>Type</dt><dd>The theme’s <code>--font-text</code> at <code>0.9375em</code> (15 px under 16 px), line height 1.5. Your note names the topic; the pencil line adds only the detail.</dd>
+          <dt>Colour</dt><dd><code>--text-muted</code>. No WorkScribe colour, font or icon enters your editor; community themes just work.</dd>
+          <dt>Space</dt><dd>1 px above, 7 px to your next line, so each pair reads as one unit.</dd>
+          <dt>Mark</dt><dd>None when settled. A 4 px nib in the bullet column only while something is happening: hollow while listening, breathing while drafting, a dash while paused.</dd>
+          <dt>Hover</dt><dd><b>Why?</b> in the right margin opens the transcript at the moments it came from, until the transcript fades.</dd>
+          <dt>Edit</dt><dd>Click into it and type. It becomes yours on the first keystroke. No accept, no dismiss.</dd>
+        </dl>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Seven states</h2>
+      <p>Each one is a decision about how much to say. The default is to say less.</p>
+      <div class="states" id="states"></div>
+    </section>
+
+    <section class="section">
+      <h2>A rewrite, slowed down</h2>
+      <p>The rewrite is the moment the product is judged on. It should feel like someone quietly correcting a pencil note, not like a page reloading.</p>
+      <div class="slowmo">
+        <div class="sheet"><div class="lines" id="slow"></div></div>
+        <div class="controls" style="padding:0">
+          <button class="btn primary" type="button" id="p1">Play at real speed</button>
+          <button class="btn" type="button" id="p4">Play at ¼ speed</button>
+          <button class="btn" type="button" id="p0">Reset</button>
+        </div>
+        <div class="timing" aria-label="Timing of a rewrite, 0 to 3200 milliseconds">
+          <div class="lbl">Removed words fade out<small>in place, 140 ms ease-out</small></div>
+          <div class="track"><b style="left:0%;width:4.4%"></b></div>
+          <div class="lbl">Line height eases<small>180 ms, editor scroll compensates</small></div>
+          <div class="track"><b style="left:4.4%;width:5.6%"></b></div>
+          <div class="lbl">New words fade in<small>220 ms each, 24 ms apart</small></div>
+          <div class="track"><b class="k" style="left:4.4%;width:16%"></b></div>
+          <div class="lbl">New words dry<small>dark to pencil grey, 2.4 s</small></div>
+          <div class="track"><b class="grad" style="left:20%;width:80%"></b></div>
+          <div class="axis"><span style="left:0">0</span><span style="left:15.6%">500</span><span style="left:31.25%">1000</span><span style="left:46.9%">1500</span><span style="left:62.5%">2000</span><span style="left:78.1%">2500</span><span style="left:100%">3200 ms</span></div>
+        </div>
+        <p class="small muted">With Reduce Motion on, nothing fades or slides: the words change in one step and the new ones keep their darker colour for 2.4 s, so the change is still visible.</p>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>When a line may rewrite</h2>
+      <ol class="rules">
+        <li><span><b>Only when the facts change.</b> The model gets its previous line and must return it unchanged unless new evidence adds or contradicts something. A rewrite that only rephrases is dropped before it reaches the screen.</span></li>
+        <li><span><b>Never under the line you’re typing.</b> A new line waits for Return or a 4 s pause before anything appears under it.</span></li>
+        <li><span><b>Not near your hands.</b> Within three lines of the cursor, rewrites wait until you’ve stopped typing for 2 s.</span></li>
+        <li><span><b>Not often.</b> A 4 s debounce on new transcript, and at most one pass every 15 s per meeting.</span></li>
+        <li><span><b>Your spelling wins.</b> Numbers, names and acronyms you typed survive exactly as you typed them, unless the transcript plainly corrects them.</span></li>
+        <li><span><b>No flapping.</b> A line can’t lose more than half its words without new evidence, and can’t return to a wording it had before.</span></li>
+        <li><span><b>Animate only what you can see.</b> Lines scrolled out of view update silently. When an AI line above the cursor grows, the editor scrolls by the same amount, so your line doesn’t move.</span></li>
+        <li><span><b>If you edit your own line,</b> its AI line dims and rereads (“Rereading…”) rather than disappearing, then rewrites once against your new words.</span></li>
+      </ol>
+    </section>
+
+    <section class="section">
+      <h2>Its final form in the note</h2>
+      <p>At Finalize the pencil becomes Markdown. Three candidates, shown as source and as Obsidian renders them.</p>
+      <div class="forms">
+        <div class="form">
+          <h3>Callout <span class="verdict">No</span></h3>
+<pre class="src">- ship date nov 4 not oct 28
+  <span class="m">&gt; [!workscribe]</span>
+  <span class="m">&gt;</span> v2.4 moves from Oct 28 to Nov 4
+  <span class="m">&gt;</span> so QA gets a full week on the
+  <span class="m">&gt;</span> SQLite migration.
+- android?</pre>
+          <div class="rv">
+            <div class="li"><div>ship date nov 4 not oct 28<div class="co"><div class="ct"><svg class="i" viewBox="0 0 24 24"><use href="#i-wave"/></svg>Workscribe</div>v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration.</div></div></div>
+            <div class="li"><div>android?</div></div>
+          </div>
+          <div class="pros"><p><b>For:</b> unmistakable; can be collapsed; styled by a CSS snippet.</p><p><b>Against:</b> seven lines become seven boxes. It needs a custom callout type that means nothing outside Obsidian, and the plain text is noisy with <code>&gt; [!…]</code>.</p></div>
+        </div>
+        <div class="form">
+          <h3>Blockquote <span class="verdict">No</span></h3>
+<pre class="src">- ship date nov 4 not oct 28
+  <span class="m">&gt;</span> v2.4 moves from Oct 28 to Nov 4
+  <span class="m">&gt;</span> so QA gets a full week on the
+  <span class="m">&gt;</span> SQLite migration.
+- android?</pre>
+          <div class="rv">
+            <div class="li"><div>ship date nov 4 not oct 28<div class="bq">v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration.</div></div></div>
+            <div class="li"><div>android?</div></div>
+          </div>
+          <div class="pros"><p><b>For:</b> portable and familiar.</p><p><b>Against:</b> a quote mark means “someone said this”, and nobody did. In a note full of real quotes from Priya and Marcus, it would be read as one.</p></div>
+        </div>
+        <div class="form pick">
+          <h3>Indented italic <span class="verdict">Pick</span></h3>
+<pre class="src">- ship date nov 4 not oct 28
+  <span class="m">*</span>v2.4 moves from Oct 28 to Nov 4 so
+  QA gets a full week on the SQLite
+  migration. Priya tells Halvorsen on
+  Friday.<span class="m">*</span>
+- android?</pre>
+          <div class="rv">
+            <div class="li"><div>ship date nov 4 not oct 28<br><em>v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday.</em></div></div>
+            <div class="li"><div>android?</div></div>
+          </div>
+          <div class="pros"><p><b>For:</b> the lightest mark that survives every renderer: Obsidian, GitHub, iA Writer, a plain-text email. Italic has long meant another voice: stage directions, marginalia, a translator’s note. It stays inside your bullet, so outlines fold correctly.</p><p><b>Caveat:</b> strict CommonMark joins the two lines with a space. Obsidian’s default (strict line breaks off) shows the break.</p></div>
+        </div>
+      </div>
+      <div class="prose" style="padding-top:8px">
+        <p><b>What gets written, exactly.</b></p>
+        <ul>
+          <li>The topic lead is dropped. Your line above already names the topic (“ship date nov 4 not oct 28” doesn’t need “Ship date.” under it).</li>
+          <li>Lines you took over are written <em>without</em> italics. A week later you can still tell your words from WorkScribe’s, with no metadata and no plugin.</li>
+          <li>A line that was never discussed gets nothing written under it. Your “android?” stays a question.</li>
+          <li>Asterisks and underscores inside the AI text are escaped, so a line about <code>*.heic</code> files can’t break the italics.</li>
+          <li>No block IDs, transcript links or evidence anchors survive Finalize. The note has to stand on its own after the transcript fades.</li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script src="care.js"></script>
+<script>
+Care.ready(function () {
+  const $ = (s, r) => (r || document).querySelector(s);
+  function pair(you, state, ai, opts) {
+    opts = opts || {};
+    const d = document.createElement("div");
+    d.className = "ln";
+    d.dataset.state = state;
+    d.innerHTML = '<div class="b"></div><div class="t"><div class="you"></div><div class="aiw"><span class="nib"></span><div class="ai"></div>' + (opts.why === false ? "" : '<span class="why">Why?</span>') + "</div></div>";
+    $(".you", d).textContent = you;
+    if (ai && ai.startsWith("<")) $(".ai", d).innerHTML = ai; else if (ai) Care.setLine($(".ai", d), ai);
+    if (opts.hover) d.classList.add("show-why");
+    return d;
+  }
+
+  // anatomy
+  const an = $("#anat");
+  an.append(
+    pair("offline conflicts → LWW?? marcus pushback", "settled", "Marcus warned last-write-wins would silently drop inspectors’ checklist edits when the office edits the same job; field-level merge for checklists, last-write-wins for the rest."),
+    pair("ship date nov 4 not oct 28", "settled", "v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday.", { hover: true }),
+  );
+
+  // states
+  const OLD = "Marcus says the 12 mini stalled once the queue passed 1 GB.";
+  const NEW = "Cap at 200 photos or 1.5 GB per device, oldest first on reconnect; the 12 mini stalled past 1 GB.";
+  const S = [
+    ["Listening", "no evidence yet", "android?", "listening", '<span class="hint">Listening for this</span>',
+      "No empty row appears on Return. After 8 s with nothing relevant, a hollow nib and one faint phrase appear together.", "“Listening for this”. Never “No results” or “No match found”."],
+    ["Drafting", "first words", "beta 40 accts, halvorsen first", "drafting", "",
+      "The nib breathes. Words arrive one at a time in pencil, about 60 ms apart, so the line forms at reading pace rather than appearing in a block.", "No spinner, no “Thinking…”. The arriving words are the progress."],
+    ["Rewriting", "new evidence", "photo uploads queue — cap?", "settled", OLD,
+      "Only changed words move. New ones arrive darker and dry to pencil grey over 2.4 s. Hover shows the revision: “v3 · 2 min ago”.", "No strike-through, no diff colours, no “Updated” badge."],
+    ["Settled", "the usual state", "ship date nov 4 not oct 28", "settled", "v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration.",
+      "No mark at all. Muted colour and the smaller size are the only signal. Most lines spend most of the meeting here.", "Nothing to read but the line itself."],
+    ["Yours", "you edited it", "beta 40 accts, halvorsen first", "yours", "40 accounts. Halvorsen first because of the year-end contract clause.",
+      "Your first keystroke in the line makes it yours: it takes your text colour, keeps its place and size, and is never rewritten. Hover offers the way back.", "Hover: “Yours · Let AI rewrite”."],
+    ["Paused", "offline", "photo uploads queue — cap?", "paused", "Cap at 200 photos or 1.5 GB per device, oldest first on reconnect.",
+      "If no model is reachable (cloud down and the local model not loaded), lines freeze where they are and dim slightly. One note in the header explains it; individual lines don’t.", "Header: “AI lines paused · your notes are saving”. Nothing turns red."],
+    ["Not discussed", "after the final pass", "android?", "none", '<span class="hint">Not discussed</span>',
+      "If the final pass finds nothing, the line says so in faint text until Finalize, and then nothing is written. Your question stays a question.", "“Not discussed”. Not “No evidence”, which sounds like an accusation."],
+  ];
+  const st = $("#states");
+  let rw;
+  S.forEach(([name, sub, you, state, ai, body, copy], i) => {
+    const card = document.createElement("div");
+    card.className = "state";
+    card.innerHTML = '<h3>' + name + ' <span class="mono">' + sub + '</span></h3><div class="sheet tight"><div class="lines"></div></div><p></p><p class="copy"></p>';
+    const sh = $(".sheet", card);
+    if (state === "paused") sh.insertAdjacentHTML("afterbegin", '<span class="headnote"><i></i>AI lines paused · your notes are saving</span>');
+    const p = pair(you, state, ai, { why: state === "settled" || state === "yours" });
+    $(".lines", card).append(p);
+    if (state === "yours") { sh.insertAdjacentHTML("beforeend", '<div class="chiprow"><span class="mchip">Yours · <span class="acc">Let AI rewrite</span></span></div>'); }
+    if (name === "Rewriting") { rw = p; sh.insertAdjacentHTML("beforeend", '<div class="chiprow"><span class="mchip">v3 · 2 min ago</span></div>'); }
+    if (name === "Drafting") card.dataset.drafting = "1";
+    $("p", card).textContent = body;
+    $(".copy", card).textContent = copy;
+    st.append(card);
+  });
+  // drafting loops
+  const dr = $('[data-drafting] .ln');
+  function loopDraft() {
+    dr.dataset.state = "drafting";
+    Care.draft($(".ai", dr), "40 accounts, Halvorsen Construction first, because their contract names offline capture by year end.", { every: 60, done: () => { dr.dataset.state = "settled"; setTimeout(loopDraft, 3500); } });
+  }
+  // rewriting loops; for a still screenshot (#still) the wet words are frozen
+  const still = /still/.test(location.hash);
+  function loopRewrite() {
+    Care.setLine($(".ai", rw), OLD);
+    setTimeout(() => Care.rewrite($(".ai", rw), NEW, { freezeWet: still }), 1200);
+    if (!still) setTimeout(loopRewrite, 6500);
+  }
+  if (!Care.reduce && !still) loopDraft(); else Care.setLine($(".ai", dr), "40 accounts, Halvorsen Construction first, because their contract");
+  if (still) dr.dataset.state = "drafting";
+  loopRewrite();
+
+  // slow motion
+  const slow = $("#slow");
+  const sl = pair("photo uploads queue — cap?", "settled", OLD);
+  slow.append(sl);
+  const play = (k) => { Care.setLine($(".ai", sl), OLD); setTimeout(() => Care.rewrite($(".ai", sl), NEW, { slow: k }), 300); };
+  $("#p1").onclick = () => play(1);
+  $("#p4").onclick = () => play(4);
+  $("#p0").onclick = () => Care.setLine($(".ai", sl), OLD);
+  Care.fitStages();
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,387 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>WorkScribe Ink and Pencil</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400;1,6..72,500&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="care.css">
+<style>
+  .wide { max-width: 1180px; }
+  .hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 40px; align-items: center; padding-block: 56px 8px; }
+  @media (max-width: 900px) { .hero { grid-template-columns: minmax(0, 1fr); padding-top: 32px; } }
+  .hero h1 { margin-top: 14px; font-size: clamp(46px, 7vw, 84px); line-height: .98; letter-spacing: -.025em; font-weight: 400; }
+  .hero h1 em { font-style: italic; color: var(--pencil); }
+  .hero .lede { margin-top: 18px; }
+  .hero .by { margin-top: 18px; font-size: 14px; color: var(--pencil); }
+  .sheet { background: var(--ob-bg); color: var(--ob-text); font-family: var(--f-ob); font-size: 16px; line-height: 1.5; border-radius: 12px; box-shadow: var(--shadow); padding: 26px 70px 26px 44px; min-width: 0; }
+  .sheet .cap { font-family: var(--f-mono); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--ob-faint); margin-bottom: 14px; display: flex; justify-content: space-between; gap: 10px; }
+  .sheet .cap .rd { color: var(--ob-red); }
+
+  .shapes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
+  @media (max-width: 960px) { .shapes { grid-template-columns: minmax(0, 1fr); } }
+  .shape { background: var(--sheet); border-radius: 12px; padding: 18px 18px 20px; display: flex; flex-direction: column; gap: 12px; border: 1px solid var(--rule); min-width: 0; }
+  .shape.pick { border-color: var(--ink); box-shadow: var(--shadow); }
+  .shape .tag { font-family: var(--f-mono); font-size: 11px; letter-spacing: .07em; text-transform: uppercase; color: var(--pencil); display: flex; justify-content: space-between; }
+  .shape.pick .tag b { color: var(--sheet); background: var(--ink); padding: 1px 7px; border-radius: 4px; font-weight: 500; }
+  .shape h3 { font-size: 26px; line-height: 1.15; }
+  .shape > p { font-size: 14.5px; line-height: 1.55; color: var(--pencil); }
+  .shape svg.fig { width: 100%; height: auto; display: block; border-radius: 8px; background: var(--paper); }
+  .roles { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 4px 12px; font-size: 13.5px; line-height: 1.45; margin: 0; }
+  .roles dt { font-family: var(--f-mono); font-size: 11px; color: var(--faint); text-transform: uppercase; letter-spacing: .05em; padding-top: 2px; }
+  .roles dd { margin: 0; }
+  .bw { font-size: 13.5px; line-height: 1.5; display: flex; flex-direction: column; gap: 4px; color: var(--pencil); }
+  .bw b { color: var(--ink); font-weight: 600; }
+
+  .decision { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; }
+  @media (max-width: 860px) { .decision { grid-template-columns: minmax(0, 1fr); } }
+  .decision .prose p { font-size: 16px; }
+
+  .arc { display: flex; flex-direction: column; }
+  .moment { display: grid; grid-template-columns: 120px minmax(0, 1.25fr) minmax(0, 1fr); gap: 8px 28px; padding: 18px 0; border-top: 1px solid var(--rule); }
+  @media (max-width: 860px) { .moment { grid-template-columns: minmax(0, 1fr); } }
+  .moment .when { font-family: var(--f-mono); font-size: 12px; color: var(--pencil); font-variant-numeric: tabular-nums; padding-top: 4px; }
+  .moment .when b { display: block; font-family: var(--f-display); font-size: 21px; font-weight: 500; color: var(--ink); letter-spacing: -.01em; margin-top: 2px; }
+  .moment .what { display: flex; flex-direction: column; gap: 8px; font-size: 15px; line-height: 1.55; }
+  .moment .care { font-size: 14.5px; }
+  .moment .care::before { content: "Care · "; font-family: var(--f-mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--blue); }
+  .moment .feel { font-size: 13.5px; color: var(--pencil); }
+  .moment .fail { font-size: 14px; line-height: 1.55; color: var(--pencil); border-left: 2px solid var(--rule); padding-left: 14px; align-self: start; }
+  .moment .fail b { display: block; font-family: var(--f-mono); font-size: 11px; font-weight: 400; letter-spacing: .06em; text-transform: uppercase; color: var(--amber); margin-bottom: 2px; }
+  .moment q { quotes: "“" "”"; color: var(--ink); }
+
+  .shots { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: 20px; }
+  .shots a { text-decoration: none; color: var(--ink); display: flex; flex-direction: column; gap: 8px; }
+  .shots img { width: 100%; aspect-ratio: 16 / 10; object-fit: cover; object-position: top left; border-radius: 8px; box-shadow: var(--shadow); background: var(--wash); max-width: 100%; }
+  .shots b { font-family: var(--f-display); font-size: 20px; font-weight: 500; }
+  .shots span { font-size: 14px; color: var(--pencil); line-height: 1.45; }
+  .shots a:hover b { text-decoration: underline; text-underline-offset: 3px; }
+
+  .carebar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .carelist { columns: 2 420px; column-gap: 40px; }
+  .group { break-inside: avoid; padding-bottom: 22px; }
+  .group h3 { font-family: var(--f-mono); font-size: 11.5px; font-weight: 500; letter-spacing: .08em; text-transform: uppercase; color: var(--pencil); padding-bottom: 6px; border-bottom: 1px solid var(--rule); margin-bottom: 4px; }
+  .group ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
+  .group li { display: grid; grid-template-columns: 30px minmax(0, 1fr); font-size: 14.5px; line-height: 1.5; padding: 6px 0; }
+  .group li .n { font-family: var(--f-mono); font-size: 11.5px; color: var(--faint); padding-top: 2px; font-variant-numeric: tabular-nums; }
+  .group li.first span:last-child { background: linear-gradient(transparent 8%, var(--mark) 8%, var(--mark) 92%, transparent 92%); box-decoration-break: clone; -webkit-box-decoration-break: clone; color: var(--ink); }
+  .group li.first .n { color: var(--mark-ink); font-weight: 500; }
+  .only-first .group li:not(.first) { display: none; }
+  .only-first .group:not(:has(li.first)) { display: none; }
+  .legend { font-size: 13.5px; color: var(--pencil); }
+  .legend span { background: var(--mark); color: var(--ink); padding: 0 4px; }
+
+  .asks { counter-reset: q; list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; }
+  .asks li { display: grid; grid-template-columns: 36px minmax(0, 1fr); padding: 14px 0; border-top: 1px solid var(--rule); font-size: 15px; line-height: 1.55; }
+  .asks li::before { counter-increment: q; content: counter(q); font-family: var(--f-display); font-size: 22px; color: var(--pencil); line-height: 1.1; }
+  .asks b { font-weight: 600; }
+  .asks .rec { color: var(--pencil); font-size: 14px; display: block; margin-top: 2px; }
+  footer { padding-top: 64px; font-size: 13px; color: var(--pencil); }
+  @media (max-width: 600px) { .sheet, .sheet.tight { padding: 18px 18px 18px 30px; } .ln .why { display: none; } }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar"><div class="wide">
+    <a class="brand" href="index.html">WorkScribe <span>Care</span></a>
+    <nav>
+      <a href="index.html" aria-current="page">Overview</a>
+      <a href="live.html">Live note</a>
+      <a href="line.html">The AI line</a>
+      <a href="finalize.html">Stop → Finalize</a>
+      <a href="menubar.html">Menu bar</a>
+    </nav>
+    <button class="themebtn" data-theme-btn type="button">Theme: auto</button>
+  </div></header>
+
+  <div class="wide">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">WorkScribe · design exploration · 14 Oct 2026</p>
+        <h1>Ink and <em>pencil</em></h1>
+        <p class="lede">Only the note survives a WorkScribe meeting. So the note is the product, and everything else should be as quiet as a pencil line under your own words.</p>
+        <p class="by">Your words are ink. WorkScribe writes in pencil underneath, and keeps correcting itself while the conversation runs. At the end you ink it, and the tape is thrown away.</p>
+      </div>
+      <div class="sheet" aria-label="A live line, rewriting">
+        <div class="cap"><span>Offline sync — v2.4 scope</span><span class="rd">● 10:27</span></div>
+        <div class="lines" id="hero"></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Three shapes</h2>
+      <p>The same capabilities can be arranged in very different ways. These are the three most different arrangements I could make honest, each with its menu bar, its Obsidian and its Ask.</p>
+      <div class="shapes">
+        <article class="shape pick">
+          <div class="tag"><span>A</span><b>Chosen</b></div>
+          <h3>Pencil in the note</h3>
+          <svg class="fig" viewBox="0 0 300 150" aria-hidden="true">
+            <rect x="12" y="12" width="196" height="126" rx="6" fill="var(--sheet)" stroke="var(--rule)"/>
+            <rect x="214" y="12" width="74" height="126" rx="6" fill="var(--wash)"/>
+            <g fill="var(--ink)"><rect x="28" y="30" width="110" height="5" rx="2"/><rect x="28" y="62" width="90" height="5" rx="2"/><rect x="28" y="94" width="120" height="5" rx="2"/></g>
+            <g fill="var(--faint)"><rect x="28" y="41" width="160" height="4" rx="2"/><rect x="28" y="49" width="120" height="4" rx="2"/><rect x="28" y="73" width="150" height="4" rx="2"/><rect x="28" y="105" width="140" height="4" rx="2"/><rect x="28" y="113" width="80" height="4" rx="2"/></g>
+            <g fill="var(--pencil)"><rect x="222" y="24" width="40" height="4" rx="2"/><rect x="222" y="40" width="58" height="22" rx="3" fill="var(--sheet)"/><rect x="222" y="68" width="58" height="22" rx="3" fill="var(--sheet)"/></g>
+            <circle cx="282" cy="6" r="3" fill="var(--tally)"/>
+          </svg>
+          <p>WorkScribe lives inside the note you’re already writing. Under each of your lines, a pencil line rewrites itself as the meeting goes. The app itself is a tally light.</p>
+          <dl class="roles"><dt>Menu bar</dt><dd>A tally: status, Stop, Quick ask, what’s fading.</dd><dt>Obsidian</dt><dd>Everything you read and write, live and after.</dd><dt>Ask</dt><dd>The right sidebar, scoped to the open note; Quick ask is the same chat, anywhere.</dd></dl>
+          <div class="bw"><p><b>Best at:</b> trust in the moment; the note you keep.</p><p><b>Worst at:</b> people who don’t type in meetings, and anything that isn’t a meeting.</p></div>
+        </article>
+        <article class="shape">
+          <div class="tag"><span>B</span></div>
+          <h3>The desk</h3>
+          <svg class="fig" viewBox="0 0 300 150" aria-hidden="true">
+            <rect x="12" y="12" width="276" height="126" rx="6" fill="var(--sheet)" stroke="var(--rule)"/>
+            <g fill="var(--wash)" stroke="var(--rule)"><rect x="24" y="26" width="76" height="48" rx="4"/><rect x="110" y="26" width="76" height="30" rx="4"/><rect x="196" y="26" width="80" height="58" rx="4"/><rect x="24" y="84" width="76" height="42" rx="4"/><rect x="110" y="64" width="76" height="62" rx="4"/><rect x="196" y="92" width="80" height="34" rx="4"/></g>
+            <g fill="var(--pencil)"><rect x="32" y="34" width="40" height="4" rx="2"/><rect x="118" y="34" width="50" height="4" rx="2"/><rect x="204" y="34" width="44" height="4" rx="2"/><rect x="32" y="92" width="34" height="4" rx="2"/><rect x="118" y="72" width="40" height="4" rx="2"/><rect x="204" y="100" width="52" height="4" rx="2"/></g>
+            <circle cx="282" cy="6" r="3" fill="var(--amber)"/>
+          </svg>
+          <p>A place where the day collects: meetings, clips, questions heard, answers given, ambient captures. You clear it by filing things into notes.</p>
+          <dl class="roles"><dt>Menu bar</dt><dd>An inbox count: what landed on the desk.</dd><dt>Obsidian</dt><dd>Where filed things end up; a second room.</dd><dt>Ask</dt><dd>At the desk, over the day’s pile.</dd></dl>
+          <div class="bw"><p><b>Best at:</b> loose things with no note to live in; ambient capture.</p><p><b>Worst at:</b> it fights the fade. A desk of things that delete themselves in 24 hours is a desk of countdowns, and an inbox that needs emptying is a chore.</p></div>
+        </article>
+        <article class="shape">
+          <div class="tag"><span>C</span></div>
+          <h3>The familiar</h3>
+          <svg class="fig" viewBox="0 0 300 150" aria-hidden="true">
+            <rect x="12" y="12" width="276" height="16" rx="3" fill="var(--wash)"/>
+            <circle cx="262" cy="20" r="3.5" fill="var(--tally)"/>
+            <rect x="170" y="36" width="110" height="52" rx="8" fill="var(--sheet)" stroke="var(--rule)"/>
+            <g fill="var(--pencil)"><rect x="180" y="48" width="70" height="4" rx="2"/><rect x="180" y="58" width="88" height="4" rx="2"/><rect x="180" y="68" width="54" height="4" rx="2"/></g>
+            <rect x="20" y="96" width="110" height="42" rx="6" fill="none" stroke="var(--rule)" stroke-dasharray="4 4"/>
+            <g fill="var(--faint)"><rect x="30" y="108" width="60" height="4" rx="2"/><rect x="30" y="118" width="80" height="4" rx="2"/></g>
+          </svg>
+          <p>Mostly invisible. It listens, answers when asked, nudges at the right moment, and leaves a finished note behind. You rarely watch it work.</p>
+          <dl class="roles"><dt>Menu bar</dt><dd>Everything: status, nudges, a small feed.</dd><dt>Obsidian</dt><dd>The output folder.</dd><dt>Ask</dt><dd>Quick ask only.</dd></dl>
+          <div class="bw"><p><b>Best at:</b> zero attention; people who just want the minutes.</p><p><b>Worst at:</b> it hides the live line, which is what earns trust. You’d judge it only by its output, at the end, when it’s too late to steer.</p></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Why the note</h2>
+      <div class="decision">
+        <div class="prose">
+          <p><b>Care belongs where things last.</b> Transcript, audio, screen and evidence are gone in a day. The note is the only thing you’ll ever see again, so it gets the craft, and every other surface gets as little as it can bear.</p>
+          <p><b>The live line is the idea.</b> Reading across two columns takes extra effort. A pencil line directly under your own words turns the meeting into a quiet conversation with your notes, and lets you steer while it’s still happening.</p>
+          <p><b>Obsidian is already open.</b> A second window would compete for the same screen next to Zoom. Inside Obsidian, WorkScribe wears Obsidian’s clothes: its font, its colours, its sidebar.</p>
+        </div>
+        <div class="prose">
+          <p><b>What it borrows.</b> From the familiar: the tally, so you know it’s listening without looking. From the desk: nothing structural. Loose things (a clip outside a meeting, an answer you keep) go to today’s daily note, which is already your desk.</p>
+          <p><b>People who don’t type</b> still get something: a meeting with an empty note ends with a brief, “Also discussed” and action items. That is the familiar’s whole output, for free.</p>
+          <p><b>Ambient capture</b> (screenpipe-style, gated by a decision model) gets no surface at all in this shape. It is a source Ask can cite, under the same 24-hour fade. No feed, no timeline. If it ever needs a surface, it’s a line in the daily note, written only when you ask.</p>
+          <p><b>The risk</b> is mostly engineering: CodeMirror decorations that rewrite live must handle IME, scroll anchoring and Obsidian Sync without a flicker. The mockups assume that bar is met.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>The arc of a meeting</h2>
+      <p>Nine moments, one small act of care in each, and what happens when it goes wrong. The sample is “Offline sync — v2.4 scope” on Wed 14 Oct, with Priya Raman and Marcus Chen.</p>
+      <div class="arc" id="arc"></div>
+    </section>
+
+    <section class="section">
+      <h2>The mockups</h2>
+      <p>All at real scale, in Obsidian’s default theme where the UI lives inside Obsidian. Use the theme switch at the top right to see light and dark.</p>
+      <div class="shots">
+        <a href="live.html"><img src="shots/live-light.png" alt="The live note in Obsidian with AI lines under each line and the side panel"><b>The live note</b><span>A scripted scene: typing, drafting, a rewrite, two questions. Hover a grey line for Why?</span></a>
+        <a href="line.html"><img src="shots/line-light.png" alt="The AI line spec page"><b>The AI line</b><span>Anatomy, seven states, a slowed-down rewrite with its timing, and the final Markdown form.</span></a>
+        <a href="finalize.html"><img src="shots/finalize-3-finalized-light.png" alt="A finalized meeting note with the fade countdown"><b>Stop → Finalize</b><span>The final pass, the Finalize bar, ink, the fade countdown, and the note a week later.</span></a>
+        <a href="menubar.html"><img src="shots/menubar-light.png" alt="Menu bar tally states and menus"><b>Menu bar and edges</b><span>The tally’s five states, the menu, notifications, Quick ask over a call, the clipper.</span></a>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Unnecessary care</h2>
+      <p>Sixty-four details, each one sentence, grouped by where they live. The ten I’d build first are highlighted; together they decide whether the live line feels trustworthy and whether the fade feels safe.</p>
+      <div class="carebar">
+        <button class="btn" type="button" id="onlyFirst" aria-pressed="false">Show only the first ten</button>
+        <span class="legend"><span>Highlighted</span> = build first</span>
+      </div>
+      <div class="carelist" id="care"></div>
+    </section>
+
+    <section class="section">
+      <h2>Decisions for you</h2>
+      <ol class="asks">
+        <li><span><b>Finalize: a press, or automatic?</b> I chose an explicit Finalize with a safety net (it happens on its own an hour before the transcript fades). The alternative writes into the note as soon as the final pass ends, which is simpler but takes away the moment where you remove what you don’t want.<span class="rec">Recommendation: explicit, with the safety net.</span></span></li>
+        <li><span><b>Indented italic as the final form,</b> with edited lines left roman and topic labels dropped. It reads beautifully in Obsidian; strict CommonMark renderers join the two lines with a space.<span class="rec">Recommendation: accept the caveat.</span></span></li>
+        <li><span><b>Where Indigo Wash still lives.</b> Inside Obsidian, WorkScribe uses the theme’s own tokens. I also made the menu, notifications and Quick ask fully native. That leaves Indigo Wash for the app icon, onboarding and the website.<span class="rec">Recommendation: yes, retire it from in-product surfaces.</span></span></li>
+        <li><span><b>Strip section markers at the fade.</b> The vault writer’s <code>&lt;!-- workscribe:begin --&gt;</code> markers protect your edits while WorkScribe might still write. After the fade it never will, so they can go, leaving pure Markdown. The cost: no later regeneration of that note, ever.<span class="rec">Recommendation: strip them.</span></span></li>
+        <li><span><b>Notes before the call.</b> Creating the note four minutes ahead (so prep lines get answered) needs calendar access through EventKit.<span class="rec">Recommendation: ask for it at the first meeting, not during onboarding.</span></span></li>
+        <li><span><b>The start tick.</b> One sound, only when recording starts by itself. On by default?<span class="rec">Recommendation: on; it’s the only way to know auto-start heard the call.</span></span></li>
+      </ol>
+    </section>
+
+    <footer>Mockups to react to, not a spec. Sample people and content are fictional. Files: <code>design/care/</code> on the <code>care</code> branch; the written argument is in <code>README.md</code> beside this page.</footer>
+  </div>
+</div>
+
+<script src="care.js"></script>
+<script>
+Care.ready(function () {
+  const $ = (s, r) => (r || document).querySelector(s);
+
+  // hero: one pair, rewriting on a slow loop
+  const OLD = "**Photo queue.** Marcus says the 12 mini stalled once the queue passed 1 GB.";
+  const NEW = "**Photo queue.** Cap at 200 photos or 1.5 GB per device, oldest first on reconnect; the 12 mini stalled past 1 GB.";
+  function pair(you, ai) {
+    const d = document.createElement("div");
+    d.className = "ln"; d.dataset.state = "settled";
+    d.innerHTML = '<div class="b"></div><div class="t"><div class="you"></div><div class="aiw"><span class="nib"></span><div class="ai"></div></div></div>';
+    $(".you", d).textContent = you; Care.setLine($(".ai", d), ai);
+    return d;
+  }
+  const hero = $("#hero");
+  hero.append(pair("ship date nov 4 not oct 28", "**Ship date.** v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration."));
+  const ph = pair("photo uploads queue — cap?", OLD);
+  hero.append(ph);
+  let flip = false;
+  function loop() { flip = !flip; Care.rewrite($(".ai", ph), flip ? NEW : OLD); setTimeout(loop, flip ? 6000 : 3500); }
+  if (!Care.reduce) setTimeout(loop, 1600); else Care.setLine($(".ai", ph), NEW);
+
+  // the arc
+  const ARC = [
+    ["09:58", "Before", "Four minutes out, the tally grows a small dot and one notification offers the note. The note already exists: title from the calendar, Priya and Marcus as links. You write one prep line: <q>Don’t agree to Oct 28 until Marcus has sized the migration.</q>",
+      "Prep lines get AI lines too. Before the call ends, that one reads <q>Answered. Oct 28 is off…</q>",
+      "Silent. One banner, one button: Open Note.",
+      ["No calendar access", "No nudge and no note ahead. The call starting still starts recording, with a soft tick so you know it heard."]],
+    ["10:02", "The first ten seconds", "Recording starts when Zoom does. The tally’s red dot swells once and holds still. The note’s header gains a pill, <q>● 0:03 · Mic + system · Stop</q>, and the cursor waits on the first empty bullet.",
+      "At ten seconds it checks both channels. If only your mic is coming through, it says so by name: <q>Priya and Marcus won’t be in the transcript.</q>",
+      "One 700 ms swell; a tick only for auto-start.",
+      ["Mic permission denied", "Amber tally, never red. The pill reads <q>Microphone is off · Open Settings</q> and goes straight to Privacy & Security › Microphone."]],
+    ["10:08", "Typing", "You type shorthand in Obsidian’s own editor. Under the lines you’ve left, pencil lines appear and settle. Nothing appears under the line you’re typing, and nothing moves near your hands.",
+      "When a pencil line above your cursor grows, the editor scrolls by the same amount. The line you’re typing stays exactly where your eyes are.",
+      "Words arrive about 60 ms apart; no spinner, ever.",
+      ["Obsidian quits mid-meeting", "Recording carries on. Reopening the note says <q>Caught up on 6 minutes</q> and drafts the lines you typed in Quick ask meanwhile."]],
+    ["10:21", "A question", "Priya asks what the Halvorsen contract commits them to. The side panel doesn’t switch tabs. Live Q&A gets a count; the answer is waiting there with two sources and the model that made it.",
+      "Questions asked of you by name are marked <q>Asked of you</q> and sorted first. That is the one you might need in ten seconds.",
+      "No sound, no motion outside the panel.",
+      ["Cloud unreachable", "It answers on this Mac and says <q>On this Mac (offline)</q>. If nothing answers it: <q>Nothing in your notes or files answers this.</q> Never a guess."]],
+    ["10:27", "A line rewrites", "New evidence arrives about the photo queue. The pencil line under <q>photo uploads queue — cap?</q> changes only the words that changed. New words arrive darker and dry to pencil grey.",
+      "A rewrite that only rephrases is dropped. Lines change when facts change, at most once every 15 seconds.",
+      "140 ms out, 180 ms height, 220 ms in, 2.4 s to dry.",
+      ["No model at all", "Lines freeze in place under one header note, <q>AI lines paused · your notes are saving</q>. Nothing turns red."]],
+    ["10:34", "Stop", "One press in the pill, the menu bar or ⌥⌘R. Audio closes immediately. The final pass reads the whole call and sweeps down your note in reading order; you can keep typing.",
+      "<q>android?</q> finally gets its answer. <q>pricing for the beta?</q> is marked Not discussed, and will get nothing written under it.",
+      "A faint wash moves line by line, ~0.5 s each.",
+      ["Stopped by mistake", "<q>Resume</q> stays in the pill for ten minutes and continues the same note."]],
+    ["10:35", "Finalize", "A small bar says exactly what will be written: 5 AI lines, a brief, 3 action items, 1 more topic. Your edited lines stay as you wrote them. Press it and the pencil turns to ink, in reading order.",
+      "It is one editor transaction. A single ⌘Z puts every line back in pencil.",
+      "45 ms per line; a notice: <q>Written into your note. ⌘Z puts the pencil back.</q>",
+      ["The file changed underneath", "Sync or another device edited the note. Finalize writes beside it as <q>… (WorkScribe).md</q> and says where."]],
+    ["10:35 → Thu", "The fade", "The pill becomes <q>Transcript fades in 23 h · Done now</q>, with a small arc that empties. The menu bar lists what’s fading. Done now confirms inline and names what goes.",
+      "If you never pressed Finalize, it finalizes an hour before the fade and tells you once. Nothing is ever lost to the fade.",
+      "Hours, rounded down; minutes only in the last hour.",
+      ["Deletion fails", "<q>Couldn’t delete 1 file yet. Trying again in a minute.</q> It retries until done, across restarts."]],
+    ["Wed 21 Oct", "A week later", "The note opens with no plugin chrome at all. Your lines in roman, WorkScribe’s in italic, a one-paragraph brief at the top, real tasks at the bottom.",
+      "Ask answers from the note and says so. The Transcript tab says when the transcript faded and that the note is what remains.",
+      "Nothing moves. It’s just a note.",
+      ["WorkScribe uninstalled", "The note still reads perfectly. Nothing in it depends on the plugin to render."]],
+  ];
+  $("#arc").innerHTML = ARC.map(([t, name, what, care, feel, [fh, fb]]) =>
+    '<div class="moment"><div class="when">' + t + "<b>" + name + '</b></div><div class="what"><p>' + what + '</p><p class="care">' + care + '</p><p class="feel">' + feel + '</p></div><div class="fail"><b>If it fails · ' + fh + "</b>" + fb + "</div></div>").join("");
+
+  // the care list (* = build first)
+  const CARE = [
+    ["Menu bar and sound", [
+      "The recording timer uses tabular numerals in a slot sized for 00:00, so nothing in the menu bar shifts as it counts; it widens once, at the hour.",
+      "The red dot swells once when recording starts and then holds still; a dot that pulses for an hour becomes noise.",
+      "Red only ever means recording; anything that needs you is amber, and the tally changes shape too, so it reads in grayscale.",
+      "The menu opens with Stop highlighted, so stopping from the menu bar is two clicks without aiming.",
+      "“Fading soon” in the menu lists transcripts about to be deleted, with hours left.",
+      "Quitting while recording asks “Stop and save ‘Offline sync — v2.4 scope’, then quit?”, and updates wait until nothing is recording.",
+      "The start tick plays only when recording started by itself; manual starts and stops are silent.",
+    ]],
+    ["Before the meeting", [
+      "Four minutes before a meeting with a call link, the tally gets a small dot; a banner only when it’s worth one.",
+      "The note exists before the call, titled from the calendar with attendees as links, so prep lines can be answered by the meeting.",
+      "Opening the note never starts recording; the call starting does, or you do.",
+      "Ad-hoc meetings are named from the first 45 words, and a title you typed is never replaced.",
+    ]],
+    ["The first ten seconds", [
+      "*Within ten seconds WorkScribe checks both channels, and if only your mic comes through it says so by name: “Priya and Marcus won’t be in the transcript.”",
+      "The cursor waits on the first empty bullet, so your first keystroke lands in the note.",
+      "The pill names its live sources in words (“Mic + system”), not icons to decode.",
+      "The menu bar, the pill and the status bar read one clock, so they never disagree by a second.",
+    ]],
+    ["Typing", [
+      "*An AI line never appears under the line you’re still typing; it waits for Return or a 4-second pause.",
+      "*When an AI line above your cursor grows, the editor scrolls by the same amount, so the line you’re typing never moves.",
+      "Rewrites within three lines of the cursor wait until you’ve stopped typing for 2 seconds.",
+      "AI lines are decorations, not text, so undo, search and Sync see only your keystrokes until Finalize.",
+      "Copying across AI lines copies them as they’ll be written (indented italics), so a mid-meeting paste into Slack looks right.",
+      "A line that hasn’t come up says “Listening for this” once, in the faintest grey, and nothing more.",
+    ]],
+    ["The AI line", [
+      "*A rewrite changes only the words that changed; surviving words don’t move or flicker.",
+      "*New words arrive darker and dry to pencil grey over 2.4 s, so you can see what changed without a highlight.",
+      "The line’s height eases over 180 ms; nothing jumps.",
+      "A rewrite that only rephrases is dropped before it reaches the screen.",
+      "Numbers, names and acronyms you typed survive exactly as you typed them.",
+      "Lines scrolled out of view update silently; animation is spent only on what you can see.",
+      "Your first keystroke in an AI line makes it yours for good; “Let AI rewrite” waits on hover if you change your mind.",
+      "The AI line uses your theme’s font and muted colour; no WorkScribe font, colour or icon enters your editor.",
+      "With Reduce Motion on, words change in one step but keep the darker colour for 2.4 s, so the change is still visible.",
+    ]],
+    ["Questions and Ask", [
+      "*A detected question never takes focus or switches the panel’s tab; Live Q&A gets a count, and that’s all.",
+      "Questions asked of you by name are marked “Asked of you” and sorted first.",
+      "Every answer says where it was made: “GPT-5 mini” or “On this Mac”.",
+      "When nothing answers a question, the card says “Nothing in your notes or files answers this” instead of guessing.",
+      "“Add to note” inserts the answer under your cursor as your line, with the asker’s name and the source.",
+      "Ask cites notes for past meetings, never transcripts that have faded.",
+    ]],
+    ["Stop and Finalize", [
+      "Stop is instant: audio closes on the press, and the final pass runs while you keep reading or typing.",
+      "“Resume” stays in the pill for ten minutes after Stop and continues the same note.",
+      "The final pass sweeps down the note in reading order, so you can watch it reach the line you care about.",
+      "The Finalize bar says exactly what it will write and promises your edits stay as you wrote them.",
+      "*Finalize is one editor transaction: a single ⌘Z puts every line back in pencil.",
+      "*Lines you took over are written without italics, so a week later you can tell your words from WorkScribe’s with no metadata.",
+      "AI lines drop their topic label in the note, because your line above already names the topic.",
+      "A line that was never discussed gets nothing written under it; your question stays a question.",
+      "Missed topics are called “Also discussed”; the note shouldn’t scold you.",
+      "Action items are real tasks with the owner as a [[link]] and a due date, so Tasks and Dataview see them.",
+    ]],
+    ["The fade", [
+      "*The countdown reads “Transcript fades in 23 h”, rounded down, and counts minutes only in the last hour.",
+      "*If you never press Finalize, WorkScribe finalizes an hour before the fade and tells you once.",
+      "“Done now” confirms inline and names what goes: “Delete the transcript, audio and 3 screen moments now? The note stays.”",
+      "After the fade the Transcript tab says when it faded and that the note is what remains, never “not found”.",
+      "At the fade, WorkScribe removes its own section markers from the note, because it will never write to it again.",
+    ]],
+    ["A week later", [
+      "The note opens with no plugin chrome: no banner, no badge, no “AI generated” label.",
+      "The brief is the first thing under the properties, one italic paragraph you can read in ten seconds.",
+      "If you uninstall WorkScribe, every note still reads correctly.",
+    ]],
+    ["Quick ask and the clipper", [
+      "Quick ask opens already scoped to the meeting in progress, shown as a chip you can remove.",
+      "Esc closes Quick ask and keeps your half-typed question for ten minutes.",
+      "Quick ask never opens by itself, so nothing appears on a shared screen uninvited.",
+      "The clipper names the meeting it will clip into before you press anything.",
+      "A clip lands as a link at the end of the note, stamped with the meeting minute, never at your cursor.",
+    ]],
+    ["When things fail", [
+      "If Obsidian quits mid-meeting, recording continues, and reopening the note says “Caught up on 6 minutes”.",
+      "When the cloud model is unreachable, answers fall back to this Mac and say so; AI lines carry on, slower, without a banner.",
+      "If no model is available, AI lines freeze under one header note, “AI lines paused · your notes are saving”; nothing turns red.",
+      "If the note changed under WorkScribe, Finalize writes beside it rather than merging blind, and says where.",
+      "If a deletion fails, the pill says “Couldn’t delete 1 file yet. Trying again in a minute.” and it retries until done.",
+    ]],
+  ];
+  let n = 0;
+  $("#care").innerHTML = CARE.map(([g, items]) => '<div class="group"><h3>' + g + "</h3><ol>" + items.map((it) => {
+    n++; const first = it[0] === "*";
+    return '<li class="' + (first ? "first" : "") + '"><span class="n">' + String(n).padStart(2, "0") + "</span><span>" + (first ? it.slice(1) : it) + "</span></li>";
+  }).join("") + "</ol></div>").join("");
+  const ob = $("#onlyFirst");
+  ob.onclick = () => { const on = ob.getAttribute("aria-pressed") !== "true"; ob.setAttribute("aria-pressed", String(on)); ob.textContent = on ? "Show all sixty-four" : "Show only the first ten"; $("#care").classList.toggle("only-first", on); };
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Home: Ask</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700&family=Kalam&display=swap">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="app.css">
+<script src="shared.js"></script>
+<style>
+  .home { display: grid; grid-template-columns: minmax(0, 1fr) 312px; height: 100%; min-height: 0; }
+  .chat { display: flex; flex-direction: column; min-height: 0; }
+  .thread { flex: 1; overflow: auto; min-height: 0; }
+  .thread-in { max-width: 780px; margin: 0 auto; padding: var(--space-6) var(--space-8) var(--space-8); display: flex; flex-direction: column; gap: var(--space-8); }
+  .scope { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .scope .chip.on { background: var(--indigo); color: var(--on-indigo); }
+
+  /* What you asked: your words, the input register (blush field), right-aligned */
+  .me { align-self: flex-end; max-width: 78%; display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .me .q { background: color-mix(in srgb, var(--blush) 60%, transparent); border-radius: var(--radius-md); padding: var(--space-2) var(--space-3); font-size: 14.5px; line-height: 22px; font-weight: 500; }
+  .me .t { font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+  /* What the model wrote: serif lead + Manrope body on the paper */
+  .ai { display: flex; flex-direction: column; gap: var(--space-3); }
+  .ai .ans { font-size: 16px; line-height: 26px; max-width: 64ch; }
+  .ai .ans b { font-weight: 700; }
+  .ai .lead { font-size: 19px; line-height: 26px; }
+  .ai .acts { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+  .brief { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); max-width: 64ch; }
+  .brief li { display: grid; grid-template-columns: 18px minmax(0, 1fr); gap: var(--space-2); font-size: 15px; line-height: 23px; }
+  .brief li .ico { width: 15px; height: 15px; margin-top: 4px; color: var(--indigo); }
+
+  .composer { border-top: var(--stroke-hair) solid var(--line); background: var(--surface); padding: var(--space-3) var(--space-8) var(--space-4); }
+  .composer .composer-box { max-width: 780px; margin: 0 auto; }
+
+  /* Context rail: today around the conversation */
+  .ctx { background: var(--surface); border-left: var(--stroke-hair) solid var(--line); overflow: auto; min-height: 0; padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-6); }
+  .card { background: var(--surface-raised); border-radius: var(--radius-md); box-shadow: var(--shadow-cutout); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); }
+  .card h3 { font-size: 19px; line-height: 24px; font-weight: 600; }
+  .card .btn.primary { width: 100%; }
+  .banner { background: color-mix(in srgb, var(--blush) 55%, var(--surface-raised)); border-radius: var(--radius-sm); padding: var(--space-3); display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px var(--space-2); font-size: 13px; line-height: 18px; }
+  .banner .seal { margin-top: 3px; }
+  .banner .acts { grid-column: 2; display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: 4px; }
+  .hint { text-align: center; font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; }
+  .ctx-sec { display: flex; flex-direction: column; gap: var(--space-2); }
+  .ctx-sec .sh { display: flex; align-items: center; gap: var(--space-2); border-bottom: var(--stroke-line) solid var(--indigo); padding-bottom: 4px; }
+  .ctx-sec .sh .more { margin-left: auto; font-size: 12px; font-weight: 600; }
+  .todo { display: grid; grid-template-columns: 14px minmax(0, 1fr); gap: 2px var(--space-2); padding: 5px 4px; align-items: start; border-radius: var(--radius-sm); }
+  .todo.due { background: color-mix(in srgb, var(--blush) 35%, transparent); }
+  .todo .box { margin-top: 3px; }
+  .todo .txt { font-size: 13.5px; line-height: 20px; font-weight: 500; }
+  .todo .meta { grid-column: 2; font-size: 12px; line-height: 16px; color: var(--ink-muted); display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+  .todo .meta .spk { font-size: 12px; }
+  .rrow { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1px; padding: 6px 4px; border-radius: var(--radius-sm); color: inherit; text-decoration: none; }
+  .rrow:hover { background: color-mix(in srgb, var(--indigo-wash) 30%, transparent); }
+  .rrow .tt { font-weight: 700; font-size: 13.5px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .rrow .mt { font-size: 12px; line-height: 16px; color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+  .rrow.failed .tt { color: var(--ink-muted); }
+  .rrow .why { font-size: 12px; line-height: 16px; color: var(--ink); margin-top: 2px; }
+
+  @media (max-width: 1100px) { .home { grid-template-columns: 1fr; height: auto; } .ctx { border-left: 0; border-top: var(--stroke-hair) solid var(--line); overflow: visible; } .thread { overflow: visible; } }
+  @media (max-width: 900px) { .thread-in { padding: var(--space-6) var(--space-4); } .composer { padding: var(--space-3) var(--space-4); } .me { max-width: 92%; } }
+</style>
+</head>
+<body>
+<main class="stage">
+  <header class="stage-head">
+    <div class="head-text">
+      <span class="label">Concept A · Workspace · screen 01 of 05</span>
+      <h1>Home is a conversation with your work</h1>
+      <p>The window opens on Ask. Center: a chat over your meetings, notes, files and media, starting with a short morning briefing. Around it, today: the next call with its recording state, open items that name who asked, and recent meetings. Wed 14 Oct, 9:58, two minutes before the standup; macOS turned off Screen Recording overnight, so the Start card says so <b>before</b> you press it.</p>
+    </div>
+    <nav aria-label="Pages"><a href="index.html">Index</a><a href="02-meeting-live.html">Next: live meeting</a><button class="theme-toggle" type="button">Theme</button></nav>
+  </header>
+
+  <div class="window app soak" role="group" aria-label="WorkScribe window, Ask home">
+    <div class="titlebar">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <button class="iconbtn" type="button" aria-label="Hide sidebar"><svg class="ico" aria-hidden="true"><use href="#i-sidebar"/></svg></button>
+      <button class="iconbtn" type="button" aria-label="Back"><svg class="ico" aria-hidden="true"><use href="#i-back"/></svg></button>
+      <button class="iconbtn" type="button" aria-label="Forward"><svg class="ico" aria-hidden="true"><use href="#i-chev"/></svg></button>
+      <span class="crumb">Ask <small>· Halvorsen offline promises</small></span>
+      <span class="tools">
+        <button class="btn text" type="button"><svg class="ico" aria-hidden="true" style="width:14px;height:14px"><use href="#i-plus"/></svg>New chat</button>
+        <button class="iconbtn" type="button" aria-label="Save chat as a note"><svg class="ico" aria-hidden="true"><use href="#i-md"/></svg></button>
+        <button class="iconbtn" type="button" aria-label="Chat actions"><svg class="ico" aria-hidden="true"><use href="#i-more"/></svg></button>
+      </span>
+    </div>
+    <div class="app-body">
+      <nav class="side" aria-label="WorkScribe">
+        <div class="search" role="search"><svg class="ico" aria-hidden="true" style="color:var(--indigo)"><use href="#i-search"/></svg><span>Search everything</span><span class="kbd">⌘K</span></div>
+        <a class="on" href="01-home-chat.html" aria-current="page"><svg class="ico ic" aria-hidden="true"><use href="#i-ask"/></svg>Ask</a>
+        <a href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-today"/></svg>Today</a>
+        <a href="03-meeting-review.html"><svg class="ico ic" aria-hidden="true"><use href="#i-meetings"/></svg>Meetings<span class="n">46</span></a>
+        <a href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-notes"/></svg>Notes<span class="n">128</span></a>
+        <a href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-people"/></svg>People<span class="n">17</span></a>
+        <a href="04-search.html"><svg class="ico ic" aria-hidden="true"><use href="#i-folder"/></svg>Sources<span class="n">9</span></a>
+        <div class="grp label">Pinned</div>
+        <a class="file" href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-notes"/></svg><span class="t">Fieldbook v2.4 plan</span></a>
+        <a class="file" href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-people"/></svg><span class="t">Halvorsen Construction</span></a>
+        <div class="grp label">Recent</div>
+        <a class="file" href="03-meeting-review.html"><svg class="ico ic" aria-hidden="true"><use href="#i-meetings"/></svg><span class="t">Offline sync — v2.4 scope</span></a>
+        <a class="file" href="01-home-chat.html"><svg class="ico ic" aria-hidden="true"><use href="#i-ask"/></svg><span class="t">Halvorsen offline promises</span></a>
+        <a class="file" href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-meetings"/></svg><span class="t">Design crit — inspection checklist</span></a>
+        <a class="file" href="index.html#not-mocked"><svg class="ico ic" aria-hidden="true"><use href="#i-notes"/></svg><span class="t">2026-10-14</span></a>
+        <div class="foot">
+          <span class="vault"><svg class="ico" aria-hidden="true"><use href="#i-md"/></svg>Obsidian vault · Work</span>
+          <span>~/Obsidian/Work/WorkScribe</span>
+          <span class="row">On this Mac · nothing uploaded</span>
+        </div>
+      </nav>
+
+      <div class="page" style="overflow:hidden">
+        <div class="home">
+          <section class="chat" aria-label="Conversation">
+            <div class="thread">
+              <div class="thread-in">
+                <div class="scope"><span class="caption">Looking in</span><span class="chip on">Meetings</span><span class="chip on">Work vault</span><span class="chip on">Contracts</span><span class="chip on">Product docs</span><span class="chip on">Field recordings</span><span class="chip on">Site walkthroughs</span><span class="chip on">Site photos</span><span class="chip">Benchmarks</span><span class="chip">People ops</span><span class="chip out">Since 1 Sep</span></div>
+
+                <article class="ai soak">
+                  <span class="label">Morning briefing · 09:30</span>
+                  <p class="ans"><span class="lead">Since yesterday.</span> One meeting saved and three items waiting on you.</p>
+                  <ul class="brief">
+                    <li><svg class="ico" aria-hidden="true"><use href="#i-meetings"/></svg><span><a class="wl" href="03-meeting-review.html">Offline sync — v2.4 scope</a> moved v2.4 from Oct 28 to <b>Nov 4</b> and chose a field-level merge for checklists <span class="cite">1</span>.</span></li>
+                    <li><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>Your PRD v3 update is due <b>tomorrow</b>; <span class="spk priya">Priya</span> asked for it at 27:30 <span class="cite">2</span>.</span></li>
+                    <li><svg class="ico" aria-hidden="true"><use href="#i-today"/></svg><span>Next: the sync engine standup at 10:00. Last time, <span class="spk marcus">Marcus</span> said last-write-wins was “fine until two people share a checklist” <span class="cite">3</span>.</span></li>
+                  </ul>
+                </article>
+
+                <div class="me"><p class="q">What have we promised Halvorsen about offline, and who owns telling them about the new date?</p><span class="t">09:51</span></div>
+                <article class="ai">
+                  <p class="ans">The contract requires offline capture of inspections and photos by <b>Dec 31, 2026</b>, with sync within 24 hours of reconnecting <span class="cite">1</span>. At the kickoff you told them offline would ship “in October” <span class="cite on">2</span>. Yesterday the date moved to <b>Nov 4</b> <span class="cite">3</span>, and <b>Priya</b> took the follow-up: she'll email Halvorsen by Friday <span class="cite">4</span>.</p>
+                  <div class="sources">
+                    <div class="s"><span class="cite">1</span><span>Halvorsen MSA 2026.pdf <span class="d">· p.14 §7.2 · Contracts</span></span></div>
+                    <div class="s"><span class="cite on">2</span><span><span class="spk you">You</span> <span class="d">· Halvorsen kickoff · 8 Oct · 31:12</span></span>
+                      <div class="preview" role="note" aria-label="Preview of citation 2">
+                        <span class="label">Halvorsen kickoff · 8 Oct · 31:02–31:20</span>
+                        <div class="turn"><div class="who"><span class="spk priya">Priya</span></div><p>Do they need offline on day one?</p></div>
+                        <div class="turn"><div class="who"><span class="spk you">You</span></div><p><mark class="ex">…and offline is on track for October, that's the plan.</mark></p></div>
+                        <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)"><button class="btn" type="button"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-play"/></svg>Play 18 s</button><button class="btn text" type="button">Open meeting</button></div>
+                      </div>
+                    </div>
+                    <div class="s"><span class="cite">3</span><span><span class="spk priya">Priya</span> <span class="d">· Offline sync — v2.4 scope · yesterday · 09:02</span></span></div>
+                    <div class="s"><span class="cite">4</span><span><span class="spk priya">Priya</span> <span class="d">· Offline sync — v2.4 scope · yesterday · 14:05 · action item</span></span></div>
+                  </div>
+                  <div class="acts"><button class="btn" type="button">Copy with sources</button><button class="btn text" type="button">Add to today's note</button></div>
+                </article>
+
+                <div class="me"><p class="q">When did Marcus first raise merge conflicts?</p><span class="t">09:53</span></div>
+                <article class="ai">
+                  <p class="ans">At the <b>30 Sep sync engine standup</b>: he said last-write-wins was “fine until two people share a checklist” <span class="cite">1</span>. He raised it again on the 6 Oct walk-and-talk <span class="cite">2</span> before pushing back yesterday <span class="cite">3</span>.</p>
+                  <div class="sources">
+                    <div class="s"><span class="cite">1</span><span><span class="spk marcus">Marcus</span> <span class="d">· Sync engine standup · 30 Sep · 06:40</span></span></div>
+                    <div class="s"><span class="cite">2</span><span><span class="spk marcus">Marcus</span> <span class="d">· Note Pro walk-and-talk · 6 Oct · 04:15</span></span></div>
+                    <div class="s"><span class="cite">3</span><span><span class="spk marcus">Marcus</span> <span class="d">· Offline sync — v2.4 scope · yesterday · 07:58</span></span></div>
+                  </div>
+                </article>
+
+                <div class="me"><p class="q">Where did an inspector's phone run out of storage on site?</p><span class="t">09:55</span></div>
+                <article class="ai">
+                  <p class="ans">Three places say it directly, across a meeting, a voice memo and a video <span class="cite">1</span><span class="cite">2</span><span class="cite">3</span>. Two more in <a href="04-search.html">all 5 moments</a>.</p>
+                  <ul class="moments" aria-label="Moments">
+                    <li class="mo"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><g filter="url(#iw-gouache)"><rect x="0" y="0" width="88" height="56" class="iw-sky"/><rect x="8" y="30" width="5" height="12" rx="2" style="fill:var(--spk-marcus)"/><rect x="16" y="22" width="5" height="20" rx="2" style="fill:var(--spk-marcus)"/><rect x="24" y="27" width="5" height="15" rx="2" style="fill:var(--spk-marcus)"/><rect x="40" y="31" width="5" height="11" rx="2" style="fill:var(--spk-you)"/><rect x="48" y="25" width="5" height="17" rx="2" style="fill:var(--spk-you)"/><rect x="64" y="29" width="5" height="13" rx="2" style="fill:var(--spk-marcus)"/><rect x="72" y="24" width="5" height="18" rx="2" style="fill:var(--spk-marcus)"/></g></svg></span><span class="k"><span class="cite">1</span><span class="kind">meeting</span>6 Oct · 11:24 · <span class="spk marcus">Marcus</span></span><span class="tt">Note Pro · walk-and-talk with Marcus</span><span class="x">“The 12 mini just stalled once the queue went past a gig, and it never told anyone.”</span><button class="btn" type="button" aria-label="Play the walk-and-talk at 11:24"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-play"/></svg>Play</button></li>
+                    <li class="mo"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><rect x="0" y="0" width="88" height="56" class="iw-raised"/><g filter="url(#iw-gouache)" class="iw-wash"><rect x="8" y="24" width="4" height="8" rx="2"/><rect x="15" y="18" width="4" height="20" rx="2"/><rect x="22" y="12" width="4" height="32" rx="2"/><rect x="29" y="20" width="4" height="16" rx="2"/><rect x="36" y="15" width="4" height="26" rx="2"/><rect x="50" y="21" width="4" height="14" rx="2"/><rect x="57" y="10" width="4" height="36" rx="2"/><rect x="64" y="19" width="4" height="18" rx="2"/><rect x="71" y="24" width="4" height="8" rx="2"/></g><line class="iw-line iw-line-strong" x1="44" y1="6" x2="44" y2="50"/></svg></span><span class="k"><span class="cite">2</span><span class="kind">audio</span>at 14:32</span><span class="tt">Halvorsen yard memo.m4a</span><span class="x">Field recording · sound matched by meaning</span><button class="btn" type="button" aria-label="Play Halvorsen yard memo from 14:32"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-play"/></svg>14:32</button></li>
+                    <li class="mo"><span class="th"><svg viewBox="0 0 88 56" aria-hidden="true"><g filter="url(#iw-gouache)"><rect x="0" y="0" width="88" height="56" class="iw-sky"/><path d="M0 34 C20 26 40 30 88 24 V56 H0Z" class="iw-sage"/><rect x="48" y="16" width="26" height="20" rx="2" class="iw-ochre"/><path d="M0 44 C30 40 60 46 88 42 V56 H0Z" class="iw-sage-deep"/></g><rect x="56" y="43" width="28" height="10" rx="2" style="fill:var(--ink)" opacity=".72"/><text x="70" y="51" text-anchor="middle" font-size="8" font-weight="700" style="fill:var(--surface-raised);font-family:var(--font-sans)">03:05</text></svg></span><span class="k"><span class="cite">3</span><span class="kind">video</span>at 03:05 · frame</span><span class="tt">Halvorsen yard walkthrough.mov</span><span class="x">The phone shows “Storage almost full” beside the inspection form</span><button class="btn" type="button" aria-label="Open the walkthrough video at 3:05"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-play"/></svg>03:05</button></li>
+                  </ul>
+                </article>
+              </div>
+            </div>
+            <div class="composer">
+              <div class="composer-box">
+                <div class="ph">Ask about your meetings, notes and files. Type @ for a person, [[ for a note or meeting.</div>
+                <div class="base" aria-hidden="true"></div>
+                <div class="row">
+                  <button class="iconbtn" type="button" aria-label="Mention a person"><svg class="ico" aria-hidden="true"><use href="#i-at"/></svg></button>
+                  <button class="iconbtn" type="button" aria-label="Attach a file to this chat"><svg class="ico" aria-hidden="true"><use href="#i-clip"/></svg></button>
+                  <span>9 sources · 46 meetings · 128 notes</span><span class="spacer"></span><span>Gemma 4 E4B · on this Mac</span>
+                  <button class="sendbtn" type="button" aria-label="Send"><svg class="ico" aria-hidden="true"><use href="#i-up"/></svg></button>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <aside class="ctx" aria-label="Today">
+            <div class="card">
+              <span class="label">Next · in 2 min · from Calendar</span>
+              <h3>Sync engine standup</h3>
+              <span class="caption">10:00–10:15 · Zoom · <span class="spk you">You</span> <span class="spk marcus">Marcus</span> <span class="spk unk">Ana</span></span>
+              <div class="banner" role="status">
+                <span class="seal" aria-hidden="true"></span>
+                <div><b>System audio is off.</b> You'd record your mic only, so Marcus and Ana would be missing. Allow Screen Recording to fix it.</div>
+                <div class="acts"><button class="btn" type="button">Open Settings</button><button class="btn text" type="button">Mic only</button></div>
+              </div>
+              <button class="btn primary lg" type="button"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-rec"/></svg>Start recording</button>
+              <div class="hint">or <span class="kbd">⌥⌘R</span> from any app · auto-record listens for Zoom, Meet, Slack</div>
+            </div>
+
+            <section class="ctx-sec" aria-label="Open items">
+              <div class="sh"><span class="label">Open items · 3 for you</span><a class="more" href="03-meeting-review.html">All</a></div>
+              <div class="todo due"><span class="box" aria-hidden="true"></span><span class="txt">Update PRD v3 with the checklist merge rule and photo cap</span><span class="meta"><span class="spk priya">Priya</span> asked · due tomorrow</span></div>
+              <div class="todo"><span class="box" aria-hidden="true"></span><span class="txt">Review Marcus's merge prototype</span><span class="meta"><span class="spk marcus">Marcus</span> asked · Mon 19 Oct</span></div>
+              <div class="todo"><span class="box" aria-hidden="true"></span><span class="txt">Send Halvorsen the beta onboarding checklist</span><span class="meta">You volunteered · Halvorsen kickoff</span></div>
+            </section>
+
+            <section class="ctx-sec" aria-label="Recent meetings">
+              <div class="sh"><span class="label">Recent</span><a class="more" href="03-meeting-review.html">Meetings</a></div>
+              <a class="rrow" href="03-meeting-review.html"><span class="tt">Offline sync — v2.4 scope</span><span class="mt">Yesterday · 32 min · You, Priya, Marcus · 4 actions</span></a>
+              <a class="rrow" href="index.html#not-mocked"><span class="tt">Design crit — inspection checklist</span><span class="mt">Mon · 41 min · You, Lena, Priya</span></a>
+              <a class="rrow failed" href="index.html#not-mocked"><span class="tt">Recording · Fri 9 Oct, 10:01</span><span class="mt"><span class="chip quiet">Failed</span> 0 min captured</span><span class="why">Screen Recording was off, and that stopped the mic too. Now it falls back to mic only.</span></a>
+            </section>
+
+            <section class="ctx-sec" aria-label="Today's note">
+              <div class="sh"><span class="label">Today's note</span></div>
+              <span class="filechip"><svg class="ico" aria-hidden="true"><use href="#i-md"/></svg><span>Daily/2026-10-14.md</span></span>
+              <span class="caption">2 jots, and this chat's answers if you add them.</span>
+            </section>
+          </aside>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callouts">
+    <div><b>Chat is the front door</b>The first thing you see is a conversation, not a dashboard. A daily briefing comes in as the chat's first message, so it's quotable, cited, and you can reply to it.</div>
+    <div><b>Today sits around it</b>The right rail holds what's time-bound: the next call and whether it will record properly, open items with who asked, recent meetings with failures explained. It collapses below the chat on a narrow window.</div>
+    <div><b>One vermilion</b>The seal is on the one thing that needs you before 10:00: system audio is off. The due-tomorrow item gets a blush field, not a second seal.</div>
+    <div><b>Notes are files</b>The sidebar footer names the Obsidian vault WorkScribe writes to. Chats can be saved as notes and answers added to today's daily note, as Markdown. Web clips in the vault are a source like any folder (a proposal, see the index).</div>
+  </div>
+</main>
+</body>
+</html>

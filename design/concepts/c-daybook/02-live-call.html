@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day Book Live Call</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700;800&family=Kalam&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daybook.css">
+<script src="daybook.js"></script>
+<style>
+  .callhead { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; }
+  .callhead .title { font-family: var(--font-serif); font-size: 21px; line-height: 28px; font-weight: 600; }
+  .lane { width: 100%; height: auto; display: block; margin-top: var(--space-2); }
+  .en { margin-top: 6px; }
+  .en .body { margin-top: 0; }
+  .refs { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin-top: 6px; font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; }
+  .quote { font-size: 13px; line-height: 19px; color: var(--ink); }
+  .quote .spk { margin-right: 4px; }
+  .pending .lead, .pending .body { color: var(--ink-muted); }
+  .tape { font-size: 13.5px; line-height: 21px; color: var(--ink-muted); }
+  .tape p + p { margin-top: 2px; }
+  .tape .spk { color: var(--ink); margin-right: 6px; }
+  .answer .q { font-family: var(--font-serif); font-size: 16px; line-height: 21px; font-weight: 600; color: var(--ink); }
+  .answer .src { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 4px; display: grid; gap: 2px; font-size: 12px; line-height: 16px; }
+  .addrow { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .callbox { border-left: var(--stroke-line) solid var(--indigo); }
+  .typing .val { color: var(--ink); }
+</style>
+</head>
+<body>
+<main class="stage">
+  <header class="stage-head">
+    <div>
+      <div class="eyebrow">Concept C · Day Book · screen 2 of 4</div>
+      <h1>A call, written into the day</h1>
+      <p>10:16, fourteen minutes into “Offline sync”. The call opened as a section on today's page and the now line moved inside it. You jot shorthand; each line is <b>enhanced in place</b> from the transcript, and the margin shows <b>what it was drawn from</b>, a <b>live answer</b> to Marcus's question, and something said that you didn't note. The transcript itself runs as a quiet tape just above the now line.</p>
+    </div>
+    <nav aria-label="Concept pages">
+      <a href="01-morning.html">Previous</a>
+      <a href="03-evening.html">Next: evening</a>
+      <button class="theme-toggle" type="button">Theme: auto</button>
+    </nav>
+  </header>
+
+  <div class="window soak" role="group" aria-label="WorkScribe window during a recorded call">
+    <div class="titlebar">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <span class="where">Day Book</span>
+      <span class="vault">Daily/2026-10-13.md → [[Offline sync — v2.4 scope]]</span>
+      <span class="spacer"></span>
+      <span class="recpill"><span class="recdot" aria-hidden="true"></span><span class="vh">Recording</span>14:07</span>
+      <button class="btn" type="button">Stop</button>
+      <div class="search"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 13.5 13.5"/></svg><span>Find a moment, or ask…</span><span class="kbd">⌘K</span></div>
+    </div>
+    <div class="book">
+      <nav class="rail" aria-label="Page index">
+        <div>
+          <div class="label" style="margin-bottom:4px">Today</div>
+          <ul>
+            <li><a href="#"><span class="num">08:31</span>Early · 4</a></li>
+            <li><a href="#call" aria-current="true"><span class="num">10:02</span>Offline sync</a></li>
+            <li><a href="#"><span class="num">13:30</span>Design crit</a></li>
+            <li><a href="#"><span class="num">16:00</span>Halvorsen IT</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:4px">In this call</div>
+          <ul>
+            <li><a href="#"><span class="num">6</span>Jots</a></li>
+            <li><a href="#"><span class="num">1</span>Answer</a></li>
+            <li><a href="#"><span class="num">1</span>Not noted yet</a></li>
+            <li><a href="#"><span class="num">1</span>Action</a></li>
+          </ul>
+        </div>
+        <p class="foot">⌥⌘J jumps to the now line from anywhere, even another app.</p>
+      </nav>
+
+      <div class="page">
+        <div class="rows">
+          <div class="row quiet"><div class="t">08:31</div><div class="e"><div class="caption">Opened Offline PRD v3.md · clipped “Field-level merge…” · 2 jots</div></div><aside class="m"></aside></div>
+
+          <div class="row k-call" id="call">
+            <div class="t">10:02</div>
+            <div class="e">
+              <div class="callhead"><span class="kind">Call · recording</span><span class="title">Offline sync — v2.4 scope</span></div>
+              <div class="meta"><span class="spk you">You</span><span class="spk priya">Priya Raman</span><span class="spk marcus">Marcus Chen</span><span>· voices remembered</span></div>
+              <svg class="lane" viewBox="0 0 600 46" role="img" aria-label="Who spoke over the first 14 minutes, with your jots as ticks. Most recent: Marcus.">
+                <rect class="iw-linefill" x="0" y="8" width="600" height="18" rx="3" opacity=".35"/>
+                <g>
+                  <rect x="0" y="8" width="40" height="18" rx="2" style="fill:var(--spk-priya)"/>
+                  <rect x="42" y="8" width="70" height="18" rx="2" style="fill:var(--spk-you)"/>
+                  <rect x="114" y="8" width="60" height="18" rx="2" style="fill:var(--spk-marcus)"/>
+                  <rect x="176" y="8" width="90" height="18" rx="2" style="fill:var(--spk-priya)"/>
+                  <rect x="268" y="8" width="38" height="18" rx="2" style="fill:var(--spk-marcus)"/>
+                  <rect x="308" y="8" width="26" height="18" rx="2" style="fill:var(--spk-you)"/>
+                  <rect x="336" y="8" width="56" height="18" rx="2" style="fill:var(--spk-priya)"/>
+                  <rect x="394" y="8" width="60" height="18" rx="2" style="fill:var(--spk-marcus)"/>
+                  <rect x="456" y="8" width="44" height="18" rx="2" style="fill:var(--spk-priya)"/>
+                  <rect x="502" y="8" width="98" height="18" rx="2" style="fill:var(--spk-marcus)"/>
+                </g>
+                <g class="iw-line"><path d="M344 4 V30"/><path d="M380 4 V30"/><path d="M420 4 V30"/><path d="M500 4 V30"/><path d="M506 4 V30"/></g>
+                <text class="iw-t-muted" x="0" y="42" font-size="10.5" font-weight="700">10:02</text>
+                <text class="iw-t-muted" x="600" y="42" font-size="10.5" font-weight="700" text-anchor="end">now · 10:16</text>
+                <text class="iw-t-muted" x="300" y="42" font-size="10.5" font-weight="600" text-anchor="middle">ticks = your jots</text>
+              </svg>
+            </div>
+            <aside class="m"><div class="mnote"><span class="who">Margin</span><span>Recording mic + system audio. Notes from 08:44 and your Halvorsen answer are pinned for this call.</span></div></aside>
+          </div>
+
+          <div class="row k-note">
+            <div class="t">10:07<small>+05:20</small></div>
+            <div class="e">
+              <span class="kind">Not in your notes</span>
+              <div class="body"><span class="spk priya">Priya</span> said Halvorsen's IT blocks background app refresh on managed iPhones, so “sync within 24 h” may only happen when the app is opened.</div>
+              <div class="acts"><button class="btn text" type="button">Add to notes</button><button class="btn text" type="button">Ignore</button></div>
+            </div>
+            <aside class="m"><div class="mnote"><span class="hand">return to this</span></div></aside>
+          </div>
+
+          <div class="row k-note">
+            <div class="t">10:10<small>+08:12</small></div>
+            <div class="e">
+              <span class="typed">offline conflicts → LWW?? marcus pushback</span>
+              <div class="en soak"><span class="lead">Conflict resolution.</span> <span class="body">Marcus warned last-write-wins would silently drop inspectors' checklist edits; the team agreed on a field-level merge for checklist items and last-write-wins for everything else.</span></div>
+              <div class="refs">drew from <span class="extag">E1</span><span class="extag">E2</span><span class="extag hollow">E3</span><span>· filled = time + meaning, hollow = meaning only</span></div>
+            </div>
+            <aside class="m">
+              <div class="mnote"><span class="who">Drawn from</span>
+                <span class="quote"><span class="extag">E1</span> <span class="spk marcus">Marcus</span> 10:09 “If it's last-write-wins, an inspector's checklist edits just vanish…”</span>
+                <span class="quote"><span class="extag">E2</span> <span class="spk priya">Priya</span> 10:10 “Merge at the field level for checklists, keep last-write-wins for the rest.”</span>
+                <span class="quote"><span class="extag hollow">E3</span> <span class="spk marcus">Marcus</span> 10:05 “The sync engine is last-write-wins today, per record.”</span>
+              </div>
+            </aside>
+          </div>
+
+          <div class="row k-note">
+            <div class="t">10:11<small>+09:05</small></div>
+            <div class="e">
+              <span class="typed">ship date nov 4 not oct 28</span>
+              <div class="en"><span class="lead">Ship date.</span> <span class="body">v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration; Priya will tell Halvorsen on Friday.</span></div>
+              <div class="refs">drew from <span class="extag">E4</span><span class="extag">E5</span></div>
+            </div>
+            <aside class="m"><div class="mnote"><span>This changes PRD v3 (still says Oct 28) and what you told Halvorsen on 8 Oct.</span></div></aside>
+          </div>
+
+          <div class="row k-note">
+            <div class="t">10:12<small>+10:40</small></div>
+            <div class="e">
+              <span class="typed">beta 40 accts, halvorsen first</span>
+              <div class="en"><span class="lead">Beta cohort.</span> <span class="body">40 accounts, Halvorsen Construction first because their contract names offline capture by year end.</span></div>
+              <div class="refs">drew from <span class="extag">E6</span> · MSA §7.2</div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="row k-action">
+            <div class="t">10:14<small>+12:30</small></div>
+            <div class="e">
+              <span class="typed">! marcus proto merge by mon</span>
+              <div class="en"><span class="kind">Action</span> <span class="body"><b>Marcus</b> prototypes field-level merge for checklists · due Mon 19 Oct · asked by <span class="spk priya">Priya</span> at 10:10</span></div>
+            </div>
+            <aside class="m"><div class="mnote"><span>He said “Give me till Monday.” Owner and asker are named voices, not “Remote”.</span></div></aside>
+          </div>
+
+          <div class="row k-note pending">
+            <div class="t">10:14<small>+12:51</small></div>
+            <div class="e">
+              <span class="typed">photo uploads queue — cap?</span>
+              <div class="en"><span class="lead">Photo queue.</span> <span class="body">Cap discussed; waiting for more of the conversation…</span></div>
+            </div>
+            <aside class="m" aria-live="polite">
+              <div class="mnote mcard raised answer soak d1">
+                <span class="who">Marcus asked · 10:15</span>
+                <span class="q">What did we measure for photo sizes on the iPhone 12 last time?</span>
+                <span>3.1 MB average after HEIC; a full site day ran 140–180 photos <span class="cite">1</span>. On 6 Oct Marcus said the 12 mini stalled past about 1 GB queued <span class="cite">2</span>.</span>
+                <span class="src caption"><span><span class="cite">1</span> Photo pipeline benchmarks.numbers</span><span><span class="cite">2</span> Note Pro · walk-and-talk · 6 Oct · 11:24</span></span>
+                <span class="addrow"><button class="btn text" type="button">Put on the page</button><button class="btn text" type="button">Dismiss</button></span>
+              </div>
+            </aside>
+          </div>
+
+          <div class="row quiet">
+            <div class="t">heard</div>
+            <div class="e tape" aria-label="Live transcript tail">
+              <p><span class="spk priya">Priya</span>So two hundred, or a size limit? Inspectors don't think in gigabytes.</p>
+              <p><span class="spk marcus">Marcus</span>Both. Two hundred photos or one and a half gig, whichever first, and a banner…</p>
+              <div class="meta"><a href="#">Open the full transcript</a> · ⌥⌘T</div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="row now">
+            <div class="t">10:16</div>
+            <div class="e nowline">
+              <label class="vh" for="jot2">Jot on the now line</label>
+              <div class="jot typing"><span class="val" id="jot2">android parity?<span class="caret" aria-hidden="true"></span></span><span class="kbd">↩</span></div>
+              <div class="sigils"><span><b>•</b>note</span><span><b>!</b>action</span><span><b>?</b>ask the margin</span><span><b>Tab</b>under the line above</span><span><b>Enhance notes</b>on</span></div>
+            </div>
+            <aside class="m"><div class="mnote"><span class="caption">Enhancement up to date · all on this Mac</span></div></aside>
+          </div>
+
+          <div class="row ahead quiet"><div class="t">10:32</div><div class="e"><div class="caption">Planned end · next: Design crit at 13:30</div></div><aside class="m"></aside></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="callouts" aria-label="Notes on this screen">
+    <div><b>Typing time is the anchor</b>Each jot is stamped where it lands on the page (clock time and call time). Excerpts that match by meaning inside ±2 min are filled tags; older meaning-only matches are hollow.</div>
+    <div><b>The margin does the assisting</b>Evidence for a note, a live answer, a missed topic: all sit beside the line they belong to, never in a separate panel. One answer at a time; a newer one replaces it.</div>
+    <div><b>Signifiers do the sorting</b>“! marcus proto merge by mon” became an action with owner, asker and due date, because the line started with “!”. The transcript is a tape, not a column.</div>
+  </section>
+</main>
+</body>
+</html>

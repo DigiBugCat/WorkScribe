@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask Pulls Moments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kalam&family=Manrope:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="canvas.css">
+<script src="canvas.js"></script>
+</head>
+<body>
+<main class="stage">
+<header class="stage-head">
+<div class="head-text"><span class="label">Concept B · Canvas · 04 of 04</span><h1>Ask lights up the map, search pulls moments in</h1><p>Asking dims the canvas and draws the answer as a card with lines to its evidence. Cited cards you already have light up where they sit, so you see <i>where</i> the answer comes from. Search returns exact moments (a turn, 14:32 into a voice memo, a video frame, a PDF page, a photo, a web clip highlight) and pulls them onto the canvas as a temporary tray. Keep the ones you want; the rest go back when you press Esc.</p></div>
+<nav aria-label="Concept B screens"><a href="index.html">Concept</a> <a href="01-today.html">Today</a> <a href="02-live.html">Live</a> <a href="03-review.html">Review</a> <a href="04-ask.html" aria-current="page">Ask</a> <button class="theme-toggle" type="button">Theme: auto</button></nav>
+</header>
+<div class="window appwin">
+  <div class="titlebar">
+    <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+    <span class="crumbs">WorkScribe · <b>Fieldbook v2.4</b></span>
+    <span class="spacer"></span>
+    <span class="caption">Spotlight on · 4 cited · 6 pulled in</span>
+    <span class="zoom">70%</span>
+  </div>
+  <div class="canvaswrap">
+    <div class="rail" role="toolbar" aria-label="Canvas tools">
+      <button class="iconbtn" aria-label="Select" aria-pressed="false"><i data-i="select"></i></button>
+      <button class="iconbtn" aria-label="Jot a card (J)" aria-pressed="false"><i data-i="jot"></i></button>
+      <button class="iconbtn" aria-label="Connect cards (C)" aria-pressed="false"><i data-i="link"></i></button>
+      <button class="iconbtn" aria-label="Ask (slash)" aria-pressed="true"><i data-i="ask"></i></button>
+      <button class="iconbtn" aria-label="Back to start view" data-fit><i data-i="fit"></i></button>
+    </div>
+    <div class="viewport" tabindex="0" aria-label="Canvas with an answer and pulled-in search moments. Scroll or drag to pan." data-x="150" data-y="0">
+      <div class="board" style="width:1900px;height:1120px">
+        <svg class="links" aria-hidden="true" style="width:100%;height:100%">
+          <path data-a="ans" data-b="msa" data-s="rl"/>
+          <path class="hot" data-a="ans" data-b="kq" data-s="rl"/>
+          <path data-a="ans" data-b="mtg" data-s="lr"/>
+          <path data-a="ans" data-b="aPr" data-s="lr"/>
+          <path class="weak" data-a="qs" data-b="r1" data-s="bt"/>
+          <path class="weak" data-a="qs" data-b="r2" data-s="bt"/>
+          <path class="weak" data-a="qs" data-b="r3" data-s="bt"/>
+          <path class="weak" data-a="qs" data-b="r4" data-s="bt"/>
+          <path class="weak" data-a="qs" data-b="r5" data-s="bt"/>
+          <path class="weak" data-a="qs" data-b="r6" data-s="bt"/>
+        </svg>
+
+        <!-- dimmed existing canvas -->
+        <div class="frame ochre" style="left:24px;top:24px;width:460px;height:640px;opacity:.55">
+          <div class="fh"><h3>Today</h3></div>
+        </div>
+        <div class="card dim" style="left:50px;top:80px;width:400px"><div class="k">Open items</div><div>You · update PRD v3 · Thu</div></div>
+        <div class="card lit" id="mtg" style="left:50px;top:200px;width:400px">
+          <div class="k"><span class="cite">3</span> Meeting · today · 32 min</div>
+          <h4>Offline sync — v2.4 scope</h4>
+          <div class="m"><span class="spk priya">Priya</span> 09:02 · “I don't think October 28th survives this.”</div>
+        </div>
+        <div class="card lit" id="aPr" style="left:50px;top:360px;width:400px">
+          <div class="k"><span class="cite">4</span> Action · Priya · Fri 16 Oct</div>
+          <div><b>Email Halvorsen</b> about the Nov 4 date · 14:05</div>
+        </div>
+        <div class="card dim" style="left:50px;top:480px;width:300px"><div class="k">Meeting · Mon</div><div>Design crit — inspection checklist</div></div>
+
+        <div class="frame" style="left:1180px;top:24px;width:690px;height:640px;opacity:.85">
+          <div class="fh"><h3>Halvorsen Construction</h3></div>
+        </div>
+        <div class="card lit" id="msa" style="left:1210px;top:84px;width:300px">
+          <div class="k"><span class="cite">1</span> PDF · Contracts <span class="t">p.14 §7.2</span></div>
+          <div class="q">Offline capture of inspections and photos by <b>Dec 31, 2026</b>; sync within 24 h.</div>
+        </div>
+        <div class="card ex lit" id="kq" style="left:1210px;top:262px;width:330px">
+          <div class="k"><span class="cite hot">2</span> Halvorsen kickoff · 8 Oct <span class="t">31:02–31:20</span></div>
+          <div class="m"><span class="spk priya">Priya</span> Do they need offline on day one?</div>
+          <div class="q"><span class="spk you">You</span> “…and offline is on track for October, that's the plan.”</div>
+          <div class="acts"><button class="btn"><i data-i="play"></i> Playing 18 s</button><button class="btn text">Open meeting</button></div>
+        </div>
+        <div class="card dim" style="left:1560px;top:84px;width:280px"><div class="k">Meeting · 8 Oct</div><div>Halvorsen kickoff</div></div>
+        <div class="card dim" style="left:1580px;top:262px;width:260px"><div class="k">Web clip</div><div>Why field crews lose offline data</div></div>
+        <div class="card dim" style="left:1210px;top:500px;width:280px"><div class="k">Video</div><div>Halvorsen yard walkthrough.mov</div></div>
+
+        <!-- The answer -->
+        <div class="card" id="ans" style="left:540px;top:110px;width:580px;padding:16px 18px">
+          <div class="k">Ask · answered on this Mac <span class="t">10:41</span></div>
+          <h4 style="font-size:20px;line-height:26px">What have we promised Halvorsen about offline, and who owns telling them about the new date?</h4>
+          <div style="font-size:15px;line-height:24px">The contract requires offline capture of inspections and photos by <b>Dec 31, 2026</b>, with sync within 24 hours of reconnecting <span class="cite">1</span>. At the kickoff you told them offline would ship “in October” <span class="cite hot">2</span>. In today's offline sync the date moved to <b>Nov 4</b> <span class="cite">3</span>, and Priya took the follow-up: she'll email Halvorsen by Friday <span class="cite">4</span>.</div>
+          <div class="acts"><button class="btn primary">Keep on canvas</button><button class="btn text">Add to today's notes</button><button class="btn text">Copy with sources</button></div>
+        </div>
+
+        <!-- Search: moments pulled in -->
+        <div class="card" id="qs" style="left:540px;top:560px;width:580px">
+          <div class="k"><i data-i="search"></i> Search · 10:45</div>
+          <h4>inspector's phone ran out of storage on site</h4>
+          <div class="m">6 moments in 6 sources, pulled in below. Each opens at the second, frame or page. Esc sends them back.</div>
+        </div>
+        <div class="frame ghost" style="left:24px;top:760px;width:1846px;height:320px">
+          <div class="fh"><span class="label">Pulled in · temporary</span><span class="spacer" style="flex:1"></span><button class="btn">Keep all as a cluster</button><button class="btn text">Send back</button></div>
+        </div>
+        <div class="card ex" id="r1" style="left:50px;top:830px;width:280px">
+          <div class="k">Meeting · Note Pro <span class="t">6 Oct · 11:24</span></div>
+          <div class="q"><span class="spk marcus">Marcus</span> “The 12 mini just stalled once the queue went past a gig, and it never told anyone.”</div>
+          <div class="acts"><button class="btn text"><i data-i="play"></i> Play</button></div>
+        </div>
+        <div class="card" id="r2" style="left:350px;top:830px;width:280px">
+          <div class="k">Audio · 30 s window <span class="t">14:32</span></div>
+          <div class="wave" aria-hidden="true"><i style="height:50%"></i><i style="height:58%"></i><i style="height:33%"></i><i style="height:70%"></i><i style="height:81%"></i><i style="height:39%"></i><i style="height:31%"></i><i style="height:28%"></i><i style="height:22%"></i><i style="height:71%"></i><i style="height:90%"></i><i style="height:57%"></i><i style="height:27%"></i><i style="height:48%"></i><i style="height:86%" class="on"></i><i style="height:88%" class="on"></i><i style="height:66%" class="on"></i><i style="height:55%" class="on"></i><i style="height:42%" class="on"></i><i style="height:33%"></i><i style="height:53%"></i><i style="height:47%"></i><i style="height:23%"></i><i style="height:53%"></i><i style="height:54%"></i><i style="height:44%"></i><i style="height:41%"></i><i style="height:59%"></i><i style="height:57%"></i><i style="height:100%"></i><i style="height:67%"></i><i style="height:31%"></i><i style="height:97%"></i><i style="height:63%"></i></div>
+          <div class="m">Halvorsen yard memo.m4a · matched by sound and meaning, no transcript</div>
+        </div>
+        <div class="card" id="r3" style="left:650px;top:830px;width:280px">
+          <div class="k">Video · frame <span class="t">03:05</span></div>
+          <span class="thumb" style="height:96px" role="img" aria-label="Painted placeholder: video frame of a phone showing storage almost full"><svg viewBox="0 0 200 96" preserveAspectRatio="xMidYMid slice"><rect class="iw-sky" width="200" height="96"/><rect class="iw-sage" y="60" width="200" height="36"/><rect class="iw-raised" x="80" y="12" width="44" height="76" rx="6"/><rect class="iw-ochre" x="85" y="22" width="34" height="9" rx="2"/><rect class="iw-wash" x="85" y="36" width="34" height="4" rx="1"/><rect class="iw-wash" x="85" y="44" width="26" height="4" rx="1"/><rect class="iw-wash" x="85" y="52" width="30" height="4" rx="1"/></svg></span>
+          <div class="m">yard walkthrough.mov · phone showing “Storage almost full”</div>
+        </div>
+        <div class="card" id="r4" style="left:950px;top:830px;width:280px">
+          <div class="k">PDF · page 6</div>
+          <div style="display:flex;gap:10px"><span class="thumb" style="height:60px;width:46px;flex:none" aria-hidden="true"><svg viewBox="0 0 46 60"><rect class="iw-raised" width="46" height="60"/><rect class="iw-wash" x="6" y="8" width="30" height="3"/><rect class="iw-linefill" x="6" y="16" width="34" height="2"/><rect class="iw-linefill" x="6" y="21" width="30" height="2"/><rect class="iw-wash" x="6" y="28" width="34" height="9"/><rect class="iw-linefill" x="6" y="42" width="32" height="2"/><rect class="iw-linefill" x="6" y="47" width="24" height="2"/></svg></span><div class="q">“Uploads pause when free space drops below 2 GB; the queue is kept on disk.”</div></div>
+          <div class="m">Photo pipeline spec.pdf</div>
+        </div>
+        <div class="card" id="r5" style="left:1250px;top:830px;width:250px">
+          <div class="k">Photo · 9 Oct</div>
+          <span class="thumb" style="height:74px" role="img" aria-label="Painted placeholder: site photo"><svg viewBox="0 0 160 74" preserveAspectRatio="xMidYMid slice"><rect class="iw-sky" width="160" height="74"/><path class="iw-wash" d="M0 44 L40 24 L80 40 L120 18 L160 36 V74 H0Z"/><rect class="iw-sage-deep" y="58" width="160" height="16"/><rect class="iw-ochre" x="62" y="30" width="34" height="30"/></svg></span>
+          <div class="m">IMG_2291.heic · iOS storage settings</div>
+        </div>
+        <div class="card" id="r6" style="left:1520px;top:830px;width:320px">
+          <div class="k">Web clip · Obsidian <span class="t">clipped 2 Oct</span></div>
+          <div class="q"><b>Why field crews lose offline data</b></div>
+          <div class="m">highlight: “crews only find out the phone is full when a photo fails to save”</div>
+          <div class="m">constructiondive.com · in Clippings/ in your vault</div>
+        </div>
+      </div>
+    </div>
+    <div class="minimap" aria-hidden="true"></div>
+    <div class="dock">
+      <div class="field"><i data-i="search"></i><input aria-label="Search or ask" value="inspector's phone ran out of storage on site"></div>
+      <div class="row"><span>9 sources · 46 meetings · your Obsidian vault · Gemma 4 E4B on this Mac</span><span class="spacer"></span><span><span class="kbd">Esc</span> send back</span><span><span class="kbd">K</span> keep</span></div>
+    </div>
+  </div>
+</div>
+<div class="callouts">
+  <div><b>Provenance is spatial</b>The answer's citations are lines to cards you already own. Citation 2 (vermilion) is being previewed: the kickoff turn plays in place, inside its cluster.</div>
+  <div><b>Moments, not files</b>From DigUp: audio in 30 s windows, a video frame every 3 s, PDFs by page, photos, and Obsidian web clips by highlight. Each result is a card that opens at the exact moment.</div>
+  <div><b>Temporary until kept</b>Pulled-in results live in a tray so search doesn't litter your canvas. Keep one, or keep them all as a new cluster you can name.</div>
+</div>
+
+
+</main>
+</body>
+</html>

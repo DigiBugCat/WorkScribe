@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companion · Live call</title>
+<meta name="description" content="Concept D: a live meeting inside the conversation, with jotting, enhancement and a live answer.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700&family=Kalam&display=swap">
+<link rel="stylesheet" href="companion.css">
+<script src="companion.js"></script>
+<style>
+.live .bhead { background: var(--surface); }
+.live .timer { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+.jots { display: flex; flex-direction: column; }
+.jot { display: grid; grid-template-columns: 44px minmax(120px, 190px) minmax(0, 1fr); gap: var(--space-1) var(--space-3); padding: var(--space-3) 0; border-top: 1px solid var(--line); align-items: start; }
+.jot:first-child { border-top: 0; }
+.jot .tm { font: 600 12px/22px var(--font-sans); color: var(--ink-muted); font-variant-numeric: tabular-nums; }
+.jot .sh { justify-self: start; background: color-mix(in srgb, var(--blush) 55%, var(--surface-raised)); padding: 1px 8px; border-radius: var(--radius-sm); font: 500 13px/22px var(--font-sans); max-width: 100%; overflow-wrap: anywhere; }
+.jot .en { font-size: 14px; line-height: 21px; }
+.jot .en b.l { font-family: var(--font-serif); font-size: 16px; font-weight: 600; }
+.jot .en .tags { display: inline-flex; gap: 4px; margin-left: 4px; }
+.jot .pending { color: var(--ink-muted); font-style: italic; font-size: 13px; }
+.jot.clip .sh { background: var(--chip); box-shadow: var(--emb); display: inline-flex; gap: 6px; align-items: center; }
+.jot.clip .sh .ico { color: var(--indigo); }
+.jot .src { font-size: 12px; line-height: 17px; color: var(--ink-muted); margin-top: 2px; }
+.connector { position: relative; }
+.assist { border-radius: var(--radius-md); background: color-mix(in srgb, var(--indigo-wash) 22%, var(--surface-raised)); padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+.assist .q { font-size: 12.5px; line-height: 18px; color: var(--ink-muted); font-weight: 600; display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
+.assist .a { font-size: 14.5px; line-height: 22px; }
+.assist .a b.l { font-family: var(--font-serif); font-size: 16px; }
+.tx { display: flex; flex-direction: column; gap: 4px; font-size: 13px; line-height: 19px; }
+.tx .turn { display: grid; grid-template-columns: 110px minmax(0,1fr); gap: var(--space-2); }
+.tx .now { color: var(--ink); } .tx .old { color: var(--ink-muted); }
+.composer.jot-mode { background: color-mix(in srgb, var(--blush) 35%, var(--chip)); }
+.composer .typed { font: 500 14px/22px var(--font-sans); color: var(--ink); }
+.composer .hints { display: flex; gap: var(--space-2); flex-wrap: wrap; font-size: 12px; color: var(--ink-muted); align-items: center; }
+/* Figure 2: the call app with the tiny floating composer */
+.fig2 { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: var(--space-6); align-items: center; }
+.callapp { position: relative; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-cutout); background: var(--surface); aspect-ratio: 16 / 10; }
+.callapp svg.tiles { width: 100%; height: 100%; display: block; }
+.floater { position: absolute; left: 50%; bottom: 14px; transform: translateX(-50%); width: min(380px, calc(100% - 24px)); background: var(--surface-raised); border-radius: var(--radius-md); box-shadow: var(--shadow-cutout), 0 6px 18px rgba(0,0,0,.18); padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.floater .row { display: flex; align-items: center; gap: var(--space-2); font-size: 13px; }
+.floater .in { flex: 1; min-width: 0; background: color-mix(in srgb, var(--blush) 45%, var(--chip)); box-shadow: var(--emb); border-radius: var(--radius-sm); padding: 3px 8px; font-weight: 500; white-space: nowrap; overflow: hidden; }
+.floater .echo { font-size: 12px; line-height: 16px; color: var(--ink-muted); display: flex; gap: 6px; align-items: baseline; padding: 0 2px; min-width: 0; }
+.floater .echo b { font-family: var(--font-serif); color: var(--ink); }
+.floater .echo span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.floater .ans { font-size: 12px; line-height: 16px; display: flex; gap: 6px; align-items: center; padding: 3px 2px 0; border-top: 1px solid var(--line); }
+.anno { font-family: var(--font-hand); color: var(--indigo); font-size: 17px; line-height: 22px; }
+.fig2 ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: var(--space-2); font-size: 14px; line-height: 22px; color: var(--ink-muted); }
+.fig2 ol b { color: var(--ink); }
+@media (max-width: 900px) { .fig2 { grid-template-columns: 1fr; } }
+@media (max-width: 600px) {
+  .jot { grid-template-columns: 40px minmax(0,1fr); }
+  .jot .en { grid-column: 2; }
+  .tx .turn { grid-template-columns: 1fr; gap: 0; }
+  .callapp { aspect-ratio: 4 / 5; }
+}
+</style>
+</head>
+<body>
+<main class="stage">
+<header class="stage-head">
+  <div><div class="kicker">Concept D · Companion · 02</div><h1>A live call is a block you write into</h1><p>At 14:00 the meeting opens as a <b>live block</b> in the conversation. The composer flips to <b>Jot</b>: what you type lands as a terse line <em>inside</em> the meeting block, and the enhancement paints in beside it from the transcript. No reply bubbles. Questions you ask with ⌘⏎ (or that the call asks) get a live answer in the block's one assist slot.</p></div>
+  <nav class="stage-nav" aria-label="Concept D screens"><a href="index.html">Overview</a><a href="01-morning.html">Morning</a><a href="02-live.html" aria-current="page">Live call</a><a href="03-synthesis.html">After the call</a><a href="04-moments.html">Ask · moments</a><button class="theme-toggle" type="button">Theme: auto</button></nav>
+</header>
+<section class="app" aria-label="WorkScribe window during a call">
+<div class="titlebar"><div class="lights" aria-hidden="true"><i></i><i></i><i></i></div><span class="title">WorkScribe</span><span class="where">Fieldbook v2.4 · live</span><span class="sp"></span><span class="timer" style="display:inline-flex;align-items:center;gap:6px;font-weight:700;font-variant-numeric:tabular-nums"><span class="recdot"></span>12:41</span><button class="iconbtn" aria-label="Search everything"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg></button></div>
+<div class="body">
+<nav class="rail" aria-label="Threads"><div class="label">Threads</div><a href="#"><span class="dot" style="--c:var(--indigo-wash)"></span><span class="t">Everything</span><span class="n"></span></a><a href="#"><span class="dot" style="--c:var(--ochre)"></span><span class="t">Halvorsen Construction</span><span class="n">3</span></a><a href="#" aria-current="page"><span class="dot" style="--c:var(--sage)"></span><span class="t">Fieldbook v2.4</span><span class="n"></span></a><a href="#"><span class="dot" style="--c:var(--sky)"></span><span class="t">1:1 · Priya Raman</span><span class="n"></span></a><div class="label">Pinned</div><div class="pinned"><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg><span class="t">Offline sync decisions</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg><span class="t">MSA amendment §7.2</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg><span class="t">Photo size answer</span></a></div><div class="label">Reads from</div><a href="#" class="hide-narrow"><svg class="ico" aria-hidden="true"><use href="#i-vault"/></svg><span class="t">Vault · Fieldbook</span></a><a href="#" class="hide-narrow"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg><span class="t">Field recordings</span></a><a href="#" class="hide-narrow"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg><span class="t">Site walkthroughs</span></a><a href="#" class="hide-narrow"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg><span class="t">Contracts</span></a></nav>
+<div class="convo">
+<div class="scroll">
+  <div class="msg ws"><div class="who"><svg class="mark" viewBox="0 0 22 22" aria-hidden="true"><g filter="url(#iw-gouache)"><circle cx="11" cy="11" r="9.5" style="fill:var(--indigo-wash)"/><path d="M6 13.5c2-4.5 7.5-6.5 10-5.5-1 3.5-5 6.5-10 5.5z" style="fill:var(--sage-deep)"/></g></svg><span class="meta">13:55</span></div><p>Offline sync in 5. Last week’s open question was CRDTs vs. last-writer-wins; your clip from this morning argues for per-field LWW.</p></div>
+  <article class="block wide live" aria-label="Live meeting: Offline sync — v2.4 scope">
+    <div class="bhead"><span class="kind">Live</span><span class="bt">Offline sync — v2.4 scope</span><span class="spk you">You</span><span class="spk priya">Priya</span><span class="spk marcus">Marcus</span><span class="sp"></span><span class="caption">Enhancing live · up to date</span><button class="btn primary"><svg class="ico" aria-hidden="true"><use href="#i-stop"/></svg> Stop</button></div>
+    <div class="bbody">
+      <div class="jots" aria-label="Your jots and their enhancements">
+        <div class="jot"><span class="tm">02:10</span><span class="sh">crdt vs lww?</span>
+          <div class="en"><b class="l">Conflict resolution.</b> Marcus prefers last-writer-wins per field for v2.4; CRDTs for shared checklists move to v2.5 given the six-week window.<span class="tags"><span class="etag">E1</span><span class="etag">E2</span></span></div></div>
+        <div class="jot clip"><span class="tm">03:30</span><span class="sh"><svg class="ico" aria-hidden="true"><use href="#i-clip"/></svg> clip</span>
+          <div class="en"><b class="l">Supporting source.</b> “Per-field LWW is enough when each field has one owner.” Linked to <i>Conflict resolution</i>.<div class="src">Clippings/Last-writer-wins vs. CRDTs for field apps.md · sync-patterns.dev · dropped in with ⌘K</div></div></div>
+        <div class="jot"><span class="tm">05:42</span><span class="sh">halvorsen 90d retention</span>
+          <div class="en"><b class="l">Retention.</b> Priya: the Halvorsen MSA amendment (§7.2) requires inspection photos to stay on the iPad for 90 days, which hits the storage budget on older iPads.<span class="tags"><span class="etag">E3</span><span class="etag hollow" title="Matched by meaning only, outside the typing window">E4</span></span></div></div>
+        <div class="jot"><span class="tm">09:15</span><span class="sh">MC owns sync q, beta 11/14</span>
+          <div class="en"><b class="l">Owner.</b> Marcus owns the background sync queue; beta to Halvorsen field crews on 14 Nov.<span class="tags"><span class="etag">E5</span></span></div></div>
+        <div class="jot"><span class="tm">12:30</span><span class="sh">photo size??</span>
+          <div class="en pending">Waiting for the transcript to catch up…</div></div>
+      </div>
+      <div class="assist" aria-label="Live answer">
+        <div class="q"><span class="label">Heard a question</span><span class="spk priya">Priya</span><span>asked how big Halvorsen’s inspection photos are · 12:24</span></div>
+        <p class="a"><b class="l">About 3.8 MB each, ~140 per site visit.</b> That’s roughly 530 MB per visit, or ~16 GB over 90 days for a crew lead <a class="cite" href="#">1</a> <a class="cite" href="#">2</a>. Ingrid said they shoot at full resolution on the Bergen walk <a class="cite" href="#">3</a>.</p>
+        <div class="chips"><button class="chip"><svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg> Pin</button><button class="chip">Add to notes</button><button class="chip">Open sources</button></div>
+      </div>
+      <hr class="hair">
+      <div class="tx" aria-label="Live transcript, last turns">
+        <div class="turn old"><span class="spk marcus">Marcus Chen</span><span>…so if a crew lead has two weeks of sites cached, we need to know that before we size the queue.</span></div>
+        <div class="turn now"><span class="spk priya">Priya Raman</span><span>Right, and the 90 days is contractual now, so we can’t just evict.</span></div>
+      </div>
+    </div>
+  </article>
+</div>
+<div class="composer jot-mode"><div class="mode" role="group" aria-label="Composer mode"><button aria-pressed="false" data-toggle="mode2">Ask</button><button aria-pressed="true" data-toggle="mode2">Jot</button></div><span class="field"><span class="typed">ipad gen9 storage cap</span><span class="caret" aria-hidden="true"></span></span><span class="hints"><span><span class="kbd">⏎</span> jot</span><span><span class="kbd">⌘⏎</span> ask</span><span><span class="kbd">⌘K</span> clip</span></span></div>
+</div>
+</div>
+</section>
+
+<section class="fig2" aria-label="The floating composer over the call app">
+  <div class="callapp"><svg class="tiles" viewBox="0 0 640 400" preserveAspectRatio="xMidYMid slice" role="img" aria-label="A video call app in front, with three participant tiles">
+<rect width="640" height="400" style="fill:var(--sky)"/>
+<g filter="url(#iw-gouache)">
+<rect x="20" y="20" width="290" height="250" rx="6" style="fill:var(--sage)"/><circle cx="165" cy="120" r="38" style="fill:var(--ochre)"/><rect x="105" y="170" width="120" height="100" rx="40" style="fill:var(--sage-deep)"/>
+<rect x="330" y="20" width="290" height="250" rx="6" style="fill:var(--indigo-wash)"/><circle cx="475" cy="120" r="38" style="fill:var(--blush)"/><rect x="415" y="170" width="120" height="100" rx="40" style="fill:var(--indigo)"/>
+</g>
+<text x="32" y="258" style="fill:var(--ink);font:700 13px Manrope,sans-serif">Priya Raman</text>
+<text x="342" y="258" style="fill:var(--ink);font:700 13px Manrope,sans-serif">Marcus Chen</text>
+</svg>
+    <div class="floater" role="group" aria-label="Floating jot composer, always on top">
+      <div class="row"><span class="recdot" aria-label="Recording"></span><span class="num">12:41</span><span class="in">ipad gen9 storage cap<span class="caret" aria-hidden="true"></span></span><span class="kbd">⌥⌘J</span></div>
+      <div class="echo"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><b>Owner.</b><span>Marcus owns the background sync queue; beta 14 Nov.</span></div>
+      <div class="ans"><span class="label">Answer ready</span><span style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">~3.8 MB per photo</span><span class="sp" style="flex:1"></span><span class="caption">⌥⌘O</span></div>
+    </div>
+  </div>
+  <div>
+    <p class="anno">the call stays in front</p>
+    <ol>
+      <li><b>One line, always on top.</b> ⌥⌘J focuses it from any app; ⏎ files the jot into the live block and returns focus to the call.</li>
+      <li><b>One echo line.</b> The last enhancement shows as a single dimmed row, so you know it landed without reading it now.</li>
+      <li><b>One answer row.</b> A live answer is a row, not a card. ⌥⌘O opens it in the main window’s sheet.</li>
+      <li><b>Drop a link to clip.</b> A URL dropped or pasted here is clipped into the vault and filed as a jot.</li>
+    </ol>
+  </div>
+</section>
+
+<section class="notes" aria-label="Design notes">
+  <div><b>Jotting is not chatting</b>In Jot mode nothing replies. Your shorthand stays exactly as typed in a blush box; the enhancement paints in on the same row, anchored by typing time and meaning (E-tags, hollow when meaning only).</div>
+  <div><b>Ask without leaving the call</b>⌘⏎ sends the line as a question instead. The answer goes to the block’s single assist slot and replaces the previous one; pinned answers move to the rail.</div>
+  <div><b>The block is the meeting</b>Collapse it and it becomes one line in the conversation. Open it in the sheet and it becomes the full notes and transcript.</div>
+</section>
+</main>
+</body>
+</html>

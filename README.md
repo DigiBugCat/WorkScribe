@@ -1,314 +1,149 @@
 # WorkScribe
 
-A native macOS menu bar recorder with embedded NVIDIA speech recognition,
-speaker diarization, local transcripts, and a read-only MCP server.
+WorkScribe is a native macOS menu bar app for recording meetings, transcribing speech with speaker labels, and turning your own notes into a useful meeting record. It runs speech recognition, search, and note enhancement on your Mac. An Obsidian plugin puts live notes, cited answers, and meeting search in your vault; the app also works on its own. Models download during setup. Recording and inference do not require a cloud account.
 
-## Run
+## Build from source
 
-Open `~/Applications/WorkScribe.app` (the installed build), or `dist/WorkScribe.app`
-after a default build. Click the menu bar icon and press **Start recording**,
-press **⌥⌘R** from any app, or enable **Settings → Auto-record calls**. Stop
-finalizes and saves the transcript and audio tracks. No title is required upfront.
+### Requirements
 
-The microphone is always included. System audio (the other side of calls)
-needs Screen & System Audio Recording permission. When that permission is
-missing, the popover says so before you record, and a recording falls back to
-the microphone alone instead of failing. The setting is remembered.
+- **Apple Silicon Mac, macOS 26 or newer.** Intel Macs are not supported by the pinned native runtime.
+- **Full Xcode 26 or newer with Swift 6.2+.** Command Line Tools alone do not provide the Core ML compiler. Open Xcode once to finish installation and accept its license, then select it if needed:
+  ```sh
+  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer
+  ```
+- **Python 3.12+**, **Node.js 22+ with npm**, and Git on your shell's `PATH`. For example, with [Homebrew](https://brew.sh/): `brew install python node git`.
+- **16 GiB free disk space minimum for a fresh setup; 20 GiB recommended**, plus room for recordings. Setup checks the remaining download and build space. **16 GB memory recommended** for simultaneous speech, search, and image models; this is guidance, not a measured minimum.
+- Internet access to GitHub, Hugging Face and npm during setup (PyPI too if CMake must be installed). There is no paid service or model token in the default setup.
+- [Obsidian desktop](https://obsidian.md/) if you want the vault integration.
 
-The menu bar icon shows the state while the popover is closed: dimmed while the
-speech model loads, a red dot with elapsed time while recording, and a warning
-icon after a failure. Automatic recordings post a notification when they start,
-fail, or are saved.
-
-The shipped app includes the models and native libraries. It does not start
-an HTTP service, open a local port, invoke a model subprocess, or upload audio.
-It can run offline. This is a local, ad-hoc-signed development build, not a
-notarized distribution release.
-
-## Transcript
-
-The popover has three modes:
-
-- **Idle:** status, Start recording, and Recent. Each row shows time, length,
-  and speakers, or why a recording failed. Search matches titles and transcript
-  text and shows the matching passage. Right-click a row to move it to the Trash.
-- **Recording:** elapsed time, live Mic and System level meters, and the live
-  transcript. Scrolling up pauses following; **Jump to live** resumes it.
-- **Reviewing:** back to Recent, a title you edit in place, details, and one ⋯
-  menu for export, voice matching, undo, and Move to Trash. A failed recording
-  explains what happened and offers the fix.
-
-The window button next to Settings opens a resizable panel that floats above
-other apps, for following a call. Dragging the popover away also detaches it.
-
-Consecutive lines from one person are grouped. When the microphone hears only
-one voice, it is labeled **You**. Click a speaker's name to name them; the change
-applies to all their lines unless **Only this line** is checked, and an undo
-toast follows. Remembering a new person's voice is opt-in. Voice-match
-suggestions appear once per speaker, with **Confirm** and **Not them**.
-
-**Settings** holds only settings: Auto-record calls, Include system audio, the
-⌥⌘R shortcut, Remembered voices, Note Pro, and Copy MCP config.
-
-## Automatic recording and titles
-
-Call detection watches CoreAudio microphone activity for Zoom, Teams, Webex,
-FaceTime, Slack, and Discord. Chrome, Safari, Edge, Firefox, Brave, and Arc also
-need a visible meeting-window title (Meet, Teams, Zoom, Webex, or a Slack
-huddle). Browser-title detection needs macOS Screen Recording permission.
-The detector doesn't record or inspect audio itself.
-
-A call must be detected for three seconds before recording starts. An
-automatically started recording ends after two minutes without detected call
-microphone activity. Brief mutes are tolerated. Manual Stop suppresses
-automatic starts until call activity has been absent for two minutes.
-Manually started recordings never auto-stop. Disable the toggle to keep only
-one-click recording. WorkScribe must be running; login startup is not enabled.
-
-Detection is a heuristic, not a conferencing-app integration: a long mute,
-an unsupported app, hidden browser meeting, or missing permission can prevent
-detection or end an auto recording. The UI shows detector status and always
-offers manual recording.
-
-Titles are generated on this Mac from finalized transcript text. A first title
-can appear after 45 words; the final title uses excerpts from across the
-recording. Short clips need at least six words. Rename with the pencil or More
-menu; manual and legacy titles are never replaced automatically. The title
-model loads on demand and releases its model/context after generation.
-
-## Models
-
-| Purpose | Embedded model | Format |
-| --- | --- | --- |
-| Streaming ASR | `nvidia/nemotron-3.5-asr-streaming-0.6b` | Q8_0 GGUF, about 707 MiB |
-| Speaker diarization | `nvidia/Nemotron-3-Diarization` | Q8_0 GGUF, about 102 MiB |
-
-The models run through NeMo-Speech.cpp 0.2.0's stable C API on Apple Metal.
-One recognizer owns both models; each audio source gets its own streaming
-state. Speech weights and inference kernels are warmed in the background at
-app launch and retained between recordings. Stop clears recording streams,
-not the model; quitting releases the engine. Start is enabled once the
-one-time launch warm-up is ready. Inference runs off the UI thread. The language prompt currently uses
-`en-US`. Speaker identities are scoped to each track and each recording;
-speaker numbers are not people's names. Use headphones to reduce a call's
-audio being picked up again by the microphone.
-
-The initial 11-second public speech fixture used 1.32 GB peak memory footprint
-and 1.36 seconds of inference on this Mac. That is a short single-track test,
-not a long-meeting or maximum-memory benchmark. Apple Silicon uses unified
-memory. The speech-only bundle occupies about 822 MiB. The selected title
-model adds its model-file size. No general chat interface is included.
-
-The default title model is Qwen3.5 2B Q4_K_M (1.28 GB file). Gemma 4 E2B
-QAT Q4_0 (3.35 GB file) is an alternative build option. These are file sizes, not measured working memory.
-Both run through the already-embedded llama.cpp library with short contexts
-and thinking disabled. Only the selected title model is shipped.
-
-## Ask an LLM through MCP
-
-Choose **Copy MCP config** and add the configuration to your MCP-capable LLM
-client. It runs the same app executable with `--mcp` using standard input and
-output. No localhost URL is involved. The MCP process reads saved snapshots;
-it does not load speech models or start recording.
-
-Available tools:
-
-- `list_meetings`: the 100 most recent recordings.
-- `get_live_transcript`: finalized text plus separately marked provisional text.
-- `get_transcript`: paginated finalized segments from a selected meeting.
-- `search_transcripts`: case-insensitive literal search with timestamped evidence.
-
-Example prompts: “What have we decided in the current meeting?”, “Find where
-we discussed the Friday release”, “List the action items with timestamps.”
-The answering LLM is supplied by your client. For entirely local Q&A, use a
-local LLM in an MCP-capable client. Connecting a cloud LLM lets that client
-send retrieved transcript text to its provider; the recorder itself makes
-no such connection.
-
-## Storage
-
-`~/Library/Application Support/WorkScribe/Meetings/<meeting-id>/` contains:
-
-- `transcript.json`: atomic snapshots with finalized segments and live drafts.
-- `microphone.wav`: 16 kHz mono PCM16.
-- `system.wav`: optional separate 16 kHz mono PCM16 track.
-
-Files remain local with owner-only permissions. The More menu opens the
-recordings directory and exports a readable text transcript. Failed or
-interrupted sessions retain their captured data and are marked accordingly.
-The app does not encrypt files separately from macOS/FileVault.
-
-## Build and verify
-
-Requires Apple Silicon, macOS 14+, Swift 5.10+ and the NVIDIA 0.2.0 Metal SDK.
-SwiftPM builds into the repository's `.build`, not Xcode DerivedData.
-
-Install the NVIDIA runtime to `.runtime/nemo` using its reviewed official
-installer, then fetch the two indexed models:
+Run these commands in Terminal:
 
 ```sh
-curl -fL https://raw.githubusercontent.com/NVIDIA/NeMo-Speech.cpp/v0.2.0/scripts/install.sh -o /tmp/workscribe-nemo-install.sh
-# Inspect the installer before executing it.
-sh /tmp/workscribe-nemo-install.sh --version 0.2.0 --binary-only --no-modify-path --prefix "$PWD/.runtime/nemo"
-.runtime/nemo/bin/nemo-speech pull nemotron-3.5
-.runtime/nemo/bin/nemo-speech pull nemotron-3-diarization
-bash scripts/download-title-model.sh qwen35
-bash scripts/build-app.sh
-# To build directly into the local Applications folder:
-WORKSCRIBE_OUTPUT_DIR="$HOME/Applications" bash scripts/build-app.sh
-# To use Gemma 4 instead:
-bash scripts/download-title-model.sh gemma4
-WORKSCRIBE_TITLE_MODEL=gemma4 WORKSCRIBE_OUTPUT_DIR="$HOME/Applications" bash scripts/build-app.sh
+git clone https://github.com/DigiBugCat/WorkScribe.git
+cd WorkScribe
+scripts/bootstrap.sh
+swift build
+scripts/build-app.sh
+open dist/WorkScribe.app
+```
+
+`bootstrap.sh` checks prerequisites, downloads and SHA-256-verifies **all pinned models**, prepares the native runtime and Core ML models, builds the image-caption helper, and runs `npm ci` for the plugin. It does not install Xcode, change your system Python, or require `sudo`. Run it again after an interruption: verified files are reused, incomplete downloads resume when the server supports byte ranges, and replacements are published only after verification. `scripts/bootstrap.sh --check` checks prerequisites and space without downloading. Runtime repairs alone: `python3 scripts/runtime-doctor.py`. Setup remembers that Python executable for repairs launched from Finder; `WORKSCRIBE_PYTHON` can override it.
+
+The debug executable is `.build/debug/WorkScribe`. The build script creates a signed release app at `dist/WorkScribe.app`; models stay outside the app. To install somewhere else:
+
+```sh
+WORKSCRIBE_OUTPUT_DIR="$HOME/Applications" scripts/build-app.sh
+open "$HOME/Applications/WorkScribe.app"
+```
+
+Look for WorkScribe **in the menu bar**, not the Dock. Allow its first model warm-up to finish, then choose **Start recording**, or press **⌥⌘R**. Stop saves the recording. Auto-record calls is enabled by default; turn it off in Settings if you prefer to start each recording yourself. Use headphones to keep the other side of a call out of your microphone track. This is a development build, not a notarized release.
+
+### Install the Obsidian plugin
+
+Open your vault in Obsidian once, then:
+
+```sh
+cd obsidian-plugin
+npm run build
+bash scripts/install.sh "/path/to/your/vault"
+```
+
+In Obsidian, turn off Restricted mode under **Settings → Community plugins** and enable **WorkScribe**. In the WorkScribe app's settings, select the same vault. The plugin discovers the running app through its local `api.json`; it does not need a manually entered port or token. Start with a disposable vault if you want to explore the note lifecycle first. See the [plugin guide](obsidian-plugin/README.md) for controls and development commands.
+
+During a meeting, type your own notes in the normal Obsidian editor. Enhancements appear alongside them. After Stop, finalization writes normal Markdown into the vault. **Done** (or the 24-hour retention deadline while WorkScribe is running) removes raw meeting material and keeps the final note. Quit/relaunch recovery replays pending cleanup. This is application-level deletion, not secure erasure of backups or SSD blocks.
+
+### What setup downloads
+
+The [machine-readable inventory](Resources/runtime-downloads.json) records every runtime/model URL, immutable revision, exact byte size and SHA-256. Total runtime/model transfer is **10.37 GB (9.66 GiB)**. Dependencies, native source/build files and generated Core ML artifacts need additional space.
+
+| Download | Transfer size (decimal) | Purpose |
+| --- | ---: | --- |
+| NeMo-Speech.cpp 0.2.0, macOS arm64 Metal archive | 5.03 MB | Native speech and text-generation libraries |
+| Nemotron 3.5 ASR 0.6B Q8_0 | 741.55 MB | Speech recognition |
+| Nemotron 3 Diarization Q8_0 | 107.01 MB | Per-recording speaker labels |
+| Qwen3.5-2B Q4_K_M | 1.28 GB | Default titles, answers and note enhancement |
+| Gemma 4 E2B QAT Q4_0 | 3.35 GB | Alternate title/text model; prepared by bootstrap too |
+| Gemma 4 E2B Q4_0 + Q8 projector | 3.40 GB | Image captions |
+| EmbeddingGemma 2 Core ML text, audio, vision + tables/tokenizer | 1.48 GB | Semantic search |
+| WeSpeaker v2 Core ML | 7.95 MB | Optional remembered-speaker matching |
+
+Setup also fetches the pinned llama.cpp image-helper source, Swift packages from `Package.resolved`, and npm packages from `obsidian-plugin/package-lock.json`. If CMake is absent, it installs CMake 3.31.6 in a private cache virtual environment with a pinned wheel checksum. Python model-conversion packages are not needed: Xcode compiles the published Core ML packages.
+
+### Signing and permissions
+
+The build script selects an **Apple Development** signing identity from your Keychain if one exists, and otherwise signs **ad hoc**. No Apple developer account is needed. Override with `WORKSCRIBE_SIGN_IDENTITY="identity name"`; `WORKSCRIBE_SIGN_IDENTITY=-` forces ad-hoc signing.
+
+A stable development identity helps macOS retain privacy grants between builds. An ad-hoc rebuild can invalidate them: if recording stops working after rebuilding, quit WorkScribe, remove/re-enable its entry in **System Settings → Privacy & Security**, then reopen it. Grant permissions to the app bundle you actually launch.
+
+WorkScribe asks for:
+
+- **Microphone** to record your voice.
+- **Screen & System Audio Recording** to capture the other side of calls, screen context and browser call titles. Without it, microphone-only recording remains available.
+- **Notifications**, optionally, for recording status.
+- Access to folders you select for vault notes or indexing. Pick only folders you want searchable.
+- **Bluetooth / Keychain** only in a build with the optional Plaud integration.
+
+The global recording shortcut uses Carbon hot keys and does not require Accessibility permission. Model downloads contact their publishers; inference stays local by default. If you add an OpenAI key and enable cloud answers in Settings, your question and retrieved text excerpts are sent to OpenAI. Audio and screenshots are not sent by that feature. The Obsidian integration starts an authenticated HTTP API on `127.0.0.1` with a random port. The optional browser clipper uses a local socket. If you connect the read-only MCP interface to a cloud AI client, that client may send retrieved text to its provider.
+
+### Where things live
+
+| Location | Contents |
+| --- | --- |
+| `~/Library/Application Support/WorkScribe/Runtime` | Native runtime, models, compiled Core ML graphs, checksum receipts |
+| `~/Library/Caches/WorkScribe/Runtime` | Download archive and image-helper source/build cache |
+| `~/Library/Application Support/WorkScribe/Meetings` | Meeting metadata, audio, screen material, voice profiles and retention journal |
+| `~/Library/Application Support/WorkScribe/Notes`, `Conversations`, `Index`, `Vault` | Local notes, Q&A history, search index and vault synchronization state |
+| `~/Library/Application Support/WorkScribe/api.json` | Local API discovery and authentication token; do not share it |
+| Your selected Obsidian vault | Final editable Markdown notes and plugin files |
+
+Set `WORKSCRIBE_RUNTIME_HOME` and `WORKSCRIBE_RUNTIME_CACHE` consistently for bootstrap, builds and app execution to relocate the runtime/cache. Launch the executable from that shell when using overrides; Finder does not inherit Terminal's environment. Other isolation overrides are recorded in [the verification report](docs/BUILDING-verification.md). Source checkouts and `.build` are not your meeting library. Never delete the entire support folder as a build troubleshooting step.
+
+### Verify a build
+
+```sh
 swift test
-uv run --with mcp python scripts/verify-mcp.py
+python3 -m unittest discover -s scripts/tests
+.build/debug/WorkScribe --doctor --check
+.build/debug/WorkScribe --verify-api
+.build/debug/WorkScribe --verify-purge
+(cd obsidian-plugin && npm ci && npm test && npm run build && npm run smoke)
 ```
 
-`build-app.sh` embeds the SDK dylibs, the two speech models, and the selected
-title model, then ad-hoc signs the resulting app. Downloads are pinned and
-checksum-verified. It stages the app outside synced Documents folders before
-signing to avoid file-provider metadata interfering with code signing.
-The source copy of `asr.h` is from the NVIDIA 0.2.0 SDK. NVIDIA and upstream
-licenses are retained in the bundle under `Contents/Resources/licenses`.
-Model terms are linked from the model cards below.
+`--verify-api` checks the actual local HTTP server and authentication using a temporary library. `--verify-purge` checks final-note preservation, raw/index deletion and idempotent cleanup using fixtures. Neither records your microphone. `npm run smoke` loads the real plugin bundle against a mock server under Node; it is not an Obsidian UI test.
 
-To exercise the actual bundled inference bridge without audio permissions or
-adding test data to your library:
+For actual model inference with a speech WAV, without live audio permissions:
 
 ```sh
-dist/WorkScribe.app/Contents/MacOS/WorkScribe --verify-audio /path/to/speech.wav
+.build/debug/WorkScribe --verify-audio /path/to/speech.wav
+.build/debug/WorkScribe --verify-warm /path/to/speech.wav
 ```
 
-This emits streaming events and elapsed inference time as JSON. Diagnostics
-go to stderr. The test drains and destroys streams before freeing the Metal
-model so resources are released before process exit.
+These checks do not substitute for testing a real call, sleep/wake, device changes or your macOS permission flow. See [the verification report](docs/BUILDING-verification.md) for precisely what was run.
 
-## Sources
+### Troubleshooting
 
-- [Nemotron 3.5 ASR model card](https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b)
-- [Nemotron 3 Diarization model card](https://huggingface.co/nvidia/Nemotron-3-Diarization)
-- [NeMo-Speech.cpp native SDK contract](https://github.com/NVIDIA/NeMo-Speech.cpp/blob/v0.2.0/docs/sdk.md)
+- **`coremlcompiler` missing / wrong Swift version:** select the full Xcode installation above, open it once, and rerun bootstrap. `xcrun --find coremlcompiler` and `swift --version` should succeed.
+- **Download interrupted / wrong hash / model missing:** rerun bootstrap. Use `python3 scripts/runtime-doctor.py --check` to inspect assets; omit `--check` to repair. A failed replacement leaves the previous model intact. Keep enough disk space for temporary downloads.
+- **`library not found for -lnemo_speech_asr_c` / `-llama`:** run bootstrap before `swift build`, using the same runtime-home environment. Do not copy random native libraries into the checkout.
+- **No transcript / microphone or system track missing:** check the permissions above, use the signed app rather than a bare executable, and allow warm-up to complete. With ad-hoc builds, reset the stale privacy entry after a rebuild.
+- **Plugin disconnected:** start WorkScribe, select the same vault, and leave the plugin's API override empty for the default data location. With an isolated `WORKSCRIBE_API_DIR`, point it at that directory's `api.json`.
+- **`sandbox-exec: sandbox_apply: Operation not permitted`:** a restricted CI/agent runner may forbid SwiftPM's nested sandbox. Only in that environment, use `swift build --disable-sandbox`, `swift test --disable-sandbox`, and `WORKSCRIBE_SWIFT_DISABLE_SANDBOX=1 scripts/build-app.sh`. Normal Terminal builds use the sandbox.
 
-## Current boundaries
+### Optional Plaud SDK
 
-This build provides recording, streaming transcription, local history,
-automatic call detection and titles, export, and MCP retrieval. It does not
-yet include an in-app chat interface, speaker renaming, an audio player, or a database
-index for a large archive. Full recordings are retained until removed by the
-user. Live recording/device validation is separate from fixture-based model
-and MCP tests.
-
-Verified on this Mac: a six-second microphone + system-audio recording,
-nonempty audio on both tracks, live speaker-labeled text, clean finalization,
-and no open TCP connections. A separate 30.5-second synthetic two-speaker
-fixture produced two speaker labels in 4.22 seconds with a 1.36 GB peak memory
-footprint. Four core tests and the official Python MCP client check passed.
-Long meetings, sleep/wake, and audio-device switching have not been validated.
-
-Title comparison (five synthetic transcripts, October 3, 2026): both models
-produced useful descriptive titles. After the first load, Qwen took 0.60–0.91
-seconds; Gemma took 0.83–1.13 seconds. Qwen was selected for comparable results
-on this small fixture set with a smaller model file. First-use costs differ
-(shader compilation, caching, and disk reads); these are not broad accuracy
-or cold-start benchmarks. Run `scripts/benchmark-titles.py` to reproduce.
-
-Automatic title lifecycle and call-trigger policies are covered by 14 tests,
-including manual rename while generation is pending and mute/stop behavior.
-Actual detection across every listed conferencing app has not been verified.
-
-The updated UI was checked with a synthetic live stream: partial text gained
-speaker labels on finalization, followed the latest speech, generated a title,
-and retained a manually edited title. Native ASR/diarization and Qwen title
-generation also passed a concurrent in-process fixture check. No network
-service is started for any of these features.
-
-`--verify-warm /path/to/speech.wav` checks concurrent warm-up requests, two
-independent recording streams, a single model load across both, matching
-transcripts, and complete release on shutdown. It reports warm-up and stream
-creation timings without using the microphone.
-
-Warm-engine verification: two sessions reused one model load and produced
-matching transcripts. Native stream creation measured 0.05 ms and 0.08 ms
-after warm-up; this excludes audio-permission and device setup time. The
-measured first warm-up took 17.2 seconds and now runs at app launch.
-
-### Remembered speakers
-
-Click a finalized speaker label to name one segment or every segment from that
-speaker. The original diarization ID is preserved. Settings → Remembered voices
-lets you rename a person for future labels or forget their saved voice samples.
-Settings → Undo speaker change restores the last label edit in that recording.
-
-Confirmed names can enroll local voice profiles. After a recording finishes,
-FluidAudio 0.17.5 extracts 256-dimensional embeddings from up to three clear,
-non-overlapping, 3–10 second spans per speaker/identity. The bundled
-`wespeaker_v2.mlmodelc` runs through Core ML in this process. No server is started,
-and no audio or voice profile is sent out. NVIDIA remains responsible for
-transcription and per-recording diarization. Models are bundled; the runtime does
-not invoke FluidAudio's download APIs.
-
-Future recordings show **Maybe [name] · Review** when a voice matches a previously
-confirmed sample. These are suggestions, not identity claims; they never train
-profiles until confirmed. This initial version performs matching after Stop (or
-Settings → Check voice matches), not on provisional live text. Saved names appear
-in text exports and MCP's `speaker_name`, with `speaker_name_confirmed`; MCP retains
-the original `speaker` ID and never exposes embeddings. Unknown or overlapping
-spans are not enrolled. Older recordings without stored source/audio alignment
-can still be named but are excluded from voice learning.
-
-Profiles live in `voices.json` beside the meeting directories with owner-only
-permissions. Forget removes a profile's embeddings and future reuse, preserving
-historical transcript names. A profile retains at most 12 confirmed samples;
-corrections remove examples learned from that recording before rebuilding them.
-The conservative similarity cutoff (0.65, with a 0.12 lead over another person)
-is an initial heuristic, not a calibrated accuracy guarantee. Real calls,
-microphones, background noise, and overlapping speakers still need evaluation.
-
-Prepare the pinned voice model before building on a new machine:
+**Off by default.** The public build contains no Plaud frameworks, menu entry or device-import tests. To use an SDK you are authorized to access, follow [the native Plaud notes](experiments/plaud-macos/README.md), then export these for every build/test command:
 
 ```sh
-python3 scripts/prepare-voice-model.py
+export WORKSCRIBE_PLAUD=1
+export WORKSCRIBE_PLAUD_FRAMEWORKS="/path/to/Frameworks"
+swift build
+scripts/build-app.sh
 ```
 
-The model revision and per-file SHA-256 checksums are retained under
-`Resources/licenses/fluidaudio`, alongside the publisher's license-scope and
-provenance notices. SwiftPM pins the FluidAudio library in `Package.resolved`.
+The directory must contain `PlaudBleSDK.framework` and `PlaudDeviceBasicSDK.framework`. The existing default lookup is `~/Library/Caches/WorkScribe/PlaudNativeLab/Frameworks`. The project does not distribute the proprietary SDK or grant permission to redistribute it.
 
-### Note Pro handoff from the menu bar
+## Licensing
 
-Open **Settings → Save & release Note Pro…**. It opens its own window with four
-steps: Find, Save to Mac, Release, Pair on iPhone. The window stays open while
-a transfer runs, and WorkScribe won't quit mid-transfer.
+WorkScribe is licensed under the [Apache License 2.0](LICENSE). Fork it, change it and ship your own version; see [making your own](docs/specs/making-your-own.md) if that file is present in your checkout.
 
-**Find Note Pro** uses the saved Plaud developer session. If it has expired,
-the window asks for the client ID and secret. The secret is not saved; the
-24-hour session is kept in the Keychain. Sign-in reuses the Plaud user ID from
-Plaud Mac Lab (`local.workscribe.plaud-lab` defaults), so the recorder keeps
-the same owner. Devices appear as they are found; choosing one ends the scan.
-
-**Save its recordings** downloads and decodes every listed recording, with
-overall and per-file progress, and saves a checksum manifest under
-`~/Library/Application Support/WorkScribe/Plaud Backups`. First use may
-require macOS Keychain and Bluetooth approval. Another app connected to the
-recorder (such as Plaud Mac Lab) must disconnect first.
-
-Verified recordings are then added to **Recent** as ordinary recordings:
-transcribed by the same local speech engine, titled automatically, dated from
-the recorder's session time, and searchable through MCP. Their audio is copied
-as `recorder.wav`. Imports pause while a live recording runs and resume
-afterwards. The import queue is in memory: if WorkScribe quits mid-import, the
-saved files remain in the backup folder but are not re-queued automatically.
-
-Only after the backup completes does **Release Note Pro…** become
-available. Confirmation rechecks the device inventory, recording state, and
-local backup checksums, then performs cloud unbinding and device depairing.
-This clears device storage. Local backups remain; they are not uploaded into
-the official Plaud account. Finally, pair the recorder using **Add device** in
-the official Plaud iPhone app. Returning to WorkScribe requires syncing and
-removing the device there first.
-
-`WorkScribe --verify-import /path/to/audio.wav` imports one file as a Note Pro
-recording into a temporary library and prints the result.
-
-The native frameworks must be prepared as described in
-`experiments/plaud-macos/README.md` before building the main app. The build
-embeds them in WorkScribe; it does not run a helper or local server.
+Third-party terms are separate: see [Resources/licenses](Resources/licenses/README.md). The legacy WeSpeaker conversion's weight provenance remains unresolved; do not redistribute those weights without clarification. No inspected public runtime/model license explicitly forbids redistribution; optional proprietary Plaud terms must be obtained from its vendor.

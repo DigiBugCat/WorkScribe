@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day Book Evening</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700;800&family=Kalam&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daybook.css">
+<script src="daybook.js"></script>
+<style>
+  .dayband { margin: var(--space-2) 0 var(--space-4); }
+  .digest { background: var(--surface); border-radius: var(--radius-md); padding: var(--space-4); box-shadow: var(--emb); }
+  .digest h3 { font-size: 21px; line-height: 28px; font-weight: 600; margin-bottom: 6px; }
+  .digest ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 14.5px; line-height: 22px; }
+  .ledger { width: 100%; border-collapse: collapse; font-size: 13.5px; line-height: 19px; margin-top: var(--space-2); }
+  .ledger th { font: 700 10.5px/15px var(--font-sans); letter-spacing: .07em; text-transform: uppercase; color: var(--ink-muted); text-align: left; padding: 4px 10px 6px 0; border-bottom: 1px solid var(--line); }
+  .ledger td { padding: 8px 10px 8px 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+  .ledger .sig { font-weight: 800; color: var(--indigo); font-size: 15px; width: 22px; }
+  .ledger .q { display: block; color: var(--ink-muted); font-size: 12.5px; line-height: 17px; }
+  .ledger tr.mine td { background: color-mix(in srgb, var(--blush) 30%, transparent); }
+  .ledger .done { color: var(--ink-muted); text-decoration: line-through; text-decoration-thickness: 1px; }
+  .tablewrap { overflow-x: auto; }
+  .ledger { min-width: 560px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; margin-top: 6px; }
+  .legend b { color: var(--indigo); font-weight: 800; margin-right: 3px; }
+</style>
+</head>
+<body>
+<main class="stage">
+  <header class="stage-head">
+    <div>
+      <div class="eyebrow">Concept C · Day Book · screen 3 of 4</div>
+      <h1>Evening: the page, closed</h1>
+      <p>18:05. The day folds into one line per thing that happened. At the bottom, just above the now line, the margin has written the <b>digest</b> and laid out the <b>ledger</b>: every action from every call, with owner, who asked and the moment it was said. You carry what's open to tomorrow's page, bullet-journal style.</p>
+    </div>
+    <nav aria-label="Concept pages">
+      <a href="02-live-call.html">Previous</a>
+      <a href="04-moments.html">Next: moments</a>
+      <button class="theme-toggle" type="button">Theme: auto</button>
+    </nav>
+  </header>
+
+  <div class="window soak" role="group" aria-label="WorkScribe window, today's page at end of day">
+    <div class="titlebar">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <span class="where">Day Book</span>
+      <span class="vault">Vault · Daily/2026-10-13.md</span>
+      <span class="spacer"></span>
+      <div class="seg" role="group" aria-label="Zoom">
+        <button type="button" aria-pressed="true">Day</button><button type="button" aria-pressed="false">Week</button><button type="button" aria-pressed="false">Month</button>
+      </div>
+      <div class="search"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 13.5 13.5"/></svg><span>Find a moment, or ask…</span><span class="kbd">⌘K</span></div>
+    </div>
+    <div class="book">
+      <nav class="rail" aria-label="Page index">
+        <div>
+          <div class="label" style="margin-bottom:4px">Today</div>
+          <ul>
+            <li><a href="#"><span class="num">08:31</span>Early · 4</a></li>
+            <li><a href="#"><span class="num">10:02</span>Offline sync</a></li>
+            <li><a href="#"><span class="num">11:10</span>Asked · 1</a></li>
+            <li><a href="#"><span class="num">13:30</span>Design crit</a></li>
+            <li><a href="#"><span class="num">16:00</span>Halvorsen IT</a></li>
+            <li><a href="#digest" aria-current="true"><span class="num">18:00</span>Digest</a></li>
+          </ul>
+        </div>
+        <p class="foot">Each call is its own note, [[linked]] from the day page. The digest is plain Markdown you can edit.</p>
+      </nav>
+
+      <div class="page">
+        <div class="dayhead">
+          <div>
+            <h2>Tuesday, 13 October</h2>
+            <div class="sub">3 calls · 1 h 52 min recorded · 11 jots · 2 clips · 6 actions</div>
+          </div>
+        </div>
+
+        <svg class="band dayband" viewBox="0 0 760 60" role="img" aria-label="The day from 8:00 to 18:00: calls at 10:02, 13:30 and 16:00, jots and clips between them.">
+          <path class="iw-line" d="M0 30 H760"/>
+          <g>
+            <rect class="iw-wash" x="152" y="18" width="24" height="24" rx="3"/>
+            <rect class="iw-wash" x="418" y="18" width="34" height="24" rx="3"/>
+            <rect class="iw-wash" x="608" y="18" width="19" height="24" rx="3"/>
+            <circle class="iw-blush" cx="40" cy="30" r="4"/><circle class="iw-sky" cx="56" cy="30" r="5"/><circle class="iw-blush" cx="60" cy="30" r="3"/>
+            <circle class="iw-blush" cx="158" cy="30" r="3"/><circle class="iw-blush" cx="164" cy="30" r="3"/><circle class="iw-blush" cx="170" cy="30" r="3"/>
+            <circle class="iw-ochre" cx="236" cy="30" r="5"/><circle class="iw-sky" cx="260" cy="30" r="5"/>
+            <circle class="iw-blush" cx="430" cy="30" r="3"/><circle class="iw-blush" cx="444" cy="30" r="3"/>
+            <circle class="iw-sage" cx="560" cy="30" r="5"/>
+          </g>
+          <text class="iw-t-muted" x="0" y="56" font-size="10.5" font-weight="700">08:00</text>
+          <text class="iw-t-muted" x="152" y="56" font-size="10.5" font-weight="700">10:02</text>
+          <text class="iw-t-muted" x="418" y="56" font-size="10.5" font-weight="700">13:30</text>
+          <text class="iw-t-muted" x="608" y="56" font-size="10.5" font-weight="700">16:00</text>
+          <text class="iw-t-muted" x="760" y="56" font-size="10.5" font-weight="700" text-anchor="end">18:00</text>
+          <text class="iw-t-muted" x="236" y="12" font-size="10.5" font-weight="600" text-anchor="middle">asked</text>
+          <text class="iw-t-muted" x="260" y="12" font-size="10.5" font-weight="600" text-anchor="start">clip</text>
+        </svg>
+
+        <div class="rows">
+          <div class="row quiet"><div class="t">08:31</div><div class="e"><div class="caption">Opened Offline PRD v3.md · clipped “Field-level merge for offline forms” · asked about the Halvorsen MSA</div></div><aside class="m"></aside></div>
+
+          <div class="row k-call">
+            <div class="t">10:02</div>
+            <div class="e">
+              <span class="kind">Call · 32 min</span>
+              <div class="title"><a href="#">Offline sync — v2.4 scope</a></div>
+              <div class="body">Offline stays in v2.4 but ships <b>Nov 4</b>. Checklists merge per field; photo queue capped at 200 photos or 1.5 GB; Halvorsen leads a 40-account beta.</div>
+              <div class="meta"><span class="spk priya">Priya</span><span class="spk marcus">Marcus</span><span>· 6 jots enhanced · 2 answers · 1 missed topic added</span></div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="row k-ask">
+            <div class="t">11:10</div>
+            <div class="e">
+              <span class="kind">Asked</span>
+              <div class="body">What have we promised Halvorsen about offline?</div>
+              <div class="meta">answered from the MSA, the 8 Oct kickoff and this morning's call · 4 sources</div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="row k-clip">
+            <div class="t">11:42</div>
+            <div class="e">
+              <span class="kind">Clipped</span>
+              <div class="title">Background App Refresh on supervised devices</div>
+              <div class="meta">Apple developer docs · via Obsidian Web Clipper · 2 highlights</div>
+            </div>
+            <aside class="m"><div class="mnote"><span>Linked to Priya's point at 10:07 about Halvorsen's managed iPhones.</span></div></aside>
+          </div>
+
+          <div class="row k-call">
+            <div class="t">13:30</div>
+            <div class="e">
+              <span class="kind">Call · 41 min · mic only</span>
+              <div class="title"><a href="#">Design crit — inspection checklist</a></div>
+              <div class="body">Photo grid goes to 3 columns with a “needs photo” state; Lena wants the merge-conflict flag designed before Monday.</div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="row k-file">
+            <div class="t">15:20</div>
+            <div class="e"><span class="kind">File</span><div class="title">Halvorsen MSA 2026.pdf · p.14</div><div class="meta">Contracts · opened from the 11:10 answer</div></div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="row k-call">
+            <div class="t">16:00</div>
+            <div class="e">
+              <span class="kind">Call · 39 min</span>
+              <div class="title"><a href="#">Halvorsen IT — managed devices</a></div>
+              <div class="body">They'll allow background refresh for Fieldbook via MDM if we send a one-page data note by Thursday.</div>
+              <div class="meta"><span class="spk lena">Dana Kowalski</span><span>· new voice, named at 16:03</span></div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="break" id="digest"><div></div><div><span class="label">Evening · written by the margin at 18:00</span></div></div>
+
+          <div class="row k-ask">
+            <div class="t">18:00</div>
+            <div class="e">
+              <div class="digest">
+                <h3>The day in four lines</h3>
+                <ol>
+                  <li>v2.4 offline ships <b>Nov 4</b>, not Oct 28. Priya tells Halvorsen Friday.</li>
+                  <li>The 24-hour sync clause depends on Halvorsen's MDM allowing background refresh. They will, if you send the data note.</li>
+                  <li>Checklist merge rule is decided; it isn't in PRD v3 yet.</li>
+                  <li>Lena needs a conflict-flag design before Marcus's Monday prototype.</li>
+                </ol>
+              </div>
+            </div>
+            <aside class="m">
+              <div class="mnote"><span class="who">Promises you made</span><span><b>10:29</b> to Priya: “I'll get that into the PRD before Marcus starts.”</span><span><b>16:31</b> to Halvorsen IT: a one-page data note by Thursday.</span></div>
+              <div class="mnote"><span class="hand">two promises, both yours ↓</span></div>
+            </aside>
+          </div>
+
+          <div class="row k-action">
+            <div class="t">18:00</div>
+            <div class="e">
+              <span class="kind">Ledger · 6 actions from 3 calls</span>
+              <div class="tablewrap">
+                <table class="ledger">
+                  <thead><tr><th scope="col"><span class="vh">State</span></th><th scope="col">Action</th><th scope="col">Owner</th><th scope="col">Asked by · said at</th><th scope="col">Due</th></tr></thead>
+                  <tbody>
+                    <tr class="mine"><td class="sig" aria-label="open, yours">!</td><td><span class="seal" aria-label="Needs you"></span> Update PRD v3 with the merge rule and photo cap<span class="q">“Can you get that into the PRD before Marcus starts?”</span></td><td><span class="spk you">You</span></td><td>Priya · 10:29</td><td>Was today</td></tr>
+                    <tr class="mine"><td class="sig" aria-label="open, yours">!</td><td>Send Halvorsen IT a one-page data note<span class="q">“If we get that by Thursday we'll push the profile.”</span></td><td><span class="spk you">You</span></td><td>Dana · 16:31</td><td>Thu 15</td></tr>
+                    <tr><td class="sig" aria-label="delegated">&lt;</td><td>Prototype field-level merge for checklists<span class="q">“Give me till Monday.”</span></td><td><span class="spk marcus">Marcus</span></td><td>Priya · 10:10</td><td>Mon 19</td></tr>
+                    <tr><td class="sig" aria-label="delegated">&lt;</td><td>Email Halvorsen about the Nov 4 date</td><td><span class="spk priya">Priya</span></td><td>herself · 10:16</td><td>Fri 16</td></tr>
+                    <tr><td class="sig" aria-label="delegated">&lt;</td><td>Design the merge-conflict flag</td><td><span class="spk lena">Lena</span></td><td>You · 14:02</td><td>Mon 19</td></tr>
+                    <tr><td class="sig" aria-label="done">✓</td><td class="done">Send Lena the photo-grid notes</td><td><span class="spk you">You</span></td><td>Lena · Mon</td><td>done 12:40</td></tr>
+                  </tbody>
+                </table>
+              </div>
+              <div class="legend"><span><b>!</b>open, yours</span><span><b>&lt;</b>someone else's</span><span><b>✓</b>done</span><span><b>&gt;</b>carried to tomorrow</span></div>
+              <div class="acts"><button class="btn primary" type="button">Carry 2 to Wednesday</button><button class="btn text" type="button">Copy as Markdown</button></div>
+            </div>
+            <aside class="m"><div class="mnote"><span>Carrying puts them at the top of Wednesday's page, under “from Tue”, with the quote and the moment kept.</span></div></aside>
+          </div>
+
+          <div class="row now">
+            <div class="t">18:05</div>
+            <div class="e nowline">
+              <label class="vh" for="jot3">Jot on the now line</label>
+              <div class="jot"><span class="ph" id="jot3">Anything else for today? → sends a line to tomorrow</span><span class="kbd">↩</span></div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="callouts" aria-label="Notes on this screen">
+    <div><b>The digest is an entry, not a report</b>It's written at a time on the page like everything else, so next week you scroll to Tuesday and it's there, in the same place, in your vault.</div>
+    <div><b>Promises are found, not filed</b>The margin collects sentences where your voice committed to something (“I'll…”, “by Thursday”), with the second they were said. You never had to type them.</div>
+    <div><b>Migration is the ritual</b>Open items don't pile up in an inbox; you carry them to tomorrow on purpose, one tap, as in a bullet journal.</div>
+  </section>
+</main>
+</body>
+</html>

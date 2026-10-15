@@ -1,0 +1,10 @@
+phase=upload bytes=41439
+phase=processing state=ACTIVE waited=2s
+0:00  The note "m-live-mv92az5m" displays the heading "Offline sync — v2.4 scope" followed by "Before", an indented "Listening for this...", "After", and an indented "Listening for this...". The right-hand panel shows a recording timer at "00:01" with status "Listening...".
+0:00.333  In the right panel, a transcript entry appears: "Marcus Chen · 00:01" with "The sync engine is...". The note content is unchanged.
+0:00.667  The text "PREFIX" appears above "Before". Under "Before", "Listening for this..." changes to a highlighted "Updating AI line...", immediately followed by an inserted chart image fixture ("iPhone 12 mini - launch trace" with orange bar graphs).
+0:01.000  The image fixture disappears. "PREFIX" remains above "Before". Under "Before", the text reverts to "Listening for this...". Under "After", the text switches to a highlighted "Updating AI line...".
+
+Moments worth a closer rewatch:
+- 0:00.667 to 0:01.000: The image fixture under "Before" is removed and "Before" reverts, but "PREFIX" remains and the "Updating AI line..." highlight shifts to appear under "After".
+tokens=2680 cost_usd=0.0022 prompt=v2

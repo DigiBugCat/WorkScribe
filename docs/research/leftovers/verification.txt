@@ -1,0 +1,20 @@
+Final automated checks — 2026-10-14 PDT
+swift test: 164 passed, 0 failures
+.build/debug/WorkScribe --verify-api: PASS
+.build/debug/WorkScribe --verify-purge: PASS
+obsidian-plugin/npm test: 83 passed, 2 expected opt-in skips
+obsidian-plugin/npm run build: PASS
+obsidian-plugin/npm run smoke: PASS
+WORKSCRIBE_API_BINARY=../.build/debug/WorkScribe npm test: 85 passed, no skips
+Native editor harness: PASS in isolated profile
+Recording pill: controls within header at 1024 px viewport / 380 px note and 740 px viewport / 396 px note
+Properties-to-first-bullet gap: 22 px
+Resume: same meeting ID, exact document source, same existing transcript segment count
+Finishing ring: 35%; ready ring: 100%
+Asked of you: explicit address sorted before third-person mention, one label
+Nine nested/list/task indent cases: all within 0.5 px
+Finalize scroll and one-Undo restore: PASS
+Composer footer: 17 px clear of status bar
+Page errors: none
+Independent watchcat motion review: completed; no dead control or broken transition reported
+High-resolution header replay: no overlapping or clipped controls observed

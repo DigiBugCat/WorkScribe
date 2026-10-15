@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>WorkScribe Clip</title>
+<style>
+  :root { color-scheme: light dark; --muted: #6b6b6b; --accent: #b4442f; }
+  @media (prefers-color-scheme: dark) { :root { --muted: #a0a0a0; --accent: #e07a5f; } }
+  body { font: 13px/1.4 -apple-system, system-ui, sans-serif; width: 320px; margin: 0; padding: 12px; }
+  h1 { font-size: 13px; margin: 0 0 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .muted { color: var(--muted); font-size: 12px; }
+  #destination { margin: 10px 0; padding: 8px; border-radius: 6px; background: color-mix(in srgb, var(--accent) 10%, transparent); }
+  textarea { width: 100%; box-sizing: border-box; min-height: 52px; font: inherit; margin-bottom: 8px; }
+  .row { display: flex; gap: 8px; }
+  button { flex: 1; padding: 6px; font: inherit; border-radius: 6px; border: 1px solid var(--muted); background: transparent; color: inherit; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: white; }
+  button:disabled { opacity: .5; cursor: default; }
+  #result { margin-top: 8px; min-height: 1em; }
+</style>
+</head>
+<body>
+  <h1 id="title">Reading page…</h1>
+  <div class="muted" id="what"></div>
+  <div id="destination" class="muted">Asking WorkScribe…</div>
+  <textarea id="question" placeholder="Ask WorkScribe about this page (optional)"></textarea>
+  <div class="row">
+    <button id="clip" class="primary" disabled>Clip</button>
+    <button id="ask" disabled>Ask</button>
+  </div>
+  <div id="result" class="muted"></div>
+  <script type="module" src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day Book Concept</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700;800&family=Kalam&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daybook.css">
+<script src="daybook.js"></script>
+<style>
+  .pitch { font-size: 17px; line-height: 28px; max-width: 68ch; }
+  .screens { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: var(--space-4); }
+  .screens a { display: flex; flex-direction: column; gap: 6px; padding: var(--space-4); background: var(--surface-raised); border-radius: var(--radius-md); box-shadow: var(--shadow-cutout); text-decoration: none; color: var(--ink); }
+  .screens a b { font-family: var(--font-serif); font-size: 19px; line-height: 26px; font-weight: 600; }
+  .screens a span { font-size: 14px; line-height: 21px; color: var(--ink-muted); }
+  .verdict { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: var(--space-6); }
+  .verdict h2 { font-size: 21px; line-height: 28px; font-weight: 600; padding-bottom: 6px; border-bottom: var(--stroke-line) solid var(--indigo); margin-bottom: var(--space-2); }
+  .verdict ul { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 15px; line-height: 23px; }
+  .figure { background: var(--surface-raised); border-radius: var(--radius-lg); box-shadow: var(--shadow-cutout); padding: var(--space-6); }
+  .figure svg { width: 100%; height: auto; display: block; }
+</style>
+</head>
+<body>
+<main class="stage">
+  <header class="stage-head">
+    <div>
+      <div class="eyebrow">WorkScribe · interface concepts</div>
+      <h1>Concept C · Day Book</h1>
+      <p class="pitch">WorkScribe as a <b>ship's log of your working day</b>. There is one page per day, and everything lands on it in time order: calls, your jots, the notes they turn into, actions, files you opened, web clips, questions you asked and the answers you got. You always type on the <b>now line</b>, whether you're in a call or not, and bullet-journal signifiers (• ! ? →) decide what a line becomes. The assistant never gets a panel of its own. It writes in the <b>margin</b>, beside the line it's about: the excerpts a note came from, a live answer, “you promised Priya this at 10:29”, the evening digest. Ask is just a “?” jot answered in the margin. Search puts moments back on the days they happened. Pages are Markdown in your Obsidian vault.</p>
+    </div>
+    <nav aria-label="Concept pages">
+      <a href="01-morning.html">Start</a>
+      <button class="theme-toggle" type="button">Theme: auto</button>
+    </nav>
+  </header>
+
+  <div class="figure soak" role="img" aria-label="Anatomy of a day page: a time gutter, the indigo spine with entries, a margin column for the assistant, and the now line where you type.">
+    <svg viewBox="0 0 900 230" aria-hidden="true">
+      <g>
+        <rect class="iw-blush" x="130" y="134" width="460" height="30" rx="3"/>
+        <rect class="iw-wash" x="640" y="40" width="220" height="56" rx="3" opacity=".7"/>
+        <rect class="iw-sky" x="130" y="40" width="320" height="22" rx="3"/>
+        <rect class="iw-sky" x="130" y="76" width="260" height="22" rx="3"/>
+        <rect class="iw-linefill" x="130" y="186" width="280" height="16" rx="3" opacity=".6"/>
+      </g>
+      <path class="iw-line" d="M110 20 V215"/>
+      <path class="iw-line" d="M90 149 H600" style="stroke-width:2"/>
+      <path class="iw-hair" d="M620 20 V215"/>
+      <path class="iw-line" d="M110 186 V215" style="stroke-dasharray:4 4"/>
+      <text class="iw-t-muted" x="20" y="56" font-size="12" font-weight="700">10:10</text>
+      <text class="iw-t-muted" x="20" y="92" font-size="12" font-weight="700">10:11</text>
+      <text class="iw-t" x="20" y="154" font-size="13" font-weight="800" style="fill:var(--indigo)">10:16</text>
+      <text class="iw-t-muted" x="20" y="198" font-size="12" font-weight="700">13:30</text>
+      <text class="iw-t" x="142" y="55" font-size="13" font-weight="600">offline conflicts → LWW?? → Conflict resolution.</text>
+      <text class="iw-t" x="142" y="91" font-size="13" font-weight="600">! marcus proto merge by mon</text>
+      <text class="iw-t" x="142" y="154" font-size="13" font-weight="600">android parity?|</text>
+      <text class="iw-t-muted" x="142" y="198" font-size="12" font-weight="600">Design crit · ahead</text>
+      <text class="iw-t" x="652" y="62" font-size="12.5" font-weight="700">Marcus asked · 10:15</text>
+      <text class="iw-t" x="652" y="82" font-size="12.5">3.1 MB per photo [1]</text>
+      <text class="iw-t-muted" x="20" y="16" font-size="10.5" font-weight="700" letter-spacing="1">TIME</text>
+      <text class="iw-t-muted" x="130" y="16" font-size="10.5" font-weight="700" letter-spacing="1">THE PAGE</text>
+      <text class="iw-t-muted" x="640" y="16" font-size="10.5" font-weight="700" letter-spacing="1">THE MARGIN</text>
+      <circle class="iw-verm" cx="110" cy="149" r="6"/>
+      <text class="iw-t-hand" x="640" y="160" font-size="18">you type here, always ←</text>
+    </svg>
+  </div>
+
+  <section class="screens" aria-label="Screens">
+    <a href="01-morning.html"><b>1 · Morning</b><span>The page ahead: carried-over items, a clip, a “?” jot answered, and calls pencilled in with margin prep.</span></a>
+    <a href="02-live-call.html"><b>2 · Live call</b><span>The call is a section of the day. Jots enhance in place; evidence, a live answer and a missed topic sit in the margin.</span></a>
+    <a href="03-evening.html"><b>3 · Evening</b><span>The day folded to one line per thing, a four-line digest, promises found in your own voice, and the action ledger.</span></a>
+    <a href="04-moments.html"><b>4 · Moments</b><span>Search results as moments placed back on their days, with a month ribbon and Ask in the margin.</span></a>
+  </section>
+
+  <section class="verdict">
+    <div>
+      <h2>Best at</h2>
+      <ul>
+        <li><b>One gesture for everything.</b> Jotting in a call, asking a question and noting a thought at 8am are the same act on the same line, so the jotting habit spreads to the whole day.</li>
+        <li><b>Context by adjacency.</b> The 10:16 call sits under the 08:44 clip and the 08:47 answer; the margin can connect them because they're neighbours in time.</li>
+        <li><b>Recall by “when”.</b> People remember “the morning of the site visit” better than file names. Results grouped by day read as a story.</li>
+        <li><b>Promises and the daily ritual.</b> The digest, found promises and carry-to-tomorrow give a reason to open the app every evening.</li>
+        <li><b>Plays well with Obsidian.</b> A day page is a daily note; calls and clips are linked notes.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>Worst at</h2>
+      <ul>
+        <li><b>Project-shaped work.</b> Everything about Halvorsen is scattered across many days. You need search or a “thread” view to see a topic whole, and that's a second organising idea fighting the first.</li>
+        <li><b>Long calls crowd the day.</b> A 90-minute call with 30 jots makes the page mostly one meeting; collapsing helps but the day stops reading as a day.</li>
+        <li><b>The margin is narrow.</b> Long answers and evidence for many notes compete for one column; on small windows the margin folds under its line and the page gets long.</li>
+        <li><b>“Ahead” needs a calendar.</b> Morning prep depends on opt-in EventKit, which WorkScribe doesn't have today.</li>
+      </ul>
+    </div>
+  </section>
+</main>
+</body>
+</html>

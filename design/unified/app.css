@@ -1,0 +1,108 @@
+/* WorkScribe main window: the shared chassis for every in-app screen.
+   One window, Obsidian-like: a left sidebar (search, sections, pinned, recent,
+   notes-folder footer) on surface, and the open page on raised paper. */
+
+.app { width: 100%; max-width: 1320px; height: 860px; margin: 0 auto; }
+.app .titlebar { gap: var(--space-2); }
+.app .titlebar .crumb { font-weight: 700; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.app .titlebar .crumb small { font-weight: 500; color: var(--ink-muted); font-size: 12.5px; }
+.app .titlebar .tools { display: inline-flex; align-items: center; gap: var(--space-1); margin-left: auto; flex-wrap: wrap; }
+.app-body { flex: 1; display: grid; grid-template-columns: 236px minmax(0, 1fr); min-height: 0; }
+.app-body.railed { grid-template-columns: 56px minmax(0, 1fr); }
+
+/* ---------- Sidebar ---------- */
+.side { background: var(--surface); border-right: var(--stroke-hair) solid var(--line); padding: var(--space-3) var(--space-2); overflow: auto; font-size: 13px; line-height: 18px; display: flex; flex-direction: column; gap: 2px; min-height: 0; }
+.side .search { margin: 0 var(--space-1) var(--space-2); }
+.side .search .kbd { margin-left: auto; }
+.side .grp { padding: var(--space-4) var(--space-2) var(--space-1); display: flex; align-items: center; }
+.side .grp .add { margin-left: auto; width: 22px; height: 20px; }
+.side a { display: flex; align-items: center; gap: var(--space-2); padding: 6px var(--space-2); border-radius: var(--radius-sm); color: var(--ink); text-decoration: none; font-weight: 500; min-width: 0; }
+.side a:hover { background: color-mix(in srgb, var(--indigo-wash) 30%, transparent); }
+.side a .ic { width: 16px; height: 16px; color: var(--indigo); flex: none; }
+.side a .n { margin-left: auto; font-size: 12px; color: var(--ink-muted); font-variant-numeric: tabular-nums; font-weight: 600; }
+.side a .t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* Selected = a wash soaked into the row, no outline */
+.side a.on { background: color-mix(in srgb, var(--indigo-wash) 55%, transparent); font-weight: 700; }
+.side a.file .ic { color: var(--ink-muted); }
+.side a.rec-row { font-weight: 700; }
+.side .foot { margin-top: auto; padding: var(--space-3) var(--space-2) var(--space-1); border-top: var(--stroke-hair) solid var(--line); display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; }
+.side .foot .vault { display: flex; gap: 6px; align-items: center; color: var(--ink); font-weight: 600; }
+.side .foot .vault .ico { width: 14px; height: 14px; color: var(--indigo); }
+.side .foot .row { display: flex; align-items: center; gap: var(--space-2); }
+
+/* Collapsed rail (during a recording the window gives the room to the call) */
+.side.rail { padding: var(--space-3) var(--space-1); align-items: center; }
+.side.rail a { width: 40px; height: 36px; justify-content: center; padding: 0; }
+.side.rail a .ic { width: 17px; height: 17px; }
+
+/* ---------- Page ---------- */
+.page { overflow: auto; min-height: 0; background: var(--surface-raised); }
+.doc { padding: var(--space-8) var(--space-8) var(--space-12); display: flex; flex-direction: column; gap: var(--space-8); min-width: 0; }
+.doc-head { display: flex; flex-direction: column; gap: var(--space-2); }
+.doc h1 { font-size: 30px; line-height: 36px; font-weight: 500; }
+.room { display: flex; flex-direction: column; gap: var(--space-3); min-width: 0; }
+.room-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--space-1) var(--space-3); border-bottom: var(--stroke-line) solid var(--indigo); padding-bottom: 6px; }
+.room-h h2 { font-size: 21px; line-height: 28px; font-weight: 600; }
+.room-h .aside { margin-left: auto; font-size: 13px; line-height: 18px; color: var(--ink-muted); font-weight: 500; }
+.lede { font-size: 17px; line-height: 27px; max-width: 64ch; }
+.lede b { font-weight: 700; }
+
+/* The Markdown file a page is saved to (Obsidian angle, a proposal) */
+.filechip { display: inline-flex; align-items: center; gap: 6px; font: 600 12px/16px var(--font-sans); color: var(--ink-muted); padding: 2px 8px 2px 6px; border-radius: var(--radius-sm); background: var(--chip); box-shadow: var(--emb); max-width: 100%; min-width: 0; }
+.filechip .ico { width: 14px; height: 14px; color: var(--indigo); flex: none; }
+.filechip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* [[wikilinks]] as they render inside notes: an indigo link with quiet brackets */
+.wl { color: var(--indigo); font-weight: 600; text-decoration: underline; text-decoration-thickness: 1px; text-underline-offset: 3px; text-decoration-color: color-mix(in srgb, var(--indigo) 40%, transparent); }
+
+/* Chat composer, shared by home and the meeting sidecar */
+.composer-box { background: var(--surface-raised); border-radius: var(--radius-md); box-shadow: var(--shadow-cutout); padding: var(--space-3) var(--space-4); }
+.composer-box .ph { color: var(--ink-muted); font-size: 15px; line-height: 22px; }
+.composer-box .base { height: 6px; border-radius: 3px; margin-top: 6px; background: color-mix(in srgb, var(--indigo-wash) 55%, transparent); }
+.composer-box .row { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-2); margin-top: var(--space-2); font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; }
+.composer-box .row .spacer { flex: 1; }
+.sendbtn { width: 30px; height: 30px; border-radius: var(--radius-md); border: 1px solid var(--indigo); color: var(--indigo); background: transparent; display: inline-grid; place-items: center; cursor: pointer; padding: 0; }
+.sendbtn:hover { background: color-mix(in srgb, var(--indigo-wash) 35%, transparent); }
+
+/* Citation sources under an answer */
+.sources { border-top: var(--stroke-line) solid var(--indigo); padding-top: var(--space-3); display: grid; gap: var(--space-2); }
+.sources .s { display: grid; grid-template-columns: 26px minmax(0, 1fr); gap: 2px var(--space-2); font-size: 13.5px; line-height: 20px; align-items: baseline; position: relative; }
+.sources .s .d { font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+.sources .s .qt { grid-column: 2; font-size: 13.5px; line-height: 20px; color: var(--ink-muted); }
+.cite.on { background: var(--indigo); color: var(--on-indigo); box-shadow: none; }
+.preview { grid-column: 2; margin-top: var(--space-2); background: var(--surface-raised); box-shadow: var(--shadow-cutout); border-radius: var(--radius-md); padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); max-width: 440px; }
+.preview .turn { padding: 0; }
+
+/* Moments: results that point inside media (from DigUp) */
+.kind { font: 700 10.5px/15px var(--font-sans); letter-spacing: .06em; text-transform: uppercase; color: var(--ink); background: var(--chip); padding: 1px 6px; border-radius: var(--radius-sm); white-space: nowrap; }
+.moments { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-1); }
+.mo { display: grid; grid-template-columns: 88px minmax(0, 1fr) auto; gap: 2px var(--space-3); align-items: center; padding: var(--space-2); border-radius: var(--radius-md); }
+.mo:hover { background: color-mix(in srgb, var(--indigo-wash) 22%, transparent); }
+.mo.on { background: color-mix(in srgb, var(--indigo-wash) 40%, transparent); }
+.mo .th { grid-row: 1 / span 3; width: 88px; height: 56px; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); display: block; }
+.mo .th svg { display: block; width: 100%; height: 100%; }
+.mo .k { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+.mo .tt { font-size: 14px; line-height: 20px; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.mo .x { font-size: 13.5px; line-height: 20px; color: var(--ink-muted); }
+.mo .btn { grid-row: 1 / span 3; grid-column: 3; }
+
+/* Recording strip: timer, levels, permission state. Lives in the window now. */
+.lvl { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 600; color: var(--ink-muted); white-space: nowrap; }
+.lvl svg { width: 22px; height: 14px; display: block; }
+.rec { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-variant-numeric: tabular-nums; font-size: 14px; }
+
+@media (max-width: 900px) {
+  .app { height: auto; }
+  .app-body, .app-body.railed { grid-template-columns: 1fr; }
+  /* The sidebar becomes a horizontal strip of the main sections */
+  .side, .side.rail { flex-direction: row; align-items: center; overflow-x: auto; padding: var(--space-2); border-right: 0; border-bottom: var(--stroke-hair) solid var(--line); gap: var(--space-1); }
+  .side .search, .side .grp, .side .foot, .side a.sub-item, .side a.file { display: none; }
+  .side a, .side.rail a { flex: none; width: auto; height: auto; padding: 6px var(--space-2); }
+  .side.rail a .vh-rail { position: static !important; width: auto !important; height: auto !important; clip: auto !important; overflow: visible !important; }
+  .page { overflow: visible; }
+  .doc { padding: var(--space-6) var(--space-4) var(--space-8); gap: var(--space-6); }
+}
+@media (max-width: 560px) {
+  .mo { grid-template-columns: 72px minmax(0, 1fr); }
+  .mo .th { width: 72px; height: 46px; grid-row: 1 / span 2; }
+  .mo .btn { grid-row: auto; grid-column: 2; justify-self: start; }
+}

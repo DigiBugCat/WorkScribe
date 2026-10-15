@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meeting, Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700&family=Kalam&display=swap">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="app.css">
+<script src="shared.js"></script>
+<style>
+  .app.tall { height: 1020px; }
+  .live { display: grid; grid-template-columns: minmax(0, 1fr) 340px; height: 100%; min-height: 0; }
+  .main { display: flex; flex-direction: column; min-height: 0; border-right: var(--stroke-hair) solid var(--line); }
+
+  /* The editor: two panes, row-aligned. Left = your shorthand (input ground), right = enhanced. */
+  .editor { flex: 1; overflow: auto; min-height: 0; }
+  .ed-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); }
+  .ed-h { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-bottom: var(--stroke-hair) solid var(--line); min-height: 44px; }
+  .ed-h.mine { background: color-mix(in srgb, var(--blush) 22%, var(--surface-raised)); }
+  .ed-h.enh { background: var(--surface-raised); border-left: var(--stroke-line) solid var(--indigo); }
+  .ed-h .spacer { flex: 1; }
+  .cell { padding: var(--space-3) var(--space-4); border-bottom: var(--stroke-hair) solid var(--line); min-width: 0; }
+  .cell.mine { background: color-mix(in srgb, var(--blush) 22%, var(--surface-raised)); display: grid; grid-template-columns: 40px minmax(0, 1fr); gap: var(--space-2); align-items: baseline; }
+  .cell.mine .tm { font-size: 12px; line-height: 20px; color: var(--ink-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .cell.mine .sh { font-size: 14px; line-height: 20px; font-weight: 500; }
+  .cell.enh { border-left: var(--stroke-line) solid var(--indigo); }
+  .cell.enh .en { font-size: 14.5px; line-height: 23px; max-width: 62ch; }
+  .cell.enh .refs { margin-top: 6px; display: flex; gap: 2px; flex-wrap: wrap; align-items: center; font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; }
+  .cell.enh .refs .lbl { margin-right: 4px; }
+  .cell.sel { background: color-mix(in srgb, var(--indigo-wash) 26%, var(--surface-raised)); }
+  .cell.mine.sel { background: color-mix(in srgb, var(--indigo-wash) 26%, color-mix(in srgb, var(--blush) 22%, var(--surface-raised))); }
+  .cell.plain .en { color: var(--ink-muted); font-size: 13px; line-height: 20px; }
+  .cell .from { color: var(--indigo); margin-bottom: 4px; }
+  .cell.typing .sh .caret { display: inline-block; width: 1.5px; height: 15px; background: var(--ink); vertical-align: -2px; margin-left: 1px; }
+  .cell.typing .tm { color: var(--indigo); font-weight: 700; }
+  .pending { display: flex; gap: var(--space-2); align-items: center; color: var(--ink-muted); font-size: 13px; line-height: 20px; }
+  .pending i { display: inline-block; width: 46px; height: 6px; border-radius: 3px; background: color-mix(in srgb, var(--indigo-wash) 60%, transparent); }
+  @media (prefers-reduced-motion: no-preference) { .pending i { animation: iw-breathe 1.8s var(--soak) infinite alternate; } @keyframes iw-breathe { from { opacity: .35; } to { opacity: 1; } } }
+
+  .anchor { margin-top: var(--space-3); padding: var(--space-3); background: var(--surface-raised); border-radius: var(--radius-md); box-shadow: var(--shadow-cutout); display: flex; flex-direction: column; gap: var(--space-2); }
+  .anchor .ah { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px var(--space-3); }
+  .anchor .ah h3 { font-size: 16px; line-height: 22px; font-weight: 600; }
+  .ruler { width: 100%; height: auto; display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-4); font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+  .exlist { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+  .exlist li { display: grid; grid-template-columns: 30px minmax(0, 1fr); gap: 2px 6px; font-size: 13px; line-height: 19px; }
+  .exlist .why { grid-column: 2; font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; font-variant-numeric: tabular-nums; }
+  .exlist .why b { color: var(--indigo); font-weight: 700; }
+
+  /* Transcript drawer under the editor */
+  .tx { height: 230px; flex: none; display: flex; flex-direction: column; background: var(--surface); border-top: var(--stroke-line) solid var(--indigo); min-height: 0; }
+  .tx-h { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); padding: var(--space-2) var(--space-4); }
+  .tx-h .spacer { flex: 1; }
+  .tx .scroll { overflow: auto; flex: 1; padding: 0 var(--space-4) var(--space-2); }
+  .jump { position: sticky; bottom: 0; display: flex; justify-content: center; padding-top: var(--space-2); }
+  .jump span { background: var(--indigo); color: var(--on-indigo); font-size: 12px; line-height: 16px; padding: 4px 12px; border-radius: 999px; font-weight: 700; box-shadow: var(--shadow-cutout); }
+  .namehint { font-size: 12px; line-height: 16px; background: color-mix(in srgb, var(--sky) 70%, var(--surface-raised)); border-radius: var(--radius-sm); padding: 3px 8px; display: inline-flex; gap: 6px; align-items: center; font-weight: 500; flex-wrap: wrap; }
+  .namehint button { font: 700 12px/16px var(--font-sans); color: var(--indigo); background: none; border: 0; padding: 0 2px; cursor: pointer; }
+
+  /* AI sidecar: one live-answer slot pinned on top, chat about the call below */
+  .sidecar { display: flex; flex-direction: column; min-height: 0; background: var(--surface); }
+  .slot { padding: var(--space-3) var(--space-4); border-bottom: var(--stroke-hair) solid var(--line); display: flex; flex-direction: column; gap: var(--space-2); }
+  .slot .meta { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+  .slot .acts { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+  .livecard .q { font-size: 16px; line-height: 22px; }
+  .livecard .a { font-size: 13.5px; line-height: 21px; }
+  .sc-chat { flex: 1; overflow: auto; padding: var(--space-3) var(--space-4); display: flex; flex-direction: column; gap: var(--space-3); min-height: 0; }
+  .me { align-self: flex-end; max-width: 90%; background: color-mix(in srgb, var(--blush) 60%, transparent); border-radius: var(--radius-md); padding: 6px 10px; font-size: 13.5px; line-height: 20px; font-weight: 500; }
+  .ai { font-size: 13.5px; line-height: 21px; }
+  .sc-comp { padding: var(--space-2) var(--space-3) var(--space-3); }
+  .sc-comp .composer-box { padding: var(--space-2) var(--space-3); }
+  .sc-comp .composer-box .ph { font-size: 13.5px; line-height: 20px; }
+
+  .status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-1) var(--space-3); padding: var(--space-2) var(--space-4); border-top: var(--stroke-hair) solid var(--line); background: var(--surface); font-size: 12px; line-height: 16px; color: var(--ink-muted); font-weight: 500; }
+  .status .spacer { flex: 1; }
+
+  /* Companion: the optional always-on-top mini window */
+  .pair { display: grid; grid-template-columns: 360px minmax(0, 1fr); gap: var(--space-8); align-items: start; }
+  .comp { width: 100%; max-width: 360px; }
+  .comp .titlebar { min-height: 36px; padding: 6px var(--space-3); }
+  .comp .body { padding: var(--space-3); display: flex; flex-direction: column; gap: var(--space-2); }
+  .comp .meters { display: flex; gap: var(--space-3); }
+  .comp ol { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+  .comp li { display: grid; grid-template-columns: 38px minmax(0, 1fr); gap: 2px var(--space-2); font-size: 13px; line-height: 19px; }
+  .comp li .t { font-size: 11.5px; color: var(--ink-muted); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .comp li .e { grid-column: 2; color: var(--ink); }
+  .comp li .typed { justify-self: start; }
+  .jot { display: grid; grid-template-columns: 38px minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; padding: 6px 0 4px; font-size: 14px; line-height: 20px; }
+  .jot .t { font-size: 11.5px; color: var(--indigo); font-weight: 700; font-variant-numeric: tabular-nums; }
+  .jot .caret { display: inline-block; width: 1.5px; height: 15px; background: var(--ink); vertical-align: -2px; margin-left: 1px; }
+  .jot-base { height: 6px; border-radius: 3px; background: var(--indigo-wash); position: relative; }
+  .jot-base::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: var(--stroke-line); background: var(--indigo); }
+  .assist { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: center; background: color-mix(in srgb, var(--sky) 70%, var(--surface-raised)); border-radius: var(--radius-sm); padding: var(--space-2) var(--space-3); font-size: 12.5px; line-height: 17px; }
+  .assist .label { color: var(--indigo); display: block; }
+  .comp .foot { display: flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-3); border-top: var(--stroke-hair) solid var(--line); background: var(--surface); font-size: 12px; color: var(--ink-muted); }
+  .comp .foot .spacer { flex: 1; }
+  .why-list { display: flex; flex-direction: column; gap: var(--space-3); font-size: 14px; line-height: 22px; max-width: 62ch; }
+  .why-list h2 { font-size: 21px; line-height: 28px; font-weight: 600; }
+  .why-list b { font-weight: 700; }
+
+  @media (max-width: 1100px) { .app.tall { height: auto; } .live { grid-template-columns: 1fr; height: auto; } .main { border-right: 0; } .editor, .tx .scroll, .sc-chat { overflow: visible; } .tx { height: auto; } .sidecar { border-top: var(--stroke-hair) solid var(--line); } }
+  @media (max-width: 900px) { .pair { grid-template-columns: 1fr; } }
+  @media (max-width: 640px) {
+    .ed-grid { grid-template-columns: 1fr; }
+    .ed-h.enh { display: none; }
+    .cell.enh { border-left: 0; padding-left: calc(40px + var(--space-2) + var(--space-4)); }
+    .cell.mine { border-bottom: 0; }
+    .anchor { margin-left: calc(-40px - var(--space-2)); }
+  }
+</style>
+</head>
+<body>
+<main class="stage">
+  <header class="stage-head">
+    <div class="head-text">
+      <span class="label">Concept A · Workspace · screen 02 of 05</span>
+      <h1>Meeting, live: shorthand in, enhanced notes beside it</h1>
+      <p>Live note enhancement is the heart of the page. You type shorthand on the left; the enhanced version of each line appears beside it as you write, with Enhance notes on and “Notes are caught up” when it has caught up. Below is the named live transcript; on the right, the AI sidecar with the one live-answer slot and a chat about this call. Recording controls, timer, levels and permission state sit in the window's title bar. Tue 13 Oct, 14 minutes in.</p>
+    </div>
+    <nav aria-label="Pages"><a href="01-home-chat.html">Home</a><a href="index.html">Index</a><a href="03-meeting-review.html">Next: review</a><button class="theme-toggle" type="button">Theme</button></nav>
+  </header>
+
+  <div class="window app tall soak" role="group" aria-label="WorkScribe window, meeting recording">
+    <div class="titlebar">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <span class="rec" aria-label="Recording, 14 minutes 7 seconds"><span class="recdot"></span>14:07</span>
+      <span class="crumb">Offline sync — v2.4 scope <small>· Zoom · started automatically</small></span>
+      <span class="lvl">Mic <svg viewBox="0 0 22 14" aria-hidden="true"><g filter="url(#iw-gouache)"><rect x="1" y="7" width="4" height="7" rx="1" style="fill:var(--leaf)"/><rect x="7" y="3" width="4" height="11" rx="1" style="fill:var(--leaf)"/><rect x="13" y="6" width="4" height="8" rx="1" style="fill:var(--leaf)"/></g></svg></span>
+      <span class="lvl">System <svg viewBox="0 0 22 14" aria-hidden="true"><g filter="url(#iw-gouache)"><rect x="1" y="2" width="4" height="12" rx="1" style="fill:var(--leaf)"/><rect x="7" y="0" width="4" height="14" rx="1" style="fill:var(--leaf)"/><rect x="13" y="5" width="4" height="9" rx="1" style="fill:var(--leaf)"/></g></svg></span>
+      <span class="chip"><span class="dot"></span>Mic + system audio</span>
+      <span class="tools">
+        <button class="btn text" type="button" title="Companion (⌥⌘N)"><svg class="ico" aria-hidden="true" style="width:14px;height:14px"><use href="#i-popout"/></svg>Companion</button>
+        <button class="btn primary" type="button"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-stop"/></svg>Stop</button>
+      </span>
+    </div>
+    <div class="app-body railed">
+      <nav class="side rail" aria-label="WorkScribe">
+        <a href="01-home-chat.html" title="Ask"><svg class="ico ic" aria-hidden="true"><use href="#i-ask"/></svg><span class="vh vh-rail">Ask</span></a>
+        <a href="index.html#not-mocked" title="Today"><svg class="ico ic" aria-hidden="true"><use href="#i-today"/></svg><span class="vh vh-rail">Today</span></a>
+        <a class="on" href="02-meeting-live.html" aria-current="page" title="Meetings"><svg class="ico ic" aria-hidden="true"><use href="#i-meetings"/></svg><span class="vh vh-rail">Meetings</span></a>
+        <a href="index.html#not-mocked" title="Notes"><svg class="ico ic" aria-hidden="true"><use href="#i-notes"/></svg><span class="vh vh-rail">Notes</span></a>
+        <a href="index.html#not-mocked" title="People"><svg class="ico ic" aria-hidden="true"><use href="#i-people"/></svg><span class="vh vh-rail">People</span></a>
+        <a href="04-search.html" title="Search"><svg class="ico ic" aria-hidden="true"><use href="#i-search"/></svg><span class="vh vh-rail">Search</span></a>
+      </nav>
+      <div class="page" style="overflow:hidden">
+        <div class="live">
+          <div class="main">
+            <div class="editor">
+              <div class="ed-grid">
+                <div class="ed-h mine"><span class="label">Your notes · shorthand</span><span class="spacer"></span><span class="caption">Return adds a line</span></div>
+                <div class="ed-h enh"><span class="label">Enhanced</span><span class="spacer"></span><button class="tog" role="switch" aria-checked="true" type="button"><span class="slot" aria-hidden="true"></span>Enhance notes</button><span class="chip"><span class="dot"></span>Notes are caught up</span></div>
+
+                <div class="cell mine sel"><span class="tm">08:12</span><span class="sh">offline conflicts → LWW?? marcus pushback</span></div>
+                <div class="cell enh sel">
+                  <div class="en"><span class="lead">Conflict resolution.</span> Marcus warned last-write-wins would silently drop inspectors' checklist edits when the office edits the same job; the team agreed on a field-level merge for checklist items and last-write-wins for everything else.</div>
+                  <div class="anchor">
+                    <div class="ah"><h3>Drew from 3 excerpts</h3><span class="caption">two near your typing, one earlier by meaning</span></div>
+                    <svg class="ruler" viewBox="0 0 520 64" role="img" aria-label="Meeting timeline from 0:00 to 14:07. You typed this note at 8:12. E1 at 7:58 and E2 at 8:31 fall inside the typing window and match by meaning. E3 at 3:10 matches by meaning only.">
+                      <g filter="url(#iw-gouache)">
+                        <rect x="228" y="16" width="148" height="22" rx="3" class="iw-wash" opacity=".75"/>
+                        <rect x="282" y="21" width="12" height="12" rx="2" class="iw-indigo"/>
+                        <rect x="312" y="21" width="12" height="12" rx="2" class="iw-indigo"/>
+                      </g>
+                      <line class="iw-axis" x1="4" y1="27" x2="516" y2="27"/>
+                      <g class="iw-axis"><line x1="4" y1="23" x2="4" y2="31"/><line x1="187" y1="24" x2="187" y2="30"/><line x1="370" y1="24" x2="370" y2="30"/><line x1="516" y1="23" x2="516" y2="31"/></g>
+                      <line class="iw-line iw-line-strong" x1="302" y1="8" x2="302" y2="44"/>
+                      <rect x="111" y="21.5" width="11" height="11" rx="2" class="iw-line" style="fill:var(--surface-raised)"/>
+                      <text class="iw-t" x="296" y="11" text-anchor="end" font-size="12" font-weight="700">typed 08:12</text>
+                      <g class="iw-t" font-size="12" font-weight="700"><text x="288" y="52" text-anchor="middle">E1</text><text x="318" y="52" text-anchor="middle">E2</text><text x="116.5" y="52" text-anchor="middle">E3</text></g>
+                      <g class="iw-t-muted" font-size="12" font-weight="500"><text x="4" y="63">0:00</text><text x="187" y="63" text-anchor="middle">5:00</text><text x="370" y="63" text-anchor="middle">10:00</text><text x="516" y="63" text-anchor="end">14:07 now</text></g>
+                    </svg>
+                    <div class="legend"><span><i style="background:var(--indigo)"></i>time + meaning</span><span><i style="box-shadow:inset 0 0 0 1.25px var(--indigo)"></i>meaning only</span><span><i style="background:var(--indigo-wash)"></i>±2 min typing window</span></div>
+                    <ul class="exlist">
+                      <li><span><span class="extag">E1</span></span><span><span class="spk marcus">Marcus</span> “If it's last-write-wins, an inspector's checklist edits just vanish…”</span><span class="why"><b>time + meaning</b> · 07:58 · 14 s before you typed</span></li>
+                      <li><span><span class="extag">E2</span></span><span><span class="spk priya">Priya</span> “Okay — merge at the field level for checklists…”</span><span class="why"><b>time + meaning</b> · 08:31 · 19 s after</span></li>
+                      <li><span><span class="extag hollow">E3</span></span><span><span class="spk marcus">Marcus</span> “The sync engine is last-write-wins today, per record.”</span><span class="why"><b>meaning only</b> · 03:10 · 5 min before</span></li>
+                    </ul>
+                    <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)"><button class="btn" type="button">Show in transcript</button><button class="btn text" type="button">Unlink E3</button><button class="btn text" type="button">Keep as typed</button></div>
+                  </div>
+                </div>
+
+                <div class="cell mine"><span class="tm">09:05</span><span class="sh">ship date nov 4 not oct 28</span></div>
+                <div class="cell enh"><div class="en"><span class="lead">Ship date.</span> v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration; Priya will tell Halvorsen on Friday.</div><div class="refs"><span class="lbl">from</span><span class="extag">E4</span><span class="extag">E5</span></div></div>
+
+                <div class="cell mine"><span class="tm">10:40</span><span class="sh">beta 40 accts, halvorsen first</span></div>
+                <div class="cell enh"><div class="en"><span class="lead">Beta cohort.</span> 40 accounts, Halvorsen Construction first because their contract names offline capture by year end.</div><div class="refs"><span class="lbl">from</span><span class="extag">E6</span></div></div>
+
+                <div class="cell mine"><span class="tm">12:48</span><span class="sh caption">added from an answer</span></div>
+                <div class="cell enh"><div class="label from">From the live answer · Priya asked</div><div class="en">Halvorsen MSA requires offline capture of inspections and photos by Dec 31, with sync within 24 hours of reconnecting <span class="cite">1</span>. Nothing on conflict handling <span class="cite">1</span>.</div></div>
+
+                <div class="cell mine"><span class="tm">12:51</span><span class="sh">photo uploads queue — cap?</span></div>
+                <div class="cell enh"><div class="en"><span class="lead">Photo queue.</span> Cap at 200 photos or 1.5 GB per device, upload oldest first on reconnect, and show inspectors a banner at the cap.</div><div class="refs"><span class="lbl">from</span><span class="extag">E7</span><span class="extag">E8</span><span class="extag">E9</span></div></div>
+
+                <div class="cell mine"><span class="tm">13:58</span><span class="sh">android parity?</span></div>
+                <div class="cell enh plain"><div class="en">No matching speech yet. Kept as typed; it will show up in missed topics if it's discussed later.</div></div>
+
+                <div class="cell mine typing"><span class="tm">14:07</span><span class="sh">marcus measure on 12 mini<span class="caret"></span></span></div>
+                <div class="cell enh"><div class="pending"><i aria-hidden="true"></i>Enhancing as you type…</div></div>
+              </div>
+            </div>
+
+            <section class="tx" aria-label="Live transcript">
+              <div class="tx-h">
+                <span class="label">Transcript · live</span>
+                <span class="spk you">You</span><span class="spk priya">Priya Raman</span><span class="spk marcus">Marcus Chen</span>
+                <span class="spacer"></span>
+                <span class="namehint">Speaker 4 sounds like <b>Ana Ruiz</b><button type="button">Confirm</button><button type="button">Name…</button></span>
+              </div>
+              <div class="scroll">
+                <div class="turn"><div class="who"><span class="spk marcus">Marcus</span><span class="t">07:58</span></div><p><span class="extag">E1</span><mark class="ex">If it's last-write-wins, an inspector's checklist edits just vanish when the office touches the same job.</mark> And nobody finds out until the report's wrong.</p></div>
+                <div class="turn"><div class="who"><span class="spk you">You</span><span class="t">08:14</span></div><p>Does merging per field get us most of the way? Checklists are mostly booleans and notes.</p></div>
+                <div class="turn"><div class="who"><span class="spk priya">Priya</span><span class="t">08:31</span></div><p><span class="extag">E2</span><mark class="ex">Okay — merge at the field level for checklists, keep last-write-wins for the rest.</mark> Marcus, can you prototype that?</p></div>
+                <div class="turn provisional"><div class="who"><span class="spk marcus">Marcus</span><span class="t">14:02</span></div><p>…I can measure that on the 12 mini, it's the worst case we have…</p></div>
+                <div class="jump"><span>Jump to live · 14:07</span></div>
+              </div>
+            </section>
+          </div>
+
+          <aside class="sidecar" aria-label="AI sidecar">
+            <div class="slot">
+              <div class="meta"><span class="label" style="color:var(--indigo)">Question detected · 13:40</span><span class="caption" style="margin-left:auto">1 earlier, in notes</span></div>
+              <div class="livecard">
+                <div class="caption"><span class="spk marcus">Marcus</span> asked</div>
+                <p class="q">What did we measure for photo sizes on the iPhone 12 last time?</p>
+                <p class="a">3.1 MB average after HEIC compression; a site day ran 140–180 photos <span class="cite">1</span>. The 12 mini stalled above about 1 GB queued <span class="cite">2</span>; Apple puts a 12 MP HEIC at roughly half a JPEG <span class="cite">3</span>.</p>
+                <div class="src"><span><b>1</b>Photo pipeline benchmarks.numbers</span><span><b>2</b>Note Pro · walk-and-talk · 6 Oct · 11:24</span><span><b>3</b><span class="kind">clip</span> “Image formats on iPhone” · support.apple.com · clipped 2 Oct</span></div>
+              </div>
+              <div class="acts"><button class="btn" type="button">Add to notes</button><button class="btn text" type="button">Dismiss</button></div>
+              <span class="caption">A newer answer replaces this one. Hidden while your screen is shared.</span>
+            </div>
+            <div class="sc-chat" aria-label="Chat about this call">
+              <span class="label">Ask about this call</span>
+              <p class="me">what did we decide on android last week?</p>
+              <p class="ai">Nothing was decided. In Mon's design crit, Lena assumed Android offline would wait for 2.5 <span class="cite">1</span>; nobody confirmed it.</p>
+            </div>
+            <div class="sc-comp">
+              <div class="composer-box">
+                <div class="ph">Ask about this call or your files</div>
+                <div class="base" aria-hidden="true"></div>
+              </div>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </div>
+    <div class="status">
+      <span>Speech, voices, enhancement and answers run on this Mac</span>
+      <span class="spacer"></span>
+      <span>Live answers from Meetings · Contracts · PRDs · Work vault clips</span>
+      <span>Saving to <b>Meetings/2026-10-13 Offline sync — v2.4 scope.md</b></span>
+    </div>
+  </div>
+
+  <section class="pair" aria-labelledby="cp-h">
+    <div class="window comp soak d1" role="group" aria-label="Companion window, always on top">
+      <div class="titlebar">
+        <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+        <span class="rec"><span class="recdot"></span>14:07</span>
+        <span class="crumb" style="font-size:12.5px">Offline sync</span>
+        <span class="tools"><button class="iconbtn" type="button" aria-label="Open the meeting in the main window"><svg class="ico" aria-hidden="true"><use href="#i-window"/></svg></button></span>
+      </div>
+      <div class="body">
+        <div class="meters"><span class="lvl">Mic <svg viewBox="0 0 22 14" aria-hidden="true"><g filter="url(#iw-gouache)"><rect x="1" y="7" width="4" height="7" rx="1" style="fill:var(--leaf)"/><rect x="7" y="3" width="4" height="11" rx="1" style="fill:var(--leaf)"/><rect x="13" y="6" width="4" height="8" rx="1" style="fill:var(--leaf)"/></g></svg></span><span class="lvl">System <svg viewBox="0 0 22 14" aria-hidden="true"><g filter="url(#iw-gouache)"><rect x="1" y="2" width="4" height="12" rx="1" style="fill:var(--leaf)"/><rect x="7" y="0" width="4" height="14" rx="1" style="fill:var(--leaf)"/><rect x="13" y="5" width="4" height="9" rx="1" style="fill:var(--leaf)"/></g></svg></span></div>
+        <ol aria-label="Your notes, newest last">
+          <li><span class="t">12:51</span><span class="typed">photo uploads queue — cap?</span><span class="e"><span class="lead" style="font-size:15px">Photo queue.</span> Cap at 200 photos or 1.5 GB per device.</span></li>
+          <li><span class="t">13:58</span><span class="typed">android parity?</span><span class="e caption">Kept as typed</span></li>
+        </ol>
+        <div class="jot"><span class="t">14:07</span><span>marcus measure on 12 mini<span class="caret"></span></span><span class="kbd">↩</span></div>
+        <div class="jot-base" aria-hidden="true"></div>
+        <div class="assist"><div><span class="label">Answer ready · 13:40</span><span class="spk marcus">Marcus</span> asked about iPhone 12 photo sizes</div><button class="btn" type="button">Show</button></div>
+      </div>
+      <div class="foot"><span><span class="kbd">⌥⌘N</span> hide</span><span class="spacer"></span><button class="btn" type="button"><svg class="ico" aria-hidden="true" style="width:12px;height:12px"><use href="#i-stop"/></svg>Stop</button></div>
+    </div>
+    <div class="why-list">
+      <span class="label">Optional · detached mode</span>
+      <h2 id="cp-h">The in-call companion</h2>
+      <p>A 340 pt always-on-top window for when Zoom is in front or you're sharing your screen. It is the same meeting page, compressed: timer and levels, the last two notes with their enhanced lead, the jot line, and the answer slot reduced to one row. <b>Companion</b> in the title bar or <span class="kbd">⌥⌘N</span> pops it out; the main window can stay behind the call.</p>
+      <p><b>Why keep it.</b> Moving off the menu bar removes the old popover's jot line. Without a small surface, jotting would mean switching away from the call. The floating window is also the one piece of today's WorkScribe people already use.</p>
+      <p><b>Why it's opt-in.</b> It never opens by itself. Its enhancement is in place under each line, because two panes don't fit in 340 pt; the main window keeps side-by-side panes.</p>
+    </div>
+  </section>
+
+  <div class="callouts">
+    <div><b>Your notes and their enhancements</b>Shorthand left, enhanced right, row-aligned so each line sits beside what it became. Enhance notes toggle, “Notes are caught up”, and a live placeholder while you're still typing. Missed topics come after Stop, in the review.</div>
+    <div><b>Plus two anchors</b>Select a line to see its excerpts on a time ruler: inside your ±2 min typing window and matching by meaning (filled), or meaning only (hollow).</div>
+    <div><b>Sidecar, one slot</b>The live answer is pinned on top of the sidecar and replaced by the next one; chat about the call sits below it. No card stack.</div>
+    <div><b>The window gives the call room</b>While recording, the sidebar folds to an icon rail. Recording state, levels and permissions sit in the title bar, so the menu bar only needs the dot and timer.</div>
+  </div>
+</main>
+</body>
+</html>

@@ -1,0 +1,68 @@
+== baselines (test halves, 2-fold avg) ==
+WeSpeaker v2 raw                   EER   0.6%  TPR@1%FPR  99.4%  ID  99.9%  | rule: ok  96.1 wrong  0.0 impostorFA  0.0
+WeSpeaker v2 centered              EER   0.6%  TPR@1%FPR  99.5%  ID  99.9%  | rule: ok  95.4 wrong  0.0 impostorFA  0.0
+WeSpeaker v2 PCA-whiten+LDA        EER   3.8%  TPR@1%FPR  90.8%  ID  98.3%  | rule: ok  93.8 wrong  0.2 impostorFA  9.3
+== EG2 final embedding ==
+EG2 768 raw                        EER  39.9%  TPR@1%FPR   6.7%  ID  26.0%  | rule: ok   0.2 wrong  0.0 impostorFA  0.0
+EG2 512 raw (Matryoshka)           EER  39.8%  TPR@1%FPR   6.4%  ID  26.0%  | rule: ok   0.1 wrong  0.0 impostorFA  0.0
+EG2 256 raw (Matryoshka)           EER  39.9%  TPR@1%FPR   6.3%  ID  25.2%  | rule: ok   0.1 wrong  0.0 impostorFA  0.0
+EG2 128 raw (Matryoshka)           EER  41.4%  TPR@1%FPR   4.8%  ID  20.4%  | rule: ok   0.0 wrong  0.0 impostorFA  0.0
+EG2 768 centered                   EER  38.6%  TPR@1%FPR  10.7%  ID  28.6%  | rule: ok   0.0 wrong  0.0 impostorFA  0.0
+EG2 768 PCA-whiten                 EER  41.5%  TPR@1%FPR   8.4%  ID  23.5%  | rule: ok   0.0 wrong  0.0 impostorFA  0.0
+EG2 768 PCA-whiten+LDA             EER  40.2%  TPR@1%FPR   5.0%  ID  17.6%  | rule: ok   4.3 wrong  5.4 impostorFA  6.1
+EG2 256 PCA-whiten+LDA             EER  40.0%  TPR@1%FPR   5.5%  ID  17.9%  | rule: ok   4.1 wrong  4.6 impostorFA  5.5
+EG2 768 linear AAM proj            EER  43.0%  TPR@1%FPR   4.1%  ID  14.4%  | rule: ok   1.5 wrong  1.9 impostorFA  2.0
+EG2 768 MLP AAM proj               EER  42.0%  TPR@1%FPR   4.7%  ID  16.4%  | rule: ok   0.5 wrong  0.1 impostorFA  0.2
+== EG2 audio-encoder layer taps (frame mean+std pooled) ==
+tapconv centered                   EER  12.5%  TPR@1%FPR  56.6%  ID  88.6%  | rule: ok  70.9 wrong  0.7 impostorFA  6.1
+tapconv PCA-whiten+LDA             EER   8.8%  TPR@1%FPR  70.0%  ID  91.2%  | rule: ok  82.4 wrong  0.8 impostorFA 13.1
+tap0 centered                      EER   9.0%  TPR@1%FPR  70.5%  ID  93.6%  | rule: ok  80.8 wrong  0.2 impostorFA  5.5
+tap0 PCA-whiten+LDA                EER   8.5%  TPR@1%FPR  76.1%  ID  93.6%  | rule: ok  85.8 wrong  0.4 impostorFA 12.6
+tap1 centered                      EER  10.6%  TPR@1%FPR  64.5%  ID  93.7%  | rule: ok  77.1 wrong  0.1 impostorFA  7.1
+tap1 PCA-whiten+LDA                EER   9.4%  TPR@1%FPR  75.2%  ID  94.1%  | rule: ok  82.2 wrong  0.6 impostorFA 19.0
+tap2 centered                      EER  12.3%  TPR@1%FPR  57.5%  ID  90.3%  | rule: ok  69.0 wrong  0.4 impostorFA  5.8
+tap2 PCA-whiten+LDA                EER   9.9%  TPR@1%FPR  70.9%  ID  91.6%  | rule: ok  74.4 wrong  1.1 impostorFA 17.4
+tap3 centered                      EER  13.1%  TPR@1%FPR  50.7%  ID  88.2%  | rule: ok  52.3 wrong  0.1 impostorFA  2.2
+tap3 PCA-whiten+LDA                EER  10.1%  TPR@1%FPR  64.9%  ID  88.5%  | rule: ok  72.5 wrong  0.5 impostorFA  8.3
+tap4 centered                      EER  17.5%  TPR@1%FPR  29.4%  ID  80.6%  | rule: ok  20.1 wrong  0.3 impostorFA  2.0
+tap4 PCA-whiten+LDA                EER  14.7%  TPR@1%FPR  43.6%  ID  78.2%  | rule: ok  56.9 wrong  1.3 impostorFA 13.6
+tap5 centered                      EER  15.5%  TPR@1%FPR  43.2%  ID  82.7%  | rule: ok   9.5 wrong  0.0 impostorFA  0.1
+tap5 PCA-whiten+LDA                EER  16.5%  TPR@1%FPR  40.4%  ID  71.0%  | rule: ok  47.8 wrong  1.6 impostorFA  9.4
+tap6 centered                      EER  17.6%  TPR@1%FPR  39.7%  ID  77.5%  | rule: ok  17.1 wrong  0.2 impostorFA  0.5
+tap6 PCA-whiten+LDA                EER  15.6%  TPR@1%FPR  45.5%  ID  72.1%  | rule: ok  49.6 wrong  1.5 impostorFA  7.9
+tap7 centered                      EER  20.6%  TPR@1%FPR  33.2%  ID  71.0%  | rule: ok  21.4 wrong  0.4 impostorFA  0.9
+tap7 PCA-whiten+LDA                EER  17.6%  TPR@1%FPR  40.6%  ID  69.1%  | rule: ok  43.7 wrong  1.4 impostorFA  6.1
+tap8 centered                      EER  27.3%  TPR@1%FPR  14.0%  ID  56.0%  | rule: ok   8.5 wrong  0.2 impostorFA  0.7
+tap8 PCA-whiten+LDA                EER  23.1%  TPR@1%FPR  27.5%  ID  55.3%  | rule: ok  29.6 wrong  3.1 impostorFA  6.0
+tap9 centered                      EER  26.9%  TPR@1%FPR  16.9%  ID  55.1%  | rule: ok   4.3 wrong  0.0 impostorFA  0.1
+tap9 PCA-whiten+LDA                EER  22.7%  TPR@1%FPR  26.6%  ID  53.7%  | rule: ok  27.5 wrong  3.0 impostorFA  5.6
+tap10 centered                     EER  26.3%  TPR@1%FPR  17.8%  ID  53.9%  | rule: ok   2.9 wrong  0.0 impostorFA  0.1
+tap10 PCA-whiten+LDA               EER  24.9%  TPR@1%FPR  23.4%  ID  49.4%  | rule: ok  23.4 wrong  2.4 impostorFA  4.4
+tap11 centered                     EER  27.8%  TPR@1%FPR  13.3%  ID  50.4%  | rule: ok   3.4 wrong  0.1 impostorFA  0.1
+tap11 PCA-whiten+LDA               EER  25.5%  TPR@1%FPR  20.4%  ID  47.7%  | rule: ok  20.6 wrong  2.9 impostorFA  5.1
+tapproj centered                   EER  29.6%  TPR@1%FPR  13.1%  ID  45.5%  | rule: ok   1.3 wrong  0.0 impostorFA  0.0
+tapproj PCA-whiten+LDA             EER  28.5%  TPR@1%FPR  16.0%  ID  38.8%  | rule: ok  15.6 wrong  3.5 impostorFA  4.7
+best tap: tap0 PCA-whiten+LDA
+tap0 mean-only PCA-whiten+LDA      EER   8.7%  TPR@1%FPR  78.2%  ID  94.4%  | rule: ok  86.9 wrong  0.5 impostorFA 13.8
+tap0 linear AAM proj               EER  10.4%  TPR@1%FPR  64.2%  ID  92.5%  | rule: ok  72.7 wrong  0.4 impostorFA 12.4
+tap0 MLP AAM proj                  EER  10.1%  TPR@1%FPR  62.7%  ID  91.2%  | rule: ok  67.3 wrong  0.4 impostorFA 19.0
+tap0 linear AAM proj 256d/800ep    EER   9.6%  TPR@1%FPR  70.3%  ID  93.4%  | rule: ok  76.5 wrong  0.6 impostorFA 17.0
+taps conv+0..3 concat PCA-whiten+LDA EER   7.8%  TPR@1%FPR  79.9%  ID  94.1%  | rule: ok  86.7 wrong  0.4 impostorFA 19.3
+taps conv+0..3 concat linear AAM   EER  12.8%  TPR@1%FPR  57.0%  ID  87.0%  | rule: ok  57.5 wrong  1.6 impostorFA 24.5
+== fusion (score-level) ==
+fuse WS + EG2 768 centered         EER  0.70%  TPR@1%FPR  99.4%  ID  99.9%  (WeSpeaker weight 0.95)
+fuse WS + EG2 768 LDA              EER  0.68%  TPR@1%FPR  99.4%  ID  99.9%  (WeSpeaker weight 0.85)
+fuse WS + tap0 LDA                 EER  0.58%  TPR@1%FPR  99.5%  ID  99.9%  (WeSpeaker weight 0.93)
+fuse WS + tap0 AAM                 EER  0.62%  TPR@1%FPR  99.4%  ID  99.9%  (WeSpeaker weight 0.85)
+fuse WS + early-taps LDA           EER  0.67%  TPR@1%FPR  99.4%  ID  99.9%  (WeSpeaker weight 0.85)
+WS raw EER at 2 decimals: 0.65
+== by clip duration (EER, both clips in bucket) ==
+ws ['3-6s 0.9%', '6-9.99s 0.0%', '9.99-11s 0.0%']
+eg ['3-6s 41.5%', '6-9.99s 39.4%', '9.99-11s 34.8%']
+tap0 ['3-6s 13.2%', '6-9.99s 7.3%', '9.99-11s 5.2%']
+n clips per bucket: [314, 219, 267]
+== Reflex-style logistic head on 3 enrollment clips/speaker (closed set, test speakers) ==
+logreg ws: 99.9%
+logreg eg: 29.9%
+logreg tap0: 92.6%
+logreg early: 92.9%

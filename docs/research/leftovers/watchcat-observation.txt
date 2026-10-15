@@ -1,0 +1,24 @@
+phase=upload bytes=826260
+phase=processing state=ACTIVE waited=2s
+0:00  Obsidian is open with a meeting note titled "2026-10-14 Offline sync – v2.4 scope"; an active recording indicator is present in the header, and the right sidebar Transcript tab displays "Listening...".
+0:03  Marcus Chen's initial speech appears in the Transcript panel while bullet points are present in the note body.
+0:06  Additional detail is expanded into the note body under the date change and account rollout bullets.
+0:07  The application window narrows horizontally, hiding the left sidebar and compressing the editor and right sidebar view.
+0:10  The window width expands back to normal width; the layout and margins restore without visual glitches.
+0:11  Priya Raman's entry appears in the Transcript panel.
+0:14  An edit appends "The rollout follows the migration review" to the first bullet point, and a "+ Listening for this" placeholder item is added below.
+0:15  The right sidebar switches from Transcript to "Live Q&A", displaying "What informed this line" with source references.
+0:19  The placeholder line "+ Listening for this" is updated to "+ Offline property".
+0:21  The right sidebar switches to the "Ask" tab, querying "What does the Halvorsen contract say about offline?" and returning cited text.
+0:23  The recording session is stopped; the header controls transition to "Ready to finalize" alongside a "Resume" button, and a bottom banner appears offering "Finalize (fin)*" with countdown text.
+0:26  The user switches tabs to "A link" in the main workspace, displaying an empty document and showing the file tree on the left.
+0:26  The user navigates back to the meeting note; the note content has finalized into summary prose, "Also discussed", and formatted "Action items" with interactive checkboxes.
+0:28  An undo operation restores the pre-finalized raw bullets, returning the bottom "Finished listening • 1 min" banner and top "Resume" button.
+0:29  The note is finalized once more; structured prose, subheadings, and action items reappear.
+0:30  The application switches from light theme to dark theme cleanly.
+0:31  The note body updates to display nested indented lists ("outer", "inner", "deep", "deepest", numbered items, and row details), while the "Finished listening" banner reappears at the bottom.
+
+Moments worth a closer rewatch:
+- 0:07 – Rapid resize check to confirm no recording control collisions or transcript overflow occurred during narrow layout.
+- 0:27 to 0:29 – Rapid sequence of finalization, undo, and re-finalization to inspect text preservation.
+tokens=6405 cost_usd=0.0054 prompt=v2

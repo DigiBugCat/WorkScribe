@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Menu Bar and Notifications</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700&family=Kalam&display=swap">
+<link rel="stylesheet" href="shared.css">
+<script src="shared.js"></script>
+<style>
+  .sec { display: flex; flex-direction: column; gap: var(--space-3); }
+  .sec > h2 { font-size: 21px; line-height: 28px; font-weight: 600; }
+  .states { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr)); gap: var(--space-4); }
+  .state-card { background: var(--surface-raised); border-radius: var(--radius-md); box-shadow: var(--shadow-cutout); padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+  .state-card .menubar { justify-content: flex-start; }
+  .state-card b { font-size: 14px; line-height: 20px; }
+  .dim { opacity: .45; }
+
+  .two { display: grid; grid-template-columns: minmax(0, 380px) minmax(0, 1fr); gap: var(--space-8); align-items: start; }
+  .menuwrap { display: flex; flex-direction: column; align-items: flex-end; }
+  .menuwrap .menubar { width: 100%; }
+  .nsmenu { margin-top: 6px; margin-right: var(--space-6); width: 264px; max-width: 100%; background: var(--surface-raised); border-radius: var(--radius-md); box-shadow: var(--shadow-cutout); padding: 5px; font-size: 13px; line-height: 18px; }
+  .nsmenu .mi { display: flex; align-items: center; gap: var(--space-2); padding: 4px 10px; border-radius: var(--radius-sm); }
+  .nsmenu .mi.hd { flex-direction: column; align-items: flex-start; gap: 0; padding-bottom: 6px; }
+  .nsmenu .mi.hd b { font-variant-numeric: tabular-nums; }
+  .nsmenu .mi.hl { background: color-mix(in srgb, var(--indigo-wash) 55%, transparent); }
+  .nsmenu .mi .kbd { margin-left: auto; }
+  .nsmenu hr { border: 0; height: 1px; background: var(--line); margin: 4px 6px; }
+  .why { font-size: 14px; line-height: 22px; max-width: 60ch; display: flex; flex-direction: column; gap: var(--space-3); }
+  .why b { font-weight: 700; }
+
+  .notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(360px, 100%), 1fr)); gap: var(--space-6); align-items: start; }
+  .note-col { display: flex; flex-direction: column; gap: var(--space-2); min-width: 0; }
+  .note-col .when { font-size: 12px; line-height: 16px; font-weight: 700; color: var(--indigo); letter-spacing: .04em; text-transform: uppercase; }
+  .ban { background: var(--surface-raised); border-radius: var(--radius-lg); box-shadow: var(--shadow-cutout); padding: var(--space-3); display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 2px var(--space-3); font-size: 13px; line-height: 18px; position: relative; }
+  .ban .appicon { grid-row: 1 / span 3; width: 34px; height: 34px; }
+  .ban .h { display: flex; gap: var(--space-2); align-items: baseline; }
+  .ban .h b { font-weight: 700; }
+  .ban .h .t { margin-left: auto; font-size: 12px; color: var(--ink-muted); }
+  .ban .body { color: var(--ink); }
+  .ban .acts { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-top: 6px; }
+  .ban .acts .btn { padding: 3px 10px; font-size: 12px; }
+  .ban .seal { position: absolute; top: -4px; left: 30px; }
+  .settings { display: grid; max-width: 720px; }
+  .set-r { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px var(--space-4); padding: var(--space-3) 0; border-bottom: var(--stroke-hair) solid var(--line); font-size: 14px; line-height: 20px; align-items: center; }
+  .set-r b { font-weight: 600; }
+  .set-r small { display: block; color: var(--ink-muted); font-size: 13px; line-height: 18px; font-weight: 500; margin-top: 2px; }
+  @media (max-width: 800px) { .two { grid-template-columns: 1fr; } .nsmenu { margin-right: var(--space-2); } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+  <symbol id="appicon" viewBox="0 0 34 34"><g filter="url(#iw-gouache)"><rect x="1" y="1" width="32" height="32" rx="8" class="iw-indigo"/><rect x="8" y="15" width="3" height="5" rx="1.5" class="iw-raised"/><rect x="13" y="10" width="3" height="15" rx="1.5" class="iw-raised"/><rect x="18" y="7" width="3" height="20" rx="1.5" class="iw-raised"/><rect x="23" y="12" width="3" height="10" rx="1.5" class="iw-raised"/></g></symbol>
+</defs></svg>
+<main class="stage">
+  <header class="stage-head">
+    <div class="head-text">
+      <span class="label">Concept A · Workspace · screen 05 of 05</span>
+      <h1>Menu bar and notifications</h1>
+      <p>The menu bar shrinks to a status item: is it recording, for how long, and does something need you. Clicking it opens a plain menu, not a popover. Everything that used to live in the popover is either in the window or arrives as a macOS notification with one action.</p>
+    </div>
+    <nav aria-label="Pages"><a href="04-search.html">Search</a><a href="index.html">Index</a><button class="theme-toggle" type="button">Theme</button></nav>
+  </header>
+
+  <section class="sec" aria-labelledby="st-h">
+    <h2 id="st-h">The status item carries the state</h2>
+    <div class="states">
+      <div class="state-card soak">
+        <div class="menubar"><span class="item ws dim"><svg aria-hidden="true" class="ico" style="width:18px;height:16px"><use href="#i-wave"/></svg></span></div>
+        <b>Warming up</b><span class="caption">Dimmed for the first ~17 s while speech loads.</span>
+      </div>
+      <div class="state-card soak d1">
+        <div class="menubar"><span class="item ws"><svg aria-hidden="true" class="ico" style="width:18px;height:16px"><use href="#i-wave"/></svg></span></div>
+        <b>Ready</b><span class="caption">Waveform. Auto-record listening for calls.</span>
+      </div>
+      <div class="state-card soak d2">
+        <div class="menubar"><span class="item ws" aria-label="Recording, 12 minutes 51 seconds"><span class="recdot"></span>12:51</span></div>
+        <b>Recording</b><span class="caption">The one vermilion mark: dot and elapsed time.</span>
+      </div>
+      <div class="state-card soak d3">
+        <div class="menubar"><span class="item ws" aria-label="WorkScribe, needs attention"><svg aria-hidden="true" viewBox="0 0 18 16" style="width:18px;height:16px"><path d="M3 8v0M6 5v6M9 2.5v11" style="fill:none;stroke:currentColor;stroke-width:1.25;stroke-linecap:round"/><g filter="url(#iw-gouache)"><rect x="12" y="2" width="3.4" height="7.5" rx="1.4" class="iw-ochre"/><circle cx="13.7" cy="12.6" r="1.7" class="iw-ochre"/></g></svg></span></div>
+        <b>Needs attention</b><span class="caption">A permission is missing or a start failed. Also a notification.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="two" aria-labelledby="mn-h">
+    <div class="menuwrap soak">
+      <div class="menubar"><span class="item">Tue 13 Oct 10:15</span><span class="item ws"><svg aria-hidden="true" class="ico" style="width:18px;height:16px;opacity:.5"><use href="#i-wave"/></svg>12:51</span></div>
+      <div class="nsmenu" role="menu" aria-label="WorkScribe menu while recording">
+        <div class="mi hd"><b>Recording · 12:51</b><span class="caption">Offline sync — v2.4 scope · Zoom</span></div>
+        <hr>
+        <div class="mi hl" role="menuitem">Stop recording<span class="kbd">⌥⌘R</span></div>
+        <div class="mi" role="menuitem">Show companion<span class="kbd">⌥⌘N</span></div>
+        <div class="mi" role="menuitem">Open WorkScribe<span class="kbd">⌘0</span></div>
+        <hr>
+        <div class="mi" role="menuitem">Pause notifications for this call</div>
+        <div class="mi" role="menuitem">Settings…</div>
+        <div class="mi" role="menuitem">Quit WorkScribe</div>
+      </div>
+    </div>
+    <div class="why">
+      <span class="label">Click the status item</span>
+      <h2 id="mn-h" style="font-size:21px;line-height:28px;font-weight:600">A menu, not a popover</h2>
+      <p>Six rows, all of them verbs. No timeline, no search, no jot line. The jot line moved to the <a href="02-meeting-live.html">companion window</a>, search and Ask moved to the <a href="01-home-chat.html">main window</a>, and the post-meeting digest became the “Recording saved” notification below.</p>
+      <p><b>Why not drop the status item entirely?</b> Because “is it recording right now?” has to be answerable without switching apps, and that was the most important finding of the UX review.</p>
+      <p class="caption">The dot is drawn by the recording state above; in this menu figure it's left neutral so the figure has no second vermilion.</p>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="nt-h">
+    <h2 id="nt-h">Five notifications, each with one job</h2>
+    <p class="fig-cap">Standard macOS banners (UserNotifications), with action buttons. Content is kept short so it's safe on a shared screen; nothing from your notes or files appears in a banner while you're sharing.</p>
+    <div class="notes">
+      <div class="note-col soak">
+        <span class="when">Before · call detected</span>
+        <div class="ban"><svg class="appicon" aria-hidden="true"><use href="#appicon"/></svg><div class="h"><b>Zoom call started</b><span class="t">now</span></div><div class="body">Start recording “Sync engine standup”? Mic and system audio are ready.</div><div class="acts"><button class="btn" type="button">Start recording</button><button class="btn text" type="button">Not this call</button></div></div>
+        <span class="caption">With auto-record on, this becomes “Recording started” with a Stop button instead.</span>
+      </div>
+      <div class="note-col soak d1">
+        <span class="when">Before · permission problem</span>
+        <div class="ban"><span class="seal" aria-hidden="true"></span><svg class="appicon" aria-hidden="true"><use href="#appicon"/></svg><div class="h"><b>System audio is off</b><span class="t">9:57</span></div><div class="body">Your next call would record your mic only. Allow Screen Recording for WorkScribe.</div><div class="acts"><button class="btn" type="button">Open Settings</button><button class="btn text" type="button">Mic only</button></div></div>
+        <span class="caption">Shown before the call, not after a failed one. The status item gets the ochre mark until it's fixed.</span>
+      </div>
+      <div class="note-col soak d2">
+        <span class="when">During · answer ready</span>
+        <div class="ban"><svg class="appicon" aria-hidden="true"><use href="#appicon"/></svg><div class="h"><b>Answer ready</b><span class="t">12:48</span></div><div class="body">Priya asked what the Halvorsen contract commits to on offline. 2 sources.</div><div class="acts"><button class="btn" type="button">Show</button></div></div>
+        <span class="caption">Only when neither the window nor the companion is visible. Never while sharing; the answer waits in the sidecar.</span>
+      </div>
+      <div class="note-col soak d1">
+        <span class="when">After · recording saved</span>
+        <div class="ban"><svg class="appicon" aria-hidden="true"><use href="#appicon"/></svg><div class="h"><b>Offline sync — v2.4 scope</b><span class="t">10:35</span></div><div class="body">Saved, 32 min. 4 notes enhanced, 2 topics not in your notes, 1 action item for you.</div><div class="acts"><button class="btn" type="button">Open</button><button class="btn text" type="button">Rename</button></div></div>
+        <span class="caption">Replaces the old popover digest. Open goes to the <a href="03-meeting-review.html">review</a>.</span>
+      </div>
+      <div class="note-col soak d2">
+        <span class="when">Later · action item due</span>
+        <div class="ban"><svg class="appicon" aria-hidden="true"><use href="#appicon"/></svg><div class="h"><b>Due tomorrow</b><span class="t">Wed 9:00</span></div><div class="body">Update PRD v3 with the checklist merge rule and photo cap. Priya asked, Offline sync 27:30.</div><div class="acts"><button class="btn" type="button">Open</button><button class="btn text" type="button">Done</button></div></div>
+        <span class="caption">Only for items you own. Done ticks the Markdown task in your vault too.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" aria-labelledby="ns-h">
+    <h2 id="ns-h">Settings › Notifications</h2>
+    <div class="settings">
+      <div class="set-r"><div><b>Ask before recording a detected call</b><small>Off means auto-record, with a “Recording started” banner and Stop.</small></div><button class="tog" role="switch" aria-checked="true" aria-label="Ask before recording a detected call" type="button"><span class="slot"></span></button></div>
+      <div class="set-r"><div><b>Answer ready, when the window is hidden</b><small>Never shown while your screen is shared.</small></div><button class="tog" role="switch" aria-checked="true" aria-label="Answer ready notifications" type="button"><span class="slot"></span></button></div>
+      <div class="set-r"><div><b>Action items due</b><small>Only items you own, at 9:00 the day before.</small></div><button class="tog" role="switch" aria-checked="true" aria-label="Action item due notifications" type="button"><span class="slot"></span></button></div>
+      <div class="set-r"><div><b>Show the status item</b><small>Hiding it is allowed; recording state then shows only in the window and companion.</small></div><button class="tog" role="switch" aria-checked="true" aria-label="Show the status item" type="button"><span class="slot"></span></button></div>
+    </div>
+  </section>
+
+  <div class="callouts">
+    <div><b>Trust before features</b>The four status-item states, the permission banner before Start, and failed recordings that say why, all from the UX review, survive the move off the menu bar.</div>
+    <div><b>One action per banner</b>Each notification has a single primary verb. Anything more opens the window.</div>
+    <div><b>One vermilion per figure</b>The recording dot in the states strip; the seal on the permission banner among the notifications.</div>
+  </div>
+</main>
+</body>
+</html>

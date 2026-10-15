@@ -1,0 +1,14 @@
+phase=upload bytes=826260
+phase=processing state=ACTIVE waited=4s
+Here is the moment-by-moment breakdown of the clip:
+
+0:22  The document "2026-10-14 Offline sync — v2.4 scope" is open. The top-right header displays an active recording status with a red indicator: "00:21 Mic + system | Stop" next to a three-dots menu. The right sidebar streams an AI response.
+0:23  The recording finishes. The header control switches from the recording pill to a purple circle beside "Ready to finalize" and a "Resume" button. Concurrently, a floating bottom action card appears over the lower center of the editor reading: "Finished listening · 1 min" with prompt text and two action buttons: "Not yet" and "Finalize ⌘↵".
+0:25  The header status briefly updates to "Finishing · reading 1 min" with an activity spinner before reverting back to "Ready to finalize" / "Resume".
+0:26  Rapid automated navigation triggers across tabs: the view flashes briefly to an "Unrelated" note, then opens an "A link" note tab, before immediately switching back to the "Offline sync" note.
+0:26  Upon returning, the note finalizes: the bottom floating action bar disappears, the header controls change to "Transcript fades in 23 h" alongside a "Done now" button, and generated content ("The team kept offline...", "Also discussed", and "Action items") renders directly into the note editor.
+
+**Observations:**
+- **Overlapping/clipping:** Header controls and the floating bottom action bar remain neatly aligned without text clipping or overlapping controls during the transitions. The only truncation observed is standard browser/app tab title truncation ("2026-10-14 Offline sync — v...") when multiple tabs are opened at 0:26.
+- **Rewatch timestamp:** 0:26.000–0:26.600 (rapid tab switching sequence before content insertion).
+tokens=8662 cost_usd=0.0068 prompt=v2

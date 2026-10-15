@@ -1,7 +1,9 @@
 import AppKit
 import Foundation
 import WorkScribeCore
+#if WORKSCRIBE_PLAUD
 import WorkScribePlaud
+#endif
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -27,10 +29,31 @@ final class AppModel: ObservableObject {
         didSet { UserDefaults.standard.set(globalShortcut, forKey: "globalShortcut") }
     }
     @Published var speakerToast: SpeakerToast?
+    // Screen awareness (AppModel+Screen.swift). Opt-in; on by default only when Screen Recording is already allowed.
+    @Published var screenCaptureEnabled = UserDefaults.standard.object(forKey: "screenCaptureEnabled") as? Bool ?? CGPreflightScreenCaptureAccess() {
+        didSet { UserDefaults.standard.set(screenCaptureEnabled, forKey: "screenCaptureEnabled") }
+    }
+    /// "Pause screen capture" during a recording: nothing is written, read or indexed until resumed. Resets per recording.
+    @Published var screenCapturePaused = false { didSet { screenRecorder?.setPaused(screenCapturePaused) } }
+    @Published var screenCaptureTarget = ScreenCaptureTarget(rawValue: UserDefaults.standard.string(forKey: "screenCaptureTarget") ?? "") ?? .display {
+        didSet { UserDefaults.standard.set(screenCaptureTarget.rawValue, forKey: "screenCaptureTarget") }
+    }
+    @Published var screenState: ScreenCaptureState = .off
+    /// The current recording's screen moments so far.
+    @Published var screenMoments: [ScreenMoment] = []
+    @Published var finalizationProgress: Double = 0
+    var screenRecorder: ScreenRecorder?
+    /// The bundle ID of the call that triggered the current automatic recording (window-mode capture target).
+    var callBundleID: String?
+    /// Called after a meeting's files change outside recording (a screen recording deleted), to refresh search.
+    var onLibraryChanged: (() -> Void)?
+    var retentionService: MeetingRetention?
     let levels = LevelMonitor()
     private var tracks: [String: AudioTrack] = [:]
     private var levelTask: Task<Void, Never>?
     @Published var selectedID: String?
+    /// The moment a `workscribe://` link or a citation asked to show; transcripts scroll to it and highlight it.
+    @Published var focusRequest: TranscriptFocus?
     @Published var speechReady = false
     @Published var speechStatus = "Warming speech engine…"
     let store: MeetingStore
@@ -44,12 +67,20 @@ final class AppModel: ObservableObject {
     var voiceTasks: [String: Task<Void, Never>] = [:]
     let voiceEngine: any VoiceExtracting
     let voiceStore: VoiceStore
+    @Published var recordingPressure: RecordingPressure = .normal { didSet { ScreenInferenceAdmission.shared.set(recordingPressure) } }
+    var liveAIPaused: Bool { recordingPressure >= .aiPaused }
     private var capture: AudioCapture?
+    private(set) var recordingGeneration = UUID()
+    private var stopTask: Task<Void, Never>?
+    // Injectable only to bound stalled work; ordinary backlog may drain as long as it progresses.
+    var stallTimeout: TimeInterval = 30
+    var batchTranscriber: (any BatchTranscribing)?
+
     private var connections: [String: SpeechConnection] = [:]
     private var pumps: [Task<Void, Never>] = []
     private var offsets: [String: Double] = [:]
-    private var ends: [String: Double] = [:]
     private var errorText: String?
+    private var recognizerStalled = false
     private let titleGenerator: any TitleGenerating
     private var liveTitleAttempted: Set<String> = []
     private var titleJobs: [String: Task<Void, Never>] = [:]
@@ -59,7 +90,9 @@ final class AppModel: ObservableObject {
     private var monitor: Task<Void, Never>?
     private var warmupTask: Task<Void, Error>?
     // Note Pro recordings waiting to be transcribed into the library (PlaudImport.swift).
+    #if WORKSCRIBE_PLAUD
     @Published var importQueue: [PlaudSavedRecording] = []
+    #endif
     @Published var importStatus: String?
     var importDone = 0, importTotal = 0, importFailures = 0
     var importTask: Task<Void, Never>?
@@ -74,11 +107,10 @@ final class AppModel: ObservableObject {
         do { voices = try voiceStore.load() }
         catch { voiceStatus = "Couldn’t read saved voices: \(error.localizedDescription)" }
         // A previous app crash must not leave an apparently live meeting in MCP.
-        for var old in store.list() where old.status == "recording" || old.status == "finalizing" {
-            old.status = "interrupted"; old.failure = "Recording was interrupted before finalization. Saved audio and transcript retained."
-            try? store.save(old)
-        }
+        do { try store.recoverInterruptedRecordings() }
+        catch { phase = "error"; message = "Couldn’t recover the last recording: \(error.localizedDescription)" }
         library = store.list()
+        ScreenNoteEvidence.store = store; ScreenNoteEvidence.model = self
     }
     func activate() {
         guard monitor == nil else { return }
@@ -120,12 +152,13 @@ final class AppModel: ObservableObject {
         switch autoPolicy.update(callActive: snapshot.signal != nil, enabled: true, busy: busy,
                                 automaticallyRecording: automatic, now: Date()) {
         case .start:
-            if let signal = snapshot.signal { Task { await start(trigger: signal.name) } }
+            if let signal = snapshot.signal { callBundleID = signal.bundleID; Task { await start(trigger: signal.name) } }
         case .stop: Task { await stop(userInitiated: false) }
         case .none: break
         }
     }
     func prepareSpeech() async throws {
+        guard !recognizerStalled else { throw CaptureError.message("The speech engine stopped responding. Restart WorkScribe to record again. Your audio is saved.") }
         if speechReady { return }
         if warmupTask == nil {
             speechStatus = "Warming speech engine…"
@@ -139,40 +172,66 @@ final class AppModel: ObservableObject {
             throw error
         }
     }
-    func start(trigger: String? = nil) async {
-        guard !busy else { return }
+    func start(trigger: String? = nil, resuming id: String? = nil) async {
+        guard !busy || (phase == "finalizing" && finalizationProgress >= 0.35 && id == meeting?.id && meeting?.canResume() == true) else { return }
+        var resumed: Meeting?
+        if let id {
+            guard var existing = meetingSnapshot(id), existing.canResume() else {
+                errorText = "Resume is available for ten minutes after stopping, before finalizing."; return
+            }
+            do { try existing.resume(); resumed = existing } catch { return }
+        }
+        finalizationProgress = 0
         phase = "starting"; message = "Starting recording…"; errorText = nil
-        offsets = [:]; ends = [:]
+        offsets = [:]; recordingGeneration = UUID(); recordingPressure = .normal; liveTranscript = LiveTranscript()
         await pauseImports()
         do {
             try await prepareSpeech()
-            meeting = Meeting(title: "Recording · \(Date().formatted(date: .abbreviated, time: .shortened))", titleOrigin: "pending")
+            meeting = resumed ?? Meeting(title: "Recording · \(Date().formatted(date: .abbreviated, time: .shortened))", titleOrigin: "pending")
+            if meeting?.recordingSessions == nil { meeting?.recordingSessions = [RecordingSession(id: "initial", start: 0)] }
             meeting?.recordingTrigger = trigger.map { "call:\($0)" } ?? "manual"
             selectedID = meeting?.id
             try save()
             let folder = try store.directory(meeting!.id)
-            let mic = try AudioTrack(url: folder.appendingPathComponent("microphone.wav"))
-            let system = includeSystemAudio ? try AudioTrack(url: folder.appendingPathComponent("system.wav")) : nil
+            let session = meeting!.recordingSessions!.last!
+            let micURL = folder.appendingPathComponent(session.audioFile("microphone"))
+            let systemURL = folder.appendingPathComponent(session.audioFile("system"))
+            try FileManager.default.createDirectory(at: micURL.deletingLastPathComponent(), withIntermediateDirectories: true)
+            let mic = try AudioTrack(url: micURL)
+            let system = includeSystemAudio ? try AudioTrack(url: systemURL) : nil
             systemAudioBlocked = false
             tracks = ["microphone": mic]; if let system { tracks["system"] = system }
             for (source, track) in [("microphone", mic), ("system", system)].compactMap({ source, track in track.map { (source, $0) } }) {
                 let connection = SpeechConnection(runtime: runtime)
-                connection.onEvent = { [weak self] event in self?.consume(event, source: source) }
-                connection.onFailure = { [weak self] error in Task { await self?.fail(error) } }
+                let generation = recordingGeneration
+                connection.onEvent = { [weak self] event in
+                    guard let self, self.recordingGeneration == generation else { return }
+                    self.consume(event, source: source)
+                }
+                track.onFailure = { [weak self] error in Task { @MainActor in await self?.fail(error) } }
                 connections[source] = connection
                 try await connection.connect()
                 pumps.append(Task { [weak self] in
                     do {
-                        for try await data in track.stream {
+                        while let data = try await track.backlog.next() {
                             guard let self else { return }
                             if offsets[source] == nil {
-                                offsets[source] = Date().timeIntervalSince(meeting!.startedAt)
+                                offsets[source] = (track.firstCaptureAt ?? Date()).timeIntervalSince(meeting!.startedAt)
                                 if meeting?.sourceOffsets == nil { meeting?.sourceOffsets = [:] }
-                                meeting?.sourceOffsets?[source] = offsets[source]
+                                if session.id == "initial" { meeting?.sourceOffsets?[source] = offsets[source] }
+                                if let index = meeting?.recordingSessions?.indices.last { meeting?.recordingSessions?[index].sourceOffsets[source] = offsets[source] }
                             }
                             try await connection.write(data)
+                            track.backlog.acknowledge(data.count)
+                            self.updateRecordingPressure()
                         }
-                    } catch { Task { await self?.fail(error) } }
+                    } catch {
+                        guard let self, recordingGeneration == generation, !Task.isCancelled else { return }
+                        // Recognition is optional to capture. Preserve raw audio and expose the failure.
+                        errorText = "The transcript paused. Audio is still being saved: \(error.localizedDescription)"
+                        self.updateRecordingPressure()
+                        message = "Transcript paused · still recording and saving audio"
+                    }
                 })
             }
             let capture = AudioCapture(); self.capture = capture
@@ -184,16 +243,31 @@ final class AppModel: ObservableObject {
                 // Keep the microphone recording; drop the system track that never started.
                 systemAudioBlocked = true; screenAccess = false
                 connections.removeValue(forKey: "system")?.close(); tracks.removeValue(forKey: "system")
-                try? FileManager.default.removeItem(at: folder.appendingPathComponent("system.wav"))
+                try? FileManager.default.removeItem(at: systemURL)
             }
+            await startScreen()
             phase = "recording"; message = trigger.map { "Automatically recording \($0) · saved on this Mac" } ?? "Recording on this Mac · title will appear automatically"
             startLevels()
+            let recordingID = meeting?.id
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 10_000_000_000)
+                guard let self, phase == "recording", meeting?.id == recordingID else { return }
+                let hasSystem = (meeting?.orderedSegments ?? []).contains { $0.source == "system" }
+                if systemAudioBlocked || (!hasSystem && includeSystemAudio && (levels.system ?? 0) < 0.001) {
+                    let names = (meeting?.attendees ?? []).filter { $0 != "You" }.map { $0.components(separatedBy: " ").first ?? $0 }
+                    let people = names.isEmpty ? "Other people on this call" : names.joined(separator: " and ")
+                    message = people + " won’t be in the transcript. Check system audio."
+                    Notifier.post("Only your microphone is coming through", message)
+                }
+            }
             if let trigger {
+                if UserDefaults.standard.object(forKey: "automaticStartTick") as? Bool != false { NSSound(named: "Tink")?.play() }
                 Notifier.post("Recording your \(trigger) call",
                               systemAudioBlocked ? "Microphone only: allow Screen Recording to capture the other side." : "Transcribing on this Mac. Click the menu bar icon to follow along.")
             }
         } catch {
             errorText = error.localizedDescription
+            await stopScreen()
             await capture?.stop(); capture = nil
             pumps.forEach { $0.cancel() }; pumps = []
             connections.values.forEach { $0.close() }; connections = [:]
@@ -209,25 +283,88 @@ final class AppModel: ObservableObject {
         }
     }
     func stop(userInitiated: Bool = true) async {
+        if let stopTask { await stopTask.value; return }
         guard phase == "recording" else { return }
+        let task = Task { await self.finishRecording(userInitiated: userInitiated) }
+        stopTask = task
+        await task.value
+        stopTask = nil
+    }
+    private func finishRecording(userInitiated: Bool) async {
         if userInitiated { autoPolicy.suppressCurrentCall() }
+        finalizationProgress = 0.1
         phase = "finalizing"; meeting?.status = "finalizing"; message = "Finishing the transcript…"
+        meeting?.endedAt = Date()
         try? save()
-        await capture?.stop(); capture = nil
+        let stoppingCapture = capture; capture = nil
+        stoppingCapture?.onFailure = nil
+        try? await RecordingDeadline.wait(stall: stallTimeout) { await stoppingCapture?.stop() }
+        // Screen/OCR is optional and cannot hold the audio save transaction hostage.
+        try? await RecordingDeadline.wait(stall: stallTimeout) { await self.stopScreen() }
         stopLevels()
-        for pump in pumps { await pump.value }; pumps = []
-        for connection in connections.values {
-            do { try await connection.finish() } catch { errorText = error.localizedDescription }
-            connection.close()
+        let draining = pumps
+        let finishing = Array(connections.values)
+        let progress = Array(tracks.values).map(\.backlog)
+        do {
+            try await RecordingDeadline.wait(stall: stallTimeout, progress: { progress.reduce(0) { $0 + $1.pendingSeconds } }) {
+                for pump in draining { await pump.value }
+                for connection in finishing { try await connection.finish() }
+            }
+        } catch {
+            errorText = "The transcript could not finish. Your audio is saved. Restart WorkScribe before recording again."
+            recognizerStalled = true; speechReady = false
+            recordingGeneration = UUID() // Fence any late recognition callbacks.
+            draining.forEach { $0.cancel() }
         }
+        if errorText == nil {
+            for source in liveTranscript.unfinishedSources {
+                consume(["type": "transcript.completed", "transcript": ""], source: source)
+            }
+        }
+        pumps = []
+        finishing.forEach { $0.close() }
+        tracks = [:]
+
         connections = [:]
-        meeting?.endedAt = Date(); meeting?.status = errorText == nil ? "complete" : "interrupted"
+        if let index = meeting?.recordingSessions?.indices.last, let ended = meeting?.endedAt, let started = meeting?.startedAt {
+            meeting?.recordingSessions?[index].end = ended.timeIntervalSince(started)
+        }
+        meeting?.status = errorText == nil ? "complete" : "interrupted"
         meeting?.failure = errorText
         if errorText == nil { meeting?.partials = [:]; meeting?.partialSpeakers = [:] }
         do { try save() } catch { errorText = "Unable to save transcript: \(error.localizedDescription)" }
-        await runtime.closeStreams()
+        // Connections close on the inference queue without blocking saved-state recovery.
+        finalizationProgress = 0.35
+        var finalPassWarning: String?
+        let stoppedAt = meeting?.endedAt
+        let stoppedGeneration = recordingGeneration
+        if let id = meeting?.id {
+            do {
+                guard await NoteEnhancementScheduler.shared.finish(id, model: self) else {
+                    throw CaptureError.message("The transcript polish did not finish")
+                }
+            } catch { finalPassWarning = "Recording saved · the final AI pass could not finish" }
+            // Resumed during the final pass: the new session owns the meeting now.
+            guard recordingGeneration == stoppedGeneration, meeting?.id == id, meeting?.endedAt == stoppedAt else { return }
+            finalizationProgress = 0.9
+            do {
+                if meeting?.document == nil {
+                    try await RecordingDeadline.wait(stall: stallTimeout) { try await self.retentionService?.finalize(id) }
+                }
+                else {
+                    try mutateMeeting(id) { $0.retention = "live"; $0.purgeAt = $0.endedAt?.addingTimeInterval(86_400) }
+                    let receipts = RetentionStore(meetings: store)
+                    if var receipt = try receipts.load(id), let latest = meetingSnapshot(id), let end = latest.endedAt {
+                        receipt.endedAt = end; receipt.purgeAt = end.addingTimeInterval(86_400); try receipts.save(receipt)
+                    }
+                }
+            }
+            catch { errorText = "Couldn’t finalize notes: \(error.localizedDescription)" }
+        }
+        finalizationProgress = 1
+        recordingPressure = .normal
         phase = errorText == nil ? "ready" : "error"
-        message = errorText ?? "Recording saved on this Mac"
+        message = errorText ?? finalPassWarning ?? "Recording saved on this Mac"
         library = store.list()
         if let id = meeting?.id { scheduleTitle(id: id, final: true); analyzeVoices(id: id) }
         if !userInitiated, meeting?.recordingTrigger?.hasPrefix("call:") == true {
@@ -237,28 +374,34 @@ final class AppModel: ObservableObject {
         runImports()
     }
     private func fail(_ error: Error) async {
+        guard phase == "recording" || phase == "starting" else { return }
         errorText = error.localizedDescription
         if phase == "recording" { await stop() }
     }
-    private func consume(_ event: [String: Any], source: String) {
+    private var liveTranscript = LiveTranscript()
+    func consume(_ event: [String: Any], source: String) {
         let kind = event["type"] as? String ?? ""
-        if kind.hasSuffix(".partial") {
-            meeting?.partials[source] = event["transcript"] as? String ?? ""
-            if meeting?.partialSpeakers == nil { meeting?.partialSpeakers = [:] }
-            meeting?.partialSpeakers?[source] = TranscriptParser.partialSpeaker(event: event, source: source)
-        } else if kind.hasSuffix(".completed") {
-            let segments = TranscriptParser.segments(event: event, source: source, offset: offsets[source] ?? 0, fallbackStart: ends[source] ?? 0)
-            meeting?.segments.append(contentsOf: segments)
-            if let last = segments.last { ends[source] = last.end }
-            meeting?.partials.removeValue(forKey: source)
-            meeting?.partialSpeakers?.removeValue(forKey: source)
+        let namespace = meeting?.recordingSessions?.last?.id
+        func speaker(_ value: String) -> String { namespace == nil || namespace == "initial" ? value : namespace! + ":" + value }
+        guard var current = meeting else { return }
+        let count = current.segments.count
+        guard liveTranscript.consume(event, source: source, offset: offsets[source] ?? 0,
+                                     pressure: recordingPressure, meeting: &current) else { return }
+        for i in count..<current.segments.count { current.segments[i].speaker = speaker(current.segments[i].speaker) }
+        if let key = current.partialSpeakers?[source] { current.partialSpeakers?[source] = speaker(key) }
+        meeting = current
+        do { try save() } catch {
+            message = "Transcript could not be saved · audio is still recording"
         }
-        do { try save() } catch { Task { await fail(error) } }
-        if kind.hasSuffix(".completed"), let id = meeting?.id { scheduleTitle(id: id, final: false) }
+        if kind.hasSuffix(".completed"), let id = meeting?.id {
+            scheduleTitle(id: id, final: false)
+            if phase == "recording" { NoteEnhancementScheduler.shared.schedule(id, model: self) }
+        }
     }
     func scheduleTitle(id: String, final: Bool) {
         guard let snapshot = meeting?.id == id ? meeting : try? store.load(id), TitlePolicy.canGenerate(snapshot, final: final) else { return }
         if titleJobs[id] != nil { if final { finalTitlesPending.insert(id) }; return }
+        if !final && liveAIPaused { return }
         if !final && liveTitleAttempted.contains(id) { return }
         if !final { liveTitleAttempted.insert(id) }
         namingIDs.insert(id); titleError.removeValue(forKey: id)
@@ -270,8 +413,8 @@ final class AppModel: ObservableObject {
             }
             do {
                 let generated = try await titleGenerator.generate(transcript: TitlePolicy.excerpt(snapshot))
-                guard var latest = meeting?.id == id ? meeting : try? store.load(id),
-                      latest.titleOrigin == "pending" || latest.titleOrigin == "automatic" else { return }
+                guard !Task.isCancelled, var latest = meeting?.id == id ? meeting : try? store.load(id),
+                      latest.retention != "purged", latest.retention != "purging", latest.titleOrigin == "pending" || latest.titleOrigin == "automatic" else { return }
                 latest.title = generated; latest.titleOrigin = "automatic"; latest.titleFinal = final
                 try store.save(latest)
                 if meeting?.id == id { meeting = latest }
@@ -292,10 +435,13 @@ final class AppModel: ObservableObject {
         monitor?.cancel(); monitor = nil
         await pauseImports()
         await stop()
-        while let job = titleJobs.values.first { await job.value }
-        _ = try? await warmupTask?.value
+        let jobs = Array(titleJobs.values)
+        try? await RecordingDeadline.wait(stall: stallTimeout) { for job in jobs { await job.value } }
+        titleJobs.values.forEach { $0.cancel() }
+        // A stalled optional model must never strand macOS in terminateLater.
+        warmupTask?.cancel()
         for task in voiceTasks.values { task.cancel() }
-        await runtime.stop()
+        Task { await runtime.stop() }
     }
     /// Deterministic, synthetic UI fixture. Never opens an audio device and is
     /// enabled only in the separately packaged QA app's environment.
@@ -328,18 +474,29 @@ final class AppModel: ObservableObject {
         phase = "ready"; message = "Synthetic preview complete"
         if let id = meeting?.id { scheduleTitle(id: id, final: true) }
     }
-    private func save() throws { if let meeting { try store.save(meeting) } }
+    func save() throws { if let meeting { try store.save(meeting) } }
     private func startLevels() {
         levelTask?.cancel()
         levelTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
+                updateRecordingPressure()
                 levels.update(microphone: tracks["microphone"]?.currentLevel() ?? 0, system: tracks["system"]?.currentLevel())
                 try? await Task.sleep(nanoseconds: 100_000_000)
             }
         }
     }
-    private func stopLevels() { levelTask?.cancel(); levelTask = nil; tracks = [:]; levels.reset() }
+    func updateRecordingPressure() {
+        guard phase == "recording" else { return }
+        let lag = tracks.values.map { $0.backlog.pendingSeconds }.max() ?? 0
+        let next = errorText == nil ? RecordingPressure(lag: lag) : .transcriptDelayed
+        guard recordingPressure != next else { return }
+        recordingPressure = next
+        screenRecorder?.setPressure(next)
+        message = next == .normal ? "Recording on this Mac · transcript caught up" : next.message
+        if next == .normal, let id = meeting?.id { NoteEnhancementScheduler.shared.schedule(id, model: self) }
+    }
+    private func stopLevels() { levelTask?.cancel(); levelTask = nil; levels.reset() }
     /// Moves a recording's folder to the Trash, so a mistaken delete can be recovered in Finder.
     func deleteRecording(id: String) {
         guard !(busy && meeting?.id == id) else { return }

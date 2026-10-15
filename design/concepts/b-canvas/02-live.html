@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live Meeting Region</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kalam&family=Manrope:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="canvas.css">
+<script src="canvas.js"></script>
+</head>
+<body>
+<main class="stage">
+<header class="stage-head">
+<div class="head-text"><span class="label">Concept B · Canvas · 02 of 04</span><h1>A live call is a region that grows</h1><p>Pressing Start under “Up next” opens a region on the canvas and it grows downward with the call. A time spine runs down its left edge. Each jot from the pinned jot bar lands as a blush card at the spine's current edge. Its enhanced version paints in beside it, linked to the transcript lines it drew from: solid links for “time + meaning”, dotted ones for “meaning only”. Detected questions are answered in the assist lane on the right, linked to the cards they cite wherever those already sit on your canvas.</p></div>
+<nav aria-label="Concept B screens"><a href="index.html">Concept</a> <a href="01-today.html">Today</a> <a href="02-live.html" aria-current="page">Live</a> <a href="03-review.html">Review</a> <a href="04-ask.html">Ask</a> <button class="theme-toggle" type="button">Theme: auto</button></nav>
+</header>
+<div class="window appwin">
+  <div class="titlebar">
+    <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+    <span class="crumbs">WorkScribe · Fieldbook v2.4 · <b>Offline sync — v2.4 scope</b></span>
+    <span class="spacer"></span>
+    <span class="caption">Following live</span>
+    <button class="btn"><i data-i="stop"></i> Stop</button>
+  </div>
+  <div class="canvaswrap">
+    <div class="rail" role="toolbar" aria-label="Canvas tools">
+      <button class="iconbtn" aria-label="Select" aria-pressed="false"><i data-i="select"></i></button>
+      <button class="iconbtn" aria-label="Jot a card (J)" aria-pressed="true"><i data-i="jot"></i></button>
+      <button class="iconbtn" aria-label="Connect cards (C)" aria-pressed="false"><i data-i="link"></i></button>
+      <button class="iconbtn" aria-label="Ask (slash)" aria-pressed="false"><i data-i="ask"></i></button>
+      <button class="iconbtn" aria-label="Jump to live edge" data-fit><i data-i="fit"></i></button>
+    </div>
+    <div class="viewport" tabindex="0" aria-label="Canvas with the live meeting region. Scroll or drag to pan." data-x="0" data-y="640">
+      <div class="board" style="width:1980px;height:1480px">
+        <svg class="links" aria-hidden="true" style="width:100%;height:100%">
+          <path data-a="jA" data-b="enA" data-s="rl"/>
+          <path data-a="enA" data-b="E1" data-s="rl"/>
+          <path data-a="enA" data-b="E2" data-s="rl"/>
+          <path class="weak" data-a="enA" data-b="E3" data-s="rl"/>
+          <path data-a="jB" data-b="enB" data-s="rl"/>
+          <path data-a="enB" data-b="E4" data-s="rl"/>
+          <path data-a="jC" data-b="enC" data-s="rl"/>
+          <path data-a="enC" data-b="msa" data-s="rt"/>
+          <path data-a="jD" data-b="enD" data-s="rl"/>
+          <path data-a="enD" data-b="E7" data-s="rl"/>
+          <path data-a="miss" data-b="E6" data-s="rl"/>
+          <path data-a="jE" data-b="enE" data-s="rl"/>
+          <path data-a="ans" data-b="bench" data-s="rl"/>
+          <path data-a="ans" data-b="np" data-s="rl"/>
+          <path data-a="Q" data-b="ans" data-s="bt"/>
+        </svg>
+
+        <div class="frame wash" style="left:24px;top:24px;width:1120px;height:1310px">
+          <div class="fh"><span class="dot"></span><h3>Offline sync — v2.4 scope</h3><span class="caption">live · 14:07 · <span class="spk you">You</span> <span class="spk priya">Priya</span> <span class="spk marcus">Marcus</span> · enhancement up to date</span></div>
+        </div>
+        <span class="label" style="position:absolute;left:150px;top:78px">You typed</span>
+        <span class="label" style="position:absolute;left:380px;top:78px">Enhanced</span>
+        <span class="label" style="position:absolute;left:800px;top:78px">Said · only lines your notes use</span>
+        <span class="label" style="position:absolute;left:1180px;top:540px">Assist lane</span>
+
+        <i class="spine" style="left:128px;top:110px;height:1170px"></i>
+        <span class="tlabel" style="left:56px;top:118px">03:10</span>
+        <span class="tlabel" style="left:56px;top:252px">08:12</span>
+        <span class="tlabel" style="left:56px;top:452px">09:05</span>
+        <span class="tlabel" style="left:56px;top:612px">10:40</span>
+        <span class="tlabel" style="left:56px;top:772px">11:20</span>
+        <span class="tlabel" style="left:56px;top:932px">12:51</span>
+        <span class="tlabel" style="left:56px;top:1112px">13:58</span>
+        <span class="tlabel now" style="left:56px;top:1242px">14:07</span>
+
+        <div class="card ex hollow" id="E3" style="left:800px;top:110px;width:310px">
+          <div class="k"><span class="extag hollow">E3</span><span class="spk marcus">Marcus</span><span class="t">03:10 · meaning only</span></div>
+          <div class="q">“The sync engine is last-write-wins today, per record.”</div>
+        </div>
+
+        <div class="card jot" id="jA" style="left:146px;top:246px;width:200px"><div class="k">typed 08:12</div><div>offline conflicts → LWW?? marcus pushback</div></div>
+        <div class="card en" id="enA" style="left:380px;top:246px;width:380px">
+          <div><span class="lead">Conflict resolution.</span> Marcus warned last-write-wins would silently drop inspectors' checklist edits; the team agreed on a field-level merge for checklists, last-write-wins for the rest.</div>
+          <div class="m"><span class="extag">E1</span><span class="extag">E2</span><span class="extag hollow">E3</span> 2 by time + meaning, 1 by meaning</div>
+        </div>
+        <div class="card ex" id="E1" style="left:800px;top:236px;width:310px">
+          <div class="k"><span class="extag">E1</span><span class="spk marcus">Marcus</span><span class="t">07:58</span></div>
+          <div class="q">“If it's last-write-wins, an inspector's checklist edits just vanish…”</div>
+        </div>
+        <div class="card ex" id="E2" style="left:800px;top:338px;width:310px">
+          <div class="k"><span class="extag">E2</span><span class="spk priya">Priya</span><span class="t">08:31</span></div>
+          <div class="q">“Okay — merge at the field level for checklists, keep last-write-wins for the rest.”</div>
+        </div>
+
+        <div class="card jot" id="jB" style="left:146px;top:446px;width:200px"><div class="k">typed 09:05</div><div>ship date nov 4 not oct 28</div></div>
+        <div class="card en" id="enB" style="left:380px;top:466px;width:380px">
+          <div><span class="lead">Ship date.</span> v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration; Priya will tell Halvorsen on Friday.</div>
+        </div>
+        <div class="card ex" id="E4" style="left:800px;top:466px;width:310px">
+          <div class="k"><span class="extag">E4</span><span class="spk priya">Priya</span><span class="t">09:02</span></div>
+          <div class="q">“I don't think October 28th survives this.”</div>
+        </div>
+
+        <div class="card jot" id="jC" style="left:146px;top:606px;width:200px"><div class="k">typed 10:40</div><div>beta 40 accts, halvorsen first</div></div>
+        <div class="card en" id="enC" style="left:380px;top:620px;width:380px">
+          <div><span class="lead">Beta cohort.</span> 40 accounts, Halvorsen Construction first, because their contract names offline capture by year end.</div>
+          <div class="m">links to <b>Halvorsen MSA §7.2</b>, already on your canvas</div>
+        </div>
+
+        <div class="card ghost" id="miss" style="left:380px;top:770px;width:380px">
+          <div class="k">Said, not in your notes <span class="t">11:20–11:58</span></div>
+          <div class="q"><b>Beta feedback.</b> Priya wants an in-app feedback form for the Halvorsen site leads instead of the shared channel.</div>
+          <div class="acts"><button class="btn text">Add as a jot</button><button class="btn text">Ignore</button></div>
+        </div>
+        <div class="card ex" id="E6" style="left:800px;top:780px;width:310px">
+          <div class="k"><span class="spk priya">Priya</span><span class="t">11:24</span></div>
+          <div class="q">“Can they report straight from the app? The channel's a mess.”</div>
+        </div>
+
+        <div class="card jot" id="jD" style="left:146px;top:926px;width:200px"><div class="k">typed 12:51</div><div>photo uploads queue — cap?</div></div>
+        <div class="card en" id="enD" style="left:380px;top:926px;width:380px">
+          <div><span class="lead">Photo queue.</span> Cap at 200 photos or 1.5 GB per device, oldest uploads first on reconnect, a banner at the cap. Marcus will measure on an iPhone 12.</div>
+        </div>
+        <div class="card ex" id="E7" style="left:800px;top:936px;width:310px">
+          <div class="k"><span class="extag">E7</span><span class="spk marcus">Marcus</span><span class="t">12:44</span></div>
+          <div class="q">“Two hundred photos is about a site day and a half.”</div>
+        </div>
+
+        <div class="card jot" id="jE" style="left:146px;top:1106px;width:200px"><div class="k">typed 13:58</div><div>android parity?</div></div>
+        <div class="card en" id="enE" style="left:380px;top:1106px;width:380px">
+          <div class="m">No matching speech yet. Kept as typed; it'll fill in if someone brings it up.</div>
+        </div>
+        <div class="card" id="act" style="left:800px;top:1090px;width:310px">
+          <div class="k">Action, heard live <span class="t">14:05</span></div>
+          <div><b>Priya</b> emails Halvorsen about Nov 4 · asked by herself</div>
+          <div class="q m">“I'll tell them Friday, before they hear it elsewhere.”</div>
+        </div>
+        <div class="card ghost" id="nowcard" style="left:146px;top:1236px;width:200px" aria-label="Where your next jot will land">
+          <div class="k">lands at 14:07</div><div>beta feedback form?<span class="caret"></span></div>
+        </div>
+        <span class="ann" style="left:372px;top:1250px">jots land at the edge</span>
+
+        <!-- Assist lane -->
+        <div class="card ex" id="Q" style="left:1180px;top:580px;width:300px">
+          <div class="k">Question detected <span class="t">13:40</span></div>
+          <div><span class="spk marcus">Marcus</span> asked</div>
+          <div class="q"><b>What did we measure for photo sizes on the iPhone 12 last time?</b></div>
+        </div>
+        <div class="card" id="ans" style="left:1180px;top:760px;width:340px">
+          <div class="k">Answer · from your canvas</div>
+          <div>An inspection photo averaged <b>3.1 MB</b> after HEIC compression, and a full site day ran 140–180 photos <span class="cite">1</span>. On 6 Oct Marcus said the 12 mini stalled once more than about 1 GB was queued <span class="cite">2</span>.</div>
+          <div class="acts"><button class="btn">Pin to 13:40</button><button class="btn text">Dismiss</button></div>
+          <div class="m">The next answer replaces this one unless you pin it.</div>
+        </div>
+
+        <!-- Existing clusters, reached into -->
+        <div class="frame" style="left:1180px;top:24px;width:420px;height:470px">
+          <div class="fh"><h3>Halvorsen</h3><span class="caption">cluster</span></div>
+        </div>
+        <div class="card" id="msa" style="left:1206px;top:80px;width:300px">
+          <div class="k">PDF · Contracts <span class="t">p.14 §7.2</span></div>
+          <div class="q">Offline capture of inspections and photos by <b>Dec 31, 2026</b>; sync within 24 h of reconnecting.</div>
+        </div>
+        <div class="card" id="clip1" style="left:1206px;top:260px;width:250px">
+          <div class="k">Web clip · Obsidian</div>
+          <div class="q"><b>Why field crews lose offline data</b></div>
+          <div class="m">constructiondive.com · 2 highlights</div>
+        </div>
+        <div class="frame sage" style="left:1600px;top:640px;width:360px;height:520px">
+          <div class="fh"><h3>Photo pipeline</h3></div>
+        </div>
+        <div class="card" id="bench" style="left:1624px;top:700px;width:310px">
+          <div class="k"><span class="cite">1</span> Numbers · Benchmarks</div>
+          <div class="q">HEIC avg <b class="num">3.1 MB</b> · site day <b class="num">140–180</b></div>
+        </div>
+        <div class="card ex" id="np" style="left:1624px;top:880px;width:310px">
+          <div class="k"><span class="cite">2</span> <span class="spk marcus">Marcus</span> <span class="t">Note Pro · 6 Oct · 11:24</span></div>
+          <div class="q">“The 12 mini just stalled once the queue went past a gig…”</div>
+        </div>
+      </div>
+    </div>
+    <div class="minimap" aria-hidden="true"></div>
+    <div class="dock">
+      <div class="row"><span class="recdot" aria-hidden="true"></span><b class="num" style="color:var(--ink)">14:07</b><span>Jotting into Offline sync</span><span class="spacer"></span><span>Mic ▮▮▮▯ · System ▮▮▯▯</span></div>
+      <div class="field"><span class="stamp">14:07</span><input aria-label="Jot a note. Return drops it at now." value="beta feedback form?"></div>
+      <div class="row"><span><span class="kbd">↩</span> drop at now</span><span><span class="kbd">⇥</span> attach to card above</span><span><span class="kbd">⌘↩</span> ask</span><span><span class="kbd">⌥⌘N</span> pop out as a floating jot bar</span></div>
+    </div>
+  </div>
+</div>
+<div class="callouts">
+  <div><b>Jotting stays one keystroke</b>The jot bar is pinned to the window, not the canvas, so you can be looking anywhere (or pop it out over Zoom) and still type. Return drops the card at the live edge of the region; Tab attaches it to the card above as a sub-point.</div>
+  <div><b>Anchors you can see</b>Enhanced cards connect to the transcript lines they used. Solid means inside ±2 min of typing and similar in meaning; dotted means meaning only (E3, from 03:10). Drag a line off to unlink it.</div>
+  <div><b>Missed topics are ghosts in the gap</b>Speech that none of your notes drew from appears as a ghost card at the time it was said. “Add as a jot” makes it yours.</div>
+  <div><b>Answers reach into your canvas</b>The 13:40 answer links to the benchmark card and Marcus's Note Pro turn where they already sit, so you can see where your knowledge lives as well as what it says.</div>
+</div>
+
+
+</main>
+</body>
+</html>

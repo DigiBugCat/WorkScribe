@@ -4,13 +4,14 @@ import hashlib
 import json
 from pathlib import Path
 from urllib.request import urlopen
+from runtime_home import HOME, state
 
 ROOT = Path(__file__).resolve().parents[1]
 METADATA = ROOT / "Resources/licenses/fluidaudio"
 REVISION = (METADATA / "MODEL-REVISION.txt").read_text().strip()
 for path, expected in json.loads((METADATA / "MODEL-SHA256.json").read_text()).items():
-    target = ROOT / ".runtime/models" / path
-    if target.exists() and hashlib.sha256(target.read_bytes()).hexdigest() == expected:
+    target = HOME / "models" / path
+    if state(target) == "present" and hashlib.sha256(target.read_bytes()).hexdigest() == expected:
         continue
     url = f"https://huggingface.co/FluidInference/speaker-diarization-coreml/resolve/{REVISION}/{path}"
     with urlopen(url) as response:

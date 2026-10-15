@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day Book Moments</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700;800&family=Kalam&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daybook.css">
+<script src="daybook.js"></script>
+<style>
+  .qbar { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; padding-bottom: var(--space-3); }
+  .qfield { flex: 1 1 320px; display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--chip); box-shadow: var(--emb); font-size: 15px; line-height: 20px; min-width: 0; }
+  .qfield .v { flex: 1; min-width: 0; }
+  .ribbon { width: 100%; height: auto; display: block; margin: var(--space-2) 0 var(--space-3); }
+  .dayrule { display: grid; grid-template-columns: 58px minmax(0, 1fr); }
+  .dayrule > div:last-child { border-left: var(--stroke-line) solid var(--indigo); padding: var(--space-4) var(--space-4) 2px; font-family: var(--font-serif); font-size: 19px; line-height: 26px; font-weight: 600; }
+  .dayrule small { font-family: var(--font-sans); font-size: 12px; font-weight: 600; color: var(--ink-muted); margin-left: 8px; }
+  .mo { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 2px 12px; align-items: start; }
+  .mo .th { grid-row: 1 / span 4; width: 96px; height: 60px; border-radius: var(--radius-sm); overflow: hidden; background: var(--surface); }
+  .mo .th svg { width: 100%; height: 100%; display: block; }
+  .mo .x { font-size: 13.5px; line-height: 20px; }
+  .pin { display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 50%; font: 800 10.5px/1 var(--font-sans); background: var(--indigo); color: var(--on-indigo); flex: none; }
+  .pin.hot { background: var(--vermilion); color: var(--surface-raised); }
+  .thread { display: grid; gap: var(--space-3); }
+  .thread .me { align-self: start; }
+  .thread .ans { font-size: 13.5px; line-height: 20px; color: var(--ink); }
+  .row.sel > .e { background: color-mix(in srgb, var(--indigo-wash) 22%, transparent); border-radius: 0 var(--radius-sm) var(--radius-sm) 0; }
+  @media (max-width: 820px) { .dayrule { grid-template-columns: 46px minmax(0, 1fr); } .mo { grid-template-columns: 72px minmax(0, 1fr); } .mo .th { width: 72px; height: 48px; } }
+</style>
+</head>
+<body>
+<main class="stage">
+  <header class="stage-head">
+    <div>
+      <div class="eyebrow">Concept C · Day Book · screen 4 of 4</div>
+      <h1>Search returns moments, placed back in the book</h1>
+      <p>A search doesn't return a list of files. It returns <b>moments</b> (a turn in a call, 14:32 into a voice memo, a frame of a site video, a PDF page, a photo, a clip) and puts each one back on the day it happened, in time order. The month ribbon shows where they cluster. Ask is a <b>margin conversation</b> beside the moments it's about.</p>
+    </div>
+    <nav aria-label="Concept pages">
+      <a href="03-evening.html">Previous</a>
+      <a href="index.html">Index</a>
+      <button class="theme-toggle" type="button">Theme: auto</button>
+    </nav>
+  </header>
+
+  <div class="window soak" role="group" aria-label="WorkScribe window showing search results as moments on the timeline">
+    <div class="titlebar">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <span class="where">Day Book</span>
+      <span class="vault">Finding moments · across meetings, vault and 9 folders</span>
+      <span class="spacer"></span>
+      <div class="seg" role="group" aria-label="Zoom">
+        <button type="button" aria-pressed="false">Day</button><button type="button" aria-pressed="false">Week</button><button type="button" aria-pressed="true">Month</button>
+      </div>
+    </div>
+    <div class="book">
+      <nav class="rail" aria-label="Filters">
+        <div>
+          <div class="label" style="margin-bottom:4px">Kinds · 6 moments</div>
+          <ul>
+            <li><a href="#" aria-current="true"><span class="num">6</span>Everything</a></li>
+            <li><a href="#"><span class="num">2</span>Calls</a></li>
+            <li><a href="#"><span class="num">1</span>Field recordings</a></li>
+            <li><a href="#"><span class="num">1</span>Site videos</a></li>
+            <li><a href="#"><span class="num">1</span>Documents</a></li>
+            <li><a href="#"><span class="num">1</span>Photos</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:4px">People</div>
+          <ul>
+            <li><a href="#"><span class="spk marcus">Marcus Chen</span></a></li>
+            <li><a href="#"><span class="spk priya">Priya Raman</span></a></li>
+          </ul>
+        </div>
+        <p class="foot">Indexed on this Mac: meetings by transcript; audio in 30 s windows; video as frames every 3 s; PDFs by page.</p>
+      </nav>
+
+      <div class="page">
+        <div class="qbar">
+          <div class="qfield"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 13.5 13.5"/></svg><span class="v">inspector's phone ran out of storage</span><span class="kbd">↩</span></div>
+          <span class="caption">since 1 Sep · oldest first</span>
+        </div>
+
+        <svg class="ribbon" viewBox="0 0 760 74" role="img" aria-label="Month ribbon, 28 September to 13 October, with six moment pins. The highlighted pin is the 6 October voice memo.">
+          <rect class="iw-sky" x="0" y="26" width="760" height="20" rx="3"/>
+          <path class="iw-line" d="M0 36 H760"/>
+          <g class="iw-hair">
+            <path d="M47 30 V42"/><path d="M95 30 V42"/><path d="M142 30 V42"/><path d="M190 30 V42"/><path d="M237 30 V42"/><path d="M285 30 V42"/><path d="M332 30 V42"/><path d="M380 30 V42"/><path d="M427 30 V42"/><path d="M475 30 V42"/><path d="M522 30 V42"/><path d="M570 30 V42"/><path d="M617 30 V42"/><path d="M665 30 V42"/><path d="M712 30 V42"/>
+          </g>
+          <g>
+            <circle class="iw-indigo" cx="380" cy="36" r="8"/>
+            <circle class="iw-verm" cx="406" cy="36" r="8"/>
+            <circle class="iw-indigo" cx="432" cy="36" r="8"/>
+            <circle class="iw-indigo" cx="522" cy="36" r="8"/>
+            <circle class="iw-indigo" cx="570" cy="36" r="8"/>
+            <circle class="iw-indigo" cx="745" cy="36" r="8"/>
+          </g>
+          <g font-size="10" font-weight="800" text-anchor="middle" style="fill:var(--on-indigo);font-family:var(--font-sans)">
+            <text x="380" y="39.5">1</text><text x="406" y="39.5" style="fill:var(--surface-raised)">2</text><text x="432" y="39.5">3</text><text x="522" y="39.5">4</text><text x="570" y="39.5">5</text><text x="745" y="39.5">6</text>
+          </g>
+          <text class="iw-t-muted" x="0" y="66" font-size="10.5" font-weight="700">28 SEP</text>
+          <text class="iw-t-muted" x="380" y="66" font-size="10.5" font-weight="700" text-anchor="middle">6 OCT</text>
+          <text class="iw-t-muted" x="522" y="66" font-size="10.5" font-weight="700" text-anchor="middle">9 OCT</text>
+          <text class="iw-t-muted" x="760" y="66" font-size="10.5" font-weight="700" text-anchor="end">TODAY</text>
+          <text class="iw-t-hand" x="300" y="16" font-size="16">a cluster on site day ↘</text>
+        </svg>
+
+        <div class="rows">
+          <div class="dayrule"><div></div><div>Tue 6 October <small>site day at Halvorsen yard</small></div></div>
+
+          <div class="row k-call">
+            <div class="t">11:24</div>
+            <div class="e">
+              <div class="mo">
+                <div class="th" aria-hidden="true"><svg viewBox="0 0 96 60"><rect class="iw-wash" width="96" height="60"/><rect class="iw-indigo" x="10" y="26" width="6" height="8" rx="1"/><rect class="iw-indigo" x="20" y="18" width="6" height="24" rx="1"/><rect class="iw-indigo" x="30" y="22" width="6" height="16" rx="1"/><rect class="iw-indigo" x="40" y="14" width="6" height="32" rx="1"/><rect class="iw-indigo" x="50" y="24" width="6" height="12" rx="1"/><rect class="iw-indigo" x="60" y="20" width="6" height="20" rx="1"/><rect class="iw-indigo" x="70" y="27" width="6" height="6" rx="1"/></svg></div>
+                <div class="meta"><span class="pin">1</span><span class="kind">Call turn</span><span class="spk marcus">Marcus</span></div>
+                <div class="title">Note Pro · walk-and-talk with Marcus</div>
+                <div class="x">“The 12 mini just stalled once the queue went past a gig, and it never told anyone.”</div>
+                <div class="acts"><button class="btn text" type="button">Play 11:24</button><button class="btn text" type="button">Open the page for 6 Oct</button></div>
+              </div>
+            </div>
+            <aside class="m">
+              <div class="thread">
+                <div class="mnote me"><span class="who">You asked · ?</span><span class="typed">? has this hit halvorsen before</span></div>
+                <div class="mnote mcard raised" aria-live="polite">
+                  <span class="who">Margin</span>
+                  <span class="ans">Yes, on the same site day. An inspector's iPhone 12 mini filled up mid-walk <span class="cite">2</span> <span class="cite">3</span>, and Marcus tied it to the photo queue that afternoon <span class="cite">1</span>. Today's cap (200 photos or 1.5 GB) is the fix <span class="cite">6</span>.</span>
+                  <span class="caption">Numbers match the pins on the ribbon.</span>
+                  <span class="acts" style="display:flex;gap:6px;flex-wrap:wrap"><button class="btn text" type="button">Put on today's page</button><button class="btn text" type="button">Ask more</button></span>
+                </div>
+              </div>
+            </aside>
+          </div>
+
+          <div class="row k-file sel">
+            <div class="t">14:32</div>
+            <div class="e">
+              <div class="mo">
+                <div class="th" aria-hidden="true"><svg viewBox="0 0 96 60"><rect class="iw-sky" width="96" height="60"/><path class="iw-line" d="M6 30 Q 14 14 22 30 T 38 30 T 54 30 T 70 30 T 90 30"/></svg></div>
+                <div class="meta"><span class="pin hot">2</span><span class="kind">Field recording · 14:32</span><span>sound matched by meaning</span></div>
+                <div class="title">Halvorsen yard memo.m4a</div>
+                <div class="x">An inspector says the phone “keeps saying storage is full” and asks if photos are lost.</div>
+                <div class="acts"><button class="btn primary" type="button">Play from 14:32</button></div>
+              </div>
+            </div>
+            <aside class="m"><div class="mnote"><span>Previewing <b>2</b>. Plays 30 s around the match.</span></div></aside>
+          </div>
+
+          <div class="row k-file">
+            <div class="t">15:05</div>
+            <div class="e">
+              <div class="mo">
+                <div class="th" aria-hidden="true"><svg viewBox="0 0 96 60"><rect class="iw-sage" width="96" height="60"/><rect class="iw-raised" x="34" y="6" width="28" height="48" rx="4"/><rect class="iw-ochre" x="38" y="14" width="20" height="6" rx="1"/><rect class="iw-linefill" x="38" y="24" width="20" height="3"/><rect class="iw-linefill" x="38" y="30" width="16" height="3"/></svg></div>
+                <div class="meta"><span class="pin">3</span><span class="kind">Video frame · 03:05</span></div>
+                <div class="title">Halvorsen yard walkthrough.mov</div>
+                <div class="x">The phone showing “Storage almost full” beside the inspection form.</div>
+                <div class="acts"><button class="btn text" type="button">Play from 03:05</button></div>
+              </div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="dayrule"><div></div><div>Fri 9 October</div></div>
+
+          <div class="row k-file">
+            <div class="t">09:40</div>
+            <div class="e">
+              <div class="mo">
+                <div class="th" aria-hidden="true"><svg viewBox="0 0 96 60"><rect class="iw-raised" width="96" height="60"/><rect class="iw-linefill" x="14" y="10" width="68" height="4"/><rect class="iw-linefill" x="14" y="20" width="60" height="4"/><rect class="iw-wash" x="14" y="30" width="64" height="8"/><rect class="iw-linefill" x="14" y="44" width="50" height="4"/></svg></div>
+                <div class="meta"><span class="pin">4</span><span class="kind">PDF · page 6</span><span>opened that morning</span></div>
+                <div class="title">Photo pipeline spec.pdf</div>
+                <div class="x">“Uploads pause when free space drops below 2 GB; the queue is kept on disk.”</div>
+              </div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="row k-file">
+            <div class="t">16:12</div>
+            <div class="e">
+              <div class="mo">
+                <div class="th" aria-hidden="true"><svg viewBox="0 0 96 60"><rect class="iw-sagedeep" width="96" height="60"/><rect class="iw-raised" x="30" y="4" width="36" height="52" rx="4"/><rect class="iw-wash" x="34" y="12" width="28" height="10" rx="1"/><rect class="iw-ochre" x="34" y="26" width="18" height="4" rx="1"/></svg></div>
+                <div class="meta"><span class="pin">5</span><span class="kind">Photo</span></div>
+                <div class="title">IMG_2291.heic</div>
+                <div class="x">Screenshot of iOS storage settings on an inspector's phone.</div>
+              </div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="dayrule"><div></div><div>Today <small>Tue 13 October</small></div></div>
+
+          <div class="row k-note">
+            <div class="t">10:14</div>
+            <div class="e">
+              <div class="meta"><span class="pin">6</span><span class="kind">Your note, enhanced</span><span>in Offline sync</span></div>
+              <div class="body"><span class="lead">Photo queue.</span> Cap at 200 photos or 1.5 GB per device, upload oldest first on reconnect, and show inspectors a banner at the cap.</div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="row now">
+            <div class="t">now</div>
+            <div class="e nowline">
+              <label class="vh" for="jot4">Ask in the margin</label>
+              <div class="jot"><span class="ph" id="jot4">? Ask about these moments, or Esc to return to today's page</span><span class="kbd">↩</span></div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="callouts" aria-label="Notes on this screen">
+    <div><b>Time is the result layout</b>Results sort by when they happened, not by score. Six hits that a ranked list scatters across file types read here as one story: a site day, a spec, a fix.</div>
+    <div><b>Ask sits beside its evidence</b>The question is a “?” jot; the answer lives in the margin next to the first moment it cites. Pins on the ribbon, in the rows and in the answer use the same numbers.</div>
+    <div><b>Moments, not files</b>Each row opens at the second, frame or page. Clips from the vault and your own enhanced notes come back too, so the answer can cite what you wrote.</div>
+  </section>
+</main>
+</body>
+</html>

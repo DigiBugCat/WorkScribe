@@ -10,6 +10,10 @@ struct RecorderView: View {
     /// Opens the floating window; nil when this view already is that window.
     var openWindow: (() -> Void)?
     var inWindow = false
+    /// Shows this meeting (live while it records, else its review) regardless of the shared selection; the main
+    /// window's meeting page uses it. `embedded` drops the status header and the back button, which the page owns.
+    var meetingID: String? = nil
+    var embedded = false
     @State private var followLive = true
     @State private var showingVoices = false
     @State private var query = ""
@@ -19,6 +23,14 @@ struct RecorderView: View {
 
     private enum Mode { case idle, live(Meeting), review(Meeting) }
     private var mode: Mode {
+        if let meetingID {
+            if let current = model.meeting, current.id == meetingID, model.busy,
+               current.status == "recording" || current.status == "finalizing" || model.phase == "preview" { return .live(current) }
+            if let entry = model.meeting?.id == meetingID ? model.meeting : model.library.first(where: { $0.id == meetingID }) {
+                return .review(entry)
+            }
+            return .idle
+        }
         if let current = model.meeting, model.busy,
            current.status == "recording" || current.status == "finalizing" || model.phase == "preview" {
             return .live(current)
@@ -32,9 +44,11 @@ struct RecorderView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            StatusHeader(model: model, showingVoices: $showingVoices, openPlaud: openPlaud, openWindow: openWindow)
-                .padding(.horizontal, 16).padding(.vertical, 12)
-            Divider()
+            if !embedded {
+                StatusHeader(model: model, showingVoices: $showingVoices, openPlaud: openPlaud, openWindow: openWindow)
+                    .padding(.horizontal, 16).padding(.vertical, 12)
+                Divider()
+            }
             Group {
                 switch mode {
                 case .idle: idle
@@ -43,8 +57,8 @@ struct RecorderView: View {
                 }
             }.frame(maxHeight: .infinity, alignment: .top)
         }
-        .frame(minWidth: inWindow ? 360 : 400, idealWidth: 400, maxWidth: inWindow ? .infinity : 400,
-               minHeight: inWindow ? 420 : 580, idealHeight: 580, maxHeight: inWindow ? .infinity : 580)
+        .frame(minWidth: embedded ? 320 : inWindow ? 360 : 400, idealWidth: 400, maxWidth: inWindow || embedded ? .infinity : 400,
+               minHeight: embedded ? 300 : inWindow ? 420 : 580, idealHeight: 580, maxHeight: inWindow || embedded ? .infinity : 580)
         .overlay(alignment: .bottom) { toast }
         .sheet(isPresented: $showingVoices) { RememberedVoicesView(model: model) }
         .onChange(of: model.selectedID) { _, _ in editingTitle = false }
@@ -197,6 +211,11 @@ struct RecorderView: View {
 
     private func live(_ meeting: Meeting) -> some View {
         VStack(spacing: 0) {
+            if model.recordingPressure != .normal {
+                Text(model.message).font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(12)
+                    .accessibilityIdentifier("recording-backlog-status")
+            }
             HStack(spacing: 6) {
                 if model.namingIDs.contains(meeting.id) && meeting.titleOrigin == "pending" {
                     Text("Naming this recording…").foregroundStyle(.secondary)
@@ -232,7 +251,7 @@ struct RecorderView: View {
             }
             Divider()
 
-            TranscriptView(meeting: meeting, live: true, followLive: $followLive, editor: editor(meeting))
+            TranscriptView(meeting: meeting, live: true, followLive: $followLive, editor: editor(meeting), focus: model.focusRequest)
 
             Divider()
             HStack {
@@ -247,6 +266,15 @@ struct RecorderView: View {
                     .buttonStyle(.borderedProminent).tint(.red).controlSize(.large)
                     .keyboardShortcut("r", modifiers: .command)
                     .disabled(model.phase != "recording")
+                    if model.phase == "finalizing", model.finalizationProgress >= 0.35 {
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                            if meeting.canResume(at: context.date) {
+                                Button { Task { await model.start(resuming: meeting.id) } } label: {
+                                    Label("Resume", systemImage: "play.fill")
+                                }.controlSize(.small)
+                            }
+                        }
+                    }
                 }
             }.padding(.horizontal, 16).padding(.vertical, 12)
         }
@@ -257,8 +285,10 @@ struct RecorderView: View {
     private func review(_ meeting: Meeting) -> some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Button { model.selectedID = nil } label: { Label("Recent", systemImage: "chevron.left") }
-                    .buttonStyle(.borderless).accessibilityLabel("Back to recent recordings")
+                if !embedded {
+                    Button { model.selectedID = nil } label: { Label("Recent", systemImage: "chevron.left") }
+                        .buttonStyle(.borderless).accessibilityLabel("Back to recent recordings")
+                }
                 Spacer()
                 Menu {
                     Button("Rename…") { beginRename(meeting) }
@@ -311,6 +341,15 @@ struct RecorderView: View {
                 Text(note).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 16).padding(.bottom, 8)
             }
 
+            if let purgeAt = meeting.purgeAt, meeting.retention == "finalized" {
+                HStack {
+                    Text("Transcript and recording deleted in \(max(0, Int(ceil(purgeAt.timeIntervalSinceNow / 3600)))) h")
+                    Button("Done now") { Task {
+                        do { try await model.retentionService?.done(meeting.id) }
+                        catch { model.message = "Couldn’t finish cleanup: \(error.localizedDescription)" }
+                    } }
+                }.font(.caption).padding(.horizontal, 16).padding(.bottom, 8)
+            }
             SuggestionStrip(meeting: meeting, confirm: { segment, suggestion in
                 model.nameSpeaker(meetingID: meeting.id, segmentID: segment.id, name: suggestion.name,
                                   profileID: suggestion.profileID, wholeSpeaker: true, remember: true)
@@ -319,10 +358,29 @@ struct RecorderView: View {
             })
 
             Divider()
-            if meeting.segments.isEmpty && meeting.status == "failed" {
+            if meeting.retention == "purged" || meeting.retention == "purging" {
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Only your notes remain.")
+                    if let path = meeting.vaultPath {
+                        Button("Open note") { NSWorkspace.shared.open(URL(fileURLWithPath: path)) }
+                        ScrollView {
+                            Text((try? String(contentsOfFile: path, encoding: .utf8)) ?? "Open the vault note to read it.")
+                                .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }.padding(16)
+                Spacer()
+            } else if meeting.segments.isEmpty && meeting.status == "failed" {
                 Spacer()
             } else {
-                TranscriptView(meeting: meeting, live: false, followLive: .constant(false), editor: editor(meeting))
+                TimelineView(.periodic(from: .now, by: 1)) { context in
+                if meeting.canResume(at: context.date) && !model.busy {
+                    Button { Task { await model.start(resuming: meeting.id) } } label: {
+                        Label("Resume recording", systemImage: "play.fill")
+                    }.controlSize(.small).padding(.horizontal, 16).padding(.vertical, 8)
+                }
+            }
+            TranscriptView(meeting: meeting, live: false, followLive: .constant(false), editor: editor(meeting), focus: model.focusRequest)
             }
         }
     }
@@ -372,15 +430,17 @@ private struct StatusHeader: View {
     @ViewBuilder private var indicator: some View {
         switch model.phase {
         case "recording":
-            Image(systemName: "record.circle.fill").foregroundStyle(.red).symbolEffect(.pulse)
-        case "starting", "finalizing":
+            Image(systemName: "record.circle.fill").foregroundStyle(.red).symbolEffect(.bounce, value: model.meeting?.startedAt)
+        case "finalizing":
+            ProgressView(value: model.finalizationProgress).progressViewStyle(.circular).controlSize(.small)
+        case "starting":
             ProgressView().controlSize(.small)
         case "error":
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
         case "preview":
             Image(systemName: "waveform").foregroundStyle(.teal)
         default:
-            if model.speechReady { Circle().fill(.green).frame(width: 8, height: 8) }
+            if model.speechReady { Circle().stroke(.tertiary, lineWidth: 1).frame(width: 8, height: 8) }
             else { ProgressView().controlSize(.small) }
         }
     }
@@ -403,7 +463,7 @@ private struct StatusHeader: View {
             let source = model.systemAudioBlocked ? "Mic only, system audio blocked" : model.includeSystemAudio ? "Mic + system audio" : "Mic only"
             return trigger.hasPrefix("call:") ? "\(trigger.dropFirst(5)) call · started automatically · \(source)" : "\(source) · saved on this Mac"
         case "starting": return model.message
-        case "finalizing": return "Finishing the last words…"
+        case "finalizing": return model.message
         case "preview": return "No audio device is recording"
         case "error": return "See the recording below for what happened"
         default: return model.speechReady ? model.autoStatus : "Loading the speech model, about 15 seconds"
@@ -415,14 +475,25 @@ private struct StatusHeader: View {
             Section("Recording") {
                 Toggle("Auto-record calls", isOn: $model.autoRecordCalls).disabled(model.busy)
                 Toggle("Include system audio", isOn: $model.includeSystemAudio).disabled(model.busy)
+                Toggle("Capture the screen", isOn: $model.screenCaptureEnabled).disabled(model.busy)
+                if model.screenState.isCapturing {
+                    Toggle("Pause screen capture", isOn: $model.screenCapturePaused)
+                }
                 Toggle("Start and stop with ⌥⌘R", isOn: $model.globalShortcut)
             }
             Section("Speakers") {
                 Button("Remembered voices…") { showingVoices = true }
             }
+            if let vault = VaultHookup.shared { VaultSettingsSection(vault: vault) }
+            Section("Ask") {
+                Button("Quick ask   ⌥⌘K") { NotificationCenter.default.post(name: .workScribeShowQuickAsk, object: nil) }
+                Button("Answers & cloud models…") { NotificationCenter.default.post(name: .workScribeShowCloudSettings, object: nil) }
+            }
+            #if WORKSCRIBE_PLAUD
             Section("Plaud Note Pro") {
                 Button("Save & release Note Pro…") { openPlaud() }
             }
+            #endif
             Section("Connect an LLM") {
                 Button("Copy MCP config") { model.copyMCPConfig() }
             }

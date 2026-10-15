@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Concept D · Companion</title>
+<meta name="description" content="WorkScribe as one ongoing conversation with an assistant who sat in all your meetings and read all your files.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700&family=Kalam&display=swap">
+<link rel="stylesheet" href="companion.css">
+<script src="companion.js"></script>
+<style>
+.lede { font-family: var(--font-serif); font-size: clamp(19px, 2.2vw, 23px); line-height: 1.45; max-width: 62ch; }
+.two { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(320px, 100%), 1fr)); gap: var(--space-6); }
+.two > div { background: var(--surface-raised); box-shadow: var(--shadow-cutout); border-radius: var(--radius-md); padding: var(--space-4) var(--space-6) var(--space-6); }
+.two h2 { font-size: 22px; line-height: 30px; margin-bottom: var(--space-2); }
+.two ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: var(--space-2); font-size: 14.5px; line-height: 22px; }
+.screens { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(250px, 100%), 1fr)); gap: var(--space-4); }
+.screens a { display: flex; flex-direction: column; gap: var(--space-1); padding: var(--space-3) 0; border-top: var(--stroke-line) solid var(--indigo); text-decoration: none; color: var(--ink); }
+.screens a b { font-family: var(--font-serif); font-size: 19px; line-height: 26px; font-weight: 600; color: var(--indigo); }
+.screens a span { font-size: 14px; line-height: 21px; color: var(--ink-muted); }
+.screens a:hover b { text-decoration: underline; text-underline-offset: 3px; }
+.diagram { width: 100%; max-width: 900px; height: auto; }
+</style>
+</head>
+<body>
+<main class="stage">
+<header class="stage-head">
+  <div><div class="kicker">WorkScribe · interface concepts</div><h1>Concept D · Companion</h1><p>The whole app is one ongoing conversation.</p></div>
+  <nav class="stage-nav" aria-label="Concept D screens"><a href="index.html" aria-current="page">Overview</a><a href="01-morning.html">Morning</a><a href="02-live.html">Live call</a><a href="03-synthesis.html">After the call</a><a href="04-moments.html">Ask · moments</a><button class="theme-toggle" type="button">Theme: auto</button></nav>
+</header>
+
+<p class="lede">WorkScribe is a colleague you talk to in one long thread. It sat in every meeting and read every file you pointed it at, so the thread holds your day: a brief in the morning, a nudge before a call, the call itself as a <b>live block</b> you jot into, the synthesis after, and any question you ask, answered with <b>moments</b> you can open beside the conversation. It isn’t a generic chatbot because almost nothing it says is a paragraph. Replies are typed blocks (brief, promises, decisions, action items, moments) that you pin, open in a side sheet, or reply to in order to change. Threads are just filters of the same thread (a customer, a project, a person). Your notes live as Markdown in your Obsidian vault, and web clips arrive there too.</p>
+<svg class="diagram" viewBox="0 0 900 200" role="img" aria-label="One conversation spine. Meetings, briefs, answers and moments are blocks on it. Threads filter it; pins collect blocks; the sheet opens one block fully.">
+<g filter="url(#iw-gouache)">
+<rect x="250" y="40" width="130" height="34" rx="3" style="fill:var(--blush)"/>
+<rect x="400" y="40" width="130" height="34" rx="3" style="fill:var(--indigo-wash)"/>
+<rect x="550" y="40" width="130" height="34" rx="3" style="fill:var(--indigo-wash)"/>
+<rect x="20" y="120" width="180" height="56" rx="3" style="fill:var(--surface-raised)"/>
+<rect x="700" y="120" width="180" height="56" rx="3" style="fill:var(--surface-raised)"/>
+</g>
+<g fill="none" style="stroke:var(--indigo)" stroke-width="1.25">
+<path d="M20 100H880"/>
+<rect x="250" y="40" width="130" height="34" rx="3"/><rect x="400" y="40" width="130" height="34" rx="3"/><rect x="550" y="40" width="130" height="34" rx="3"/>
+<path d="M315 74v26M465 74v26M615 74v26"/>
+<rect x="20" y="120" width="180" height="56" rx="3"/><rect x="700" y="120" width="180" height="56" rx="3"/>
+<path d="M110 120v-20M790 120v-20"/>
+</g>
+<circle cx="465" cy="100" r="5" style="fill:var(--vermilion)"/>
+<g style="fill:var(--ink);font:600 13px Manrope,sans-serif" text-anchor="middle">
+<text x="315" y="62">your jots</text><text x="465" y="62">live meeting</text><text x="615" y="62">moments</text>
+<text x="110" y="144">threads + pins</text><text x="110" y="162" style="fill:var(--ink-muted);font-weight:500">filters of the spine</text>
+<text x="790" y="144">side sheet</text><text x="790" y="162" style="fill:var(--ink-muted);font-weight:500">one block, opened fully</text>
+</g>
+<text x="24" y="92" style="fill:var(--ink-muted);font:700 11px Manrope,sans-serif;letter-spacing:.08em">ONE CONVERSATION</text>
+<text x="490" y="128" style="fill:var(--indigo);font:17px Kalam,cursive">now</text>
+</svg>
+<div class="two">
+  <div><h2>Best at</h2><ul>
+    <li><b>Continuity.</b> Yesterday’s promise, this morning’s clip and the 14:00 call sit in one scroll, so the nudge “here’s what you promised” makes sense without explanation.</li>
+    <li><b>Proactive help that doesn’t need a dashboard.</b> Timed messages replace a home screen.</li>
+    <li><b>Follow-ups.</b> Every result is something you can reply to (“only what Ingrid said”, “draft it for Ingrid”), so search, Ask and editing are the same gesture.</li>
+    <li><b>Jotting stays terse.</b> Jot mode files lines into the live block with no replies, and the enhancement lands on the same row.</li>
+  </ul></div>
+  <div><h2>Worst at</h2><ul>
+    <li><b>Finding things by browsing.</b> A chronological stream buries last month’s meeting; you depend on asking, pins and threads instead of a list you can scan.</li>
+    <li><b>Mode confusion during calls.</b> One composer with Ask and Jot modes can send a question as a note or the reverse; the mode has to be very loud.</li>
+    <li><b>Noise.</b> If proactive messages aren’t strictly tied to a clock or a due item, the conversation becomes a feed you skim past.</li>
+    <li><b>Long documents.</b> Notes and transcripts are cramped as blocks; they only really work in the sheet or in Obsidian.</li>
+  </ul></div>
+</div>
+<section class="screens" aria-label="Screens">
+  <a href="01-morning.html"><b>01 · Morning</b><span>A brief, the “Halvorsen call in 5 min, here’s what you promised” nudge, and what was read overnight, including a web clip.</span></a>
+  <a href="02-live.html"><b>02 · Live call</b><span>The meeting as a live block: shorthand jots with enhancement on the same row, a live answer, and the tiny always-on-top composer over the call app.</span></a>
+  <a href="03-synthesis.html"><b>03 · After the call</b><span>Decisions, action items with owner and asker, missed topics, a draft email, and the vault note open in the sheet.</span></a>
+  <a href="04-moments.html"><b>04 · Ask · moments</b><span>A cited answer with moment cards (meeting turn, recording at 14:32, video frame, PDF page, web clip, photo); click one to open it in the sheet.</span></a>
+</section>
+</main>
+</body>
+</html>

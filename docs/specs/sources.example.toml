@@ -1,0 +1,150 @@
+# WorkScribe sources: which one listens to a meeting, and what is never allowed.
+#
+# Every key this file can hold, with a comment. Validated by sources.schema.json.
+# Where it lives:
+#   you          ~/Library/Application Support/WorkScribe/sources.toml
+#   your fork    WorkScribe.app/Contents/Resources/sources.default.toml
+#   your org     /Library/Application Support/WorkScribe/policy.toml  (owned by root, not writable by others)
+#   MDM          a configuration profile for the app's bundle ID, key SourcePolicy, same keys as a dictionary
+#
+# How it's read:
+#   Rules are tried managed → organization → you → fork → built-in. The first rule whose
+#   `when` matches chooses an ordered chain of sources.
+#   Policy entries are not ordered. Every one that matches, from every layer, applies.
+#   Prohibitions add up; nothing turns one back off.
+#   The chain loses whatever policy forbids, gets notes-only on the end, and the first
+#   source that says it's ready is used.
+
+version = 1
+
+# Organization and managed layers only. false: rules in the user's file are skipped
+# (their own [[policy]] entries still apply). Default true.
+# user_rules = false
+
+
+# ── Sources ──────────────────────────────────────────────────────────────────────────
+# Built in, always present: local-recorder, file-import, notes-only, replay.
+# Declare a source here to install it (command, ingest) or to configure one.
+
+# Today's recorder: this Mac's microphone and call audio, transcribed on this Mac.
+[sources.local-recorder]
+kind = "local-recorder"
+[sources.local-recorder.config]
+system_audio = true            # include the other side of the call (needs Screen Recording access)
+
+# A program that speaks wsp/1. Its folder holds source.toml (the manifest) and the executable.
+# Capabilities come from the manifest, so policy can rule it out without running it.
+[sources.tail-file]
+kind = "command"
+path = "Sources/tail-file"     # relative to this file's folder, absolute, or ~/…
+on_failure = "notes-only"      # default for rules using it: notes-only (default) or next
+[sources.tail-file.config]     # overrides the manifest's [config]; sent in hello.config
+path = "~/captions.txt"
+
+# Transcript files handed over after the call: dropped on the meeting, attached from
+# Obsidian, posted to /v1/meetings/:id/transcript, or picked up from a watched folder.
+[sources.teams-download]
+kind = "file-import"
+label = { sentence = "the transcript you download from Teams", short = "Teams transcript" }
+watch = "~/Downloads"          # optional; without it, files are only taken when handed over
+match = ["*.vtt", "*.srt"]
+within = "6h"                  # only files appearing this soon after the meeting ends
+
+# Something already running that posts to the local API (POST /v1/sources/ingest/sessions).
+# There's no manifest, so declare its label and capabilities here. Holding the API token
+# isn't enough: a session must name a source declared like this, and policy must allow it.
+[sources.team-bridge]
+kind = "ingest"
+label = { sentence = "the team caption bridge", short = "Team bridge" }
+[sources.team-bridge.capabilities]
+timing = "live"
+partials = true
+speakers = "names"
+words = false
+corrections = true
+audio = { microphone = false, system = false, files = false }
+screen = false
+permissions = ["network"]
+egress = "local"
+clock = "wall"
+latency = 2.0
+keepsAudio = false
+
+
+# ── Rules ────────────────────────────────────────────────────────────────────────────
+# Conditions (all must match; a list matches any value):
+#   app                      zoom teams webex facetime slack discord meet browser, or a bundle ID
+#                            (the app holding the call, not the frontmost app)
+#   trigger                  call manual api import
+#   window                   globs over the call window's title (needs Screen Recording)
+#   calendar.title           globs                      ┐
+#   calendar.organizer_domain domains                   │ need a calendar provider;
+#   calendar.attendee_domain  domains, any attendee     │ unknown until one exists
+#   calendar.link            globs over the meeting URL ┘
+#   source_available         source ids that answered ready
+#   network                  online | offline
+#   time.days, time.hours    ["mon", …], "09:00-18:00" in the Mac's time zone
+# if_unknown: skip (default for rules) or match.
+
+[[rules]]
+name = "Teams: notes now, transcript later"
+when.app = ["teams"]
+use = ["teams-download"]
+
+[[rules]]
+name = "Office hours: the team bridge first"
+when.time.days = ["mon", "tue", "wed", "thu", "fri"]
+when.time.hours = "09:00-18:00"
+when.network = "online"
+use = ["team-bridge", "local-recorder"]
+on_failure = "notes-only"      # "next" never moves to a source that captures more than the one that failed
+
+[[rules]]
+name = "Everything else"
+use = ["local-recorder"]       # notes-only is appended automatically
+
+
+# ── Context rules ────────────────────────────────────────────────────────────────────
+# Same shape, for what was on screen. Default: the screen recorder, when screen awareness is on.
+# [[context_rules]]
+# name = "Window titles only"
+# use = ["window-titles"]
+
+
+# ── Policy ───────────────────────────────────────────────────────────────────────────
+# Keys: audio, audio_files, screen, egress, cloud, sources (allowlist), source_signers,
+# reason, contact. if_unknown defaults to match: policy fails closed.
+#
+# audio = "forbidden" is a guarantee, not a preference: no source that opens the
+# microphone or captures system audio is started, CaptureGate refuses both devices,
+# and a source process caught with live audio input is stopped.
+
+[[policy]]
+when.calendar.attendee_domain = ["halvorsen.example"]
+if_unknown = "skip"            # only when the calendar is known; otherwise this would apply to every meeting
+audio = "forbidden"
+reason = "Halvorsen's contract doesn't allow recordings."
+
+# An organization's version usually has no `when`:
+# [[policy]]
+# audio = "forbidden"
+# screen = "forbidden"
+# cloud = "forbidden"
+# sources = ["zoom-captions", "zoom-transcript", "notes-only"]
+# source_signers = ["ABCDE12345"]
+# reason = "Acme doesn't allow recording meetings. Zoom's own transcript is approved."
+# contact = "it-help@acme.example"
+
+
+# ── Models (section 5.1) ─────────────────────────────────────────────────────────────
+[models]
+note_lines = ["local"]
+titles = ["local"]
+answers = ["openai", "local"]  # the first available; falls back before any text is written
+embeddings = ["local"]
+
+[models.providers.ollama]
+kind = "openai-compatible"
+base_url = "http://127.0.0.1:11434/v1"
+model = "qwen3.5:7b"
+location = "on-device"

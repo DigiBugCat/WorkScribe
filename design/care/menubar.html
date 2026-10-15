@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Menu Bar and Edges</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="care.css">
+<style>
+  .wide { max-width: 1240px; }
+  .tallies { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr)); gap: 24px 20px; }
+  .tcell { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .strip { border-radius: 10px; overflow: hidden; background: linear-gradient(160deg, var(--mac-desk-a), var(--mac-desk-b)); padding-bottom: 26px; }
+  .strip .menubar { justify-content: flex-end; gap: 14px; }
+  .tcell h3 { font-family: var(--f-body); font-size: 15px; font-weight: 600; letter-spacing: 0; }
+  .tcell p { font-size: 14px; line-height: 1.5; color: var(--pencil); }
+  .desk2 { position: relative; overflow: hidden; border-radius: 14px; background: linear-gradient(160deg, var(--mac-desk-a), var(--mac-desk-b)); }
+  .desk2 .menubar { position: absolute; left: 0; right: 0; top: 0; }
+  .drop { position: absolute; top: 30px; }
+  .menus { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(520px, 100%), 1fr)); gap: 24px; }
+  .fig { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .fig h3 { font-family: var(--f-body); font-size: 15px; font-weight: 600; letter-spacing: 0; }
+  .fig p { font-size: 14px; line-height: 1.55; color: var(--pencil); }
+  .bans { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(380px, 100%), 1fr)); gap: 22px 24px; }
+  .bancell { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .bancell .when { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--pencil); }
+  .bancell .bg { border-radius: 14px; padding: 18px; background: linear-gradient(160deg, var(--mac-desk-a), var(--mac-desk-b)); display: flex; justify-content: flex-end; }
+  .bancell p { font-size: 14px; line-height: 1.5; color: var(--pencil); }
+  /* sheet / alert */
+  .alert { width: 300px; background: var(--mac-menu); color: var(--mac-menu-text); border-radius: 14px; box-shadow: var(--mac-shadow); padding: 18px 16px 14px; font-family: var(--f-ob); font-size: 13px; line-height: 1.4; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px); }
+  .alert b { font-size: 13.5px; }
+  .alert .row { display: flex; gap: 8px; width: 100%; margin-top: 6px; }
+  .alert .row span { flex: 1; padding: 5px 0; border-radius: 7px; background: color-mix(in srgb, var(--mac-menu-text) 10%, transparent); font-size: 13px; }
+  .alert .row span.def { background: var(--mac-menu-sel); color: var(--mac-menu-sel-text); }
+  /* call window behind Quick ask */
+  .call { position: absolute; left: 70px; top: 70px; width: 980px; height: 560px; border-radius: 12px; background: #1b1d21; box-shadow: var(--mac-win-shadow); display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr 44px; gap: 8px; padding: 36px 8px 8px; }
+  .call .tile { background: #2a2d33; border-radius: 8px; display: flex; align-items: center; justify-content: center; position: relative; }
+  .call .tile b { width: 74px; height: 74px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font: 600 26px var(--f-ob); color: #fff; }
+  .call .tile small { position: absolute; left: 10px; bottom: 8px; font: 12px var(--f-ob); color: #e6e6e6; background: rgba(0,0,0,.4); padding: 2px 6px; border-radius: 4px; }
+  .call .tile.share { grid-row: 1 / span 2; background: #f3f4f6; flex-direction: column; align-items: stretch; justify-content: flex-start; padding: 22px; gap: 10px; }
+  .call .tile.share i { display: block; height: 10px; border-radius: 3px; background: #d4d8de; }
+  .call .bar { grid-column: 1 / span 2; display: flex; justify-content: center; gap: 10px; align-items: center; }
+  .call .bar span { width: 34px; height: 26px; border-radius: 7px; background: #33363c; }
+  .call .bar span.end { background: #e5484d; width: 54px; }
+  .call .lights { position: absolute; left: 14px; top: 12px; }
+  .qask { position: absolute; left: 50%; top: 150px; transform: translateX(-50%); width: 680px; background: var(--mac-menu); color: var(--mac-menu-text); border-radius: 16px; box-shadow: var(--mac-shadow); font-family: var(--f-ob); backdrop-filter: blur(40px) saturate(1.8); -webkit-backdrop-filter: blur(40px) saturate(1.8); overflow: hidden; }
+  .qask .in { display: flex; align-items: center; gap: 12px; padding: 14px 16px; font-size: 19px; }
+  .qask .in svg { width: 20px; height: 20px; color: var(--mac-menu-dim); }
+  .qask .q { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; }
+  .qask .q .ph { color: var(--mac-menu-dim); }
+  .qask .cur { display: inline-block; width: 2px; height: 22px; background: var(--mac-menu-sel); vertical-align: -4px; margin-left: 1px; animation: ob-blink 1.06s steps(2, start) infinite; }
+  .qask .scope { font-size: 12px; padding: 3px 6px 3px 9px; border-radius: 6px; background: color-mix(in srgb, var(--mac-menu-text) 9%, transparent); display: inline-flex; gap: 6px; align-items: center; white-space: nowrap; }
+  .qask .scope i { width: 6px; height: 6px; border-radius: 50%; background: #ff3b30; }
+  .qask .scope svg { width: 12px; height: 12px; }
+  .qask .ans { border-top: 1px solid var(--mac-sep); padding: 14px 18px 12px 48px; font-size: 14.5px; line-height: 1.55; display: flex; flex-direction: column; gap: 10px; min-height: 120px; }
+  .qask .ans .cite { background: color-mix(in srgb, var(--mac-menu-text) 10%, transparent); color: var(--mac-menu-dim); }
+  .qask .srcs { font-size: 12.5px; color: var(--mac-menu-dim); display: flex; gap: 6px; align-items: center; }
+  .qask .srcs svg { width: 13px; height: 13px; }
+  .qask .foot { border-top: 1px solid var(--mac-sep); padding: 8px 16px; display: flex; gap: 16px; font-size: 12px; color: var(--mac-menu-dim); }
+  .qask .foot .grow { flex: 1; }
+  .qask kbd { font-family: var(--f-ob); background: color-mix(in srgb, var(--mac-menu-text) 9%, transparent); border: 0; color: var(--mac-menu-text); padding: 1px 5px; font-size: 11px; }
+  /* chrome extension popup */
+  .browser { position: absolute; inset: 0; background: #fff; display: flex; flex-direction: column; }
+  .browser .tb { height: 42px; background: #eef0f3; display: flex; align-items: center; gap: 10px; padding: 0 12px; border-bottom: 1px solid #d9dce1; }
+  .browser .url { flex: 1; height: 28px; border-radius: 14px; background: #fff; font: 13px var(--f-ob); color: #3b3f45; display: flex; align-items: center; padding: 0 14px; }
+  .browser .ext { width: 28px; height: 28px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: #dfe3ea; color: #1d1d1f; }
+  .browser .ext svg { width: 16px; height: 16px; }
+  .browser .page { padding: 34px 60px; font-family: Georgia, serif; color: #222; display: flex; flex-direction: column; gap: 12px; }
+  .browser .page h4 { font-size: 26px; margin: 0; font-weight: 600; }
+  .browser .page p { font-size: 15px; line-height: 1.6; color: #444; max-width: 60ch; }
+  .browser .page mark { background: #dbe8ff; color: inherit; }
+  .pop { position: absolute; right: 10px; top: 46px; width: 320px; background: var(--sheet); color: var(--ink); border-radius: 12px; box-shadow: var(--mac-shadow); padding: 14px; font-family: var(--f-ob); font-size: 13px; display: flex; flex-direction: column; gap: 10px; }
+  .pop .to { font-size: 11.5px; color: var(--pencil); display: flex; gap: 6px; align-items: center; }
+  .pop .to i { width: 6px; height: 6px; border-radius: 50%; background: var(--tally); }
+  .pop b { font-size: 14px; }
+  .pop .opt { display: flex; gap: 8px; align-items: center; padding: 7px 9px; border-radius: 8px; border: 1px solid var(--rule); }
+  .pop .opt.on { border-color: var(--blue); background: var(--blue-wash); }
+  .pop .opt .r { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--pencil); }
+  .pop .opt.on .r { border: 4px solid var(--blue); }
+  .pop .opt small { margin-left: auto; color: var(--pencil); }
+  .pop .go { align-self: stretch; text-align: center; padding: 7px; border-radius: 8px; background: var(--blue); color: var(--sheet); font-weight: 600; }
+  .pop .fine { font-size: 11.5px; color: var(--pencil); line-height: 1.45; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar"><div class="wide">
+    <a class="brand" href="index.html">WorkScribe <span>Care</span></a>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="live.html">Live note</a>
+      <a href="line.html">The AI line</a>
+      <a href="finalize.html">Stop → Finalize</a>
+      <a href="menubar.html" aria-current="page">Menu bar</a>
+    </nav>
+    <button class="themebtn" data-theme-btn type="button">Theme: auto</button>
+  </div></header>
+
+  <div class="wide">
+    <div class="mhead">
+      <div>
+        <p class="eyebrow">Mockup · real scale · macOS system surfaces</p>
+        <h1>The menu bar and the edges</h1>
+      </div>
+      <p>Outside Obsidian, WorkScribe is a tally light: you should be able to tell what it’s doing from the corner of your eye, without opening anything. Everything here is native: a real NSMenu, real notifications, and a Quick ask panel that behaves like Spotlight.</p>
+    </div>
+
+    <section class="section" style="padding-top:12px">
+      <h2>The tally</h2>
+      <p>Five states. Each has a different shape, not just a different colour, so it reads at a glance and in grayscale.</p>
+      <div class="tallies" id="tallies"></div>
+    </section>
+
+    <section class="section">
+      <h2>The menu</h2>
+      <p>A plain menu, not a popover. It answers three questions: is it recording, what can I do right now, and what’s about to fade.</p>
+      <div class="menus">
+        <div class="fig">
+          <div class="stage" data-w="560" data-h="420"><div class="scaler">
+            <div class="desk2" style="width:560px;height:420px"><div class="menubar" id="mbRec"></div>
+              <div class="drop nsmenu" style="right:118px">
+                <div class="hd"><span class="l1"><i></i>Recording · 12:41</span><span>Offline sync — v2.4 scope</span><span class="dim">Mic + system audio · 3 voices</span></div>
+                <hr>
+                <div class="mi hl">Stop Recording<span class="k">⌥⌘R</span></div>
+                <div class="mi">Pause for 5 Minutes</div>
+                <div class="mi">Open Note in Obsidian<span class="k">⌥⌘O</span></div>
+                <div class="mi">Quick Ask…<span class="k">⌥⌘K</span></div>
+                <hr>
+                <div class="sect">Fading soon</div>
+                <div class="mi">Design crit<span class="k">in 3 h</span></div>
+                <div class="mi">1:1 with Priya<span class="k">in 19 h</span></div>
+                <hr>
+                <div class="mi">Settings…<span class="k">⌘,</span></div>
+                <div class="mi">Quit WorkScribe<span class="k">⌘Q</span></div>
+              </div>
+            </div>
+          </div></div>
+          <h3>While recording</h3>
+          <p>The header says what is being recorded and from which sources, in words. Stop is first and highlighted on open, so the menu is a two-click stop. “Fading soon” lists transcripts that will be deleted, with hours left, so deletion is never a surprise.</p>
+        </div>
+        <div class="fig">
+          <div class="stage" data-w="560" data-h="420"><div class="scaler">
+            <div class="desk2" style="width:560px;height:420px"><div class="menubar" id="mbIdle"></div>
+              <div class="drop nsmenu" style="right:118px">
+                <div class="hd"><span class="l1">Next: Offline sync — v2.4 scope</span><span class="dim">10:02 · Zoom · in 4 min</span></div>
+                <hr>
+                <div class="mi">Start Recording<span class="k">⌥⌘R</span></div>
+                <div class="mi">Open Meeting Note<span class="k">⌥⌘O</span></div>
+                <div class="mi">Quick Ask…<span class="k">⌥⌘K</span></div>
+                <hr>
+                <div class="sect">Fading soon</div>
+                <div class="mi">Design crit<span class="k">in 3 h</span></div>
+                <hr>
+                <div class="mi">✓&nbsp; Start When a Call Starts</div>
+                <div class="mi">Settings…<span class="k">⌘,</span></div>
+                <div class="mi">Quit WorkScribe<span class="k">⌘Q</span></div>
+              </div>
+            </div>
+          </div></div>
+          <h3>Between meetings</h3>
+          <p>The header is the next meeting and how far away it is. “Open Meeting Note” opens the note before the call, so you can write prep lines; the meeting will answer them.</p>
+        </div>
+      </div>
+      <div class="menus" style="padding-top:12px">
+        <div class="fig">
+          <div class="stage" data-w="560" data-h="230"><div class="scaler">
+            <div class="desk2" style="width:560px;height:230px;display:flex;align-items:center;justify-content:center">
+              <div class="alert"><b>Stop and save “Offline sync — v2.4 scope”, then quit?</b><span>Recording stops and the final pass finishes before WorkScribe quits. Your note is safe either way.</span><div class="row"><span>Cancel</span><span class="def">Stop and Quit</span></div></div>
+            </div>
+          </div></div>
+          <h3>Quit while recording</h3>
+          <p>Quitting never silently ends a recording. The default button says exactly what will happen. Updates wait until no meeting is recording.</p>
+        </div>
+        <div class="fig">
+          <div class="prose small" style="padding-top:6px">
+            <p><b>What the menu bar is for.</b> Status, Stop, and the things you need when Obsidian isn’t in front: Quick ask, open the note, see what’s fading. It is not a second home for the product, so it has no transcript, no answers and no settings panes of its own.</p>
+            <p><b>What it never does.</b> It never animates while idle, never shows a count badge, and never changes width while recording. The timer slot is sized for <span class="mono">00:00</span> from the start and widens once, at the hour.</p>
+            <p><b>Sound.</b> One soft tick when recording starts by itself (auto-start on a detected call), because that is the only time you didn’t press anything. Manual starts and stops are silent. There is no haptic: a Mac trackpad you aren’t touching can’t tell you anything.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Notifications</h2>
+      <p>Three kinds, each with one action. Everything else waits for you to look.</p>
+      <div class="bans" id="bans"></div>
+    </section>
+
+    <section class="section">
+      <h2>Quick ask</h2>
+      <p>⌥⌘K from anywhere, including over the call. It opens already scoped to the meeting in progress, answers in a few lines with sources, and gets out of the way. It is the same conversation as Ask in Obsidian’s side panel.</p>
+      <div class="stage" data-w="1120" data-h="600"><div class="scaler">
+        <div class="desk2" style="width:1120px;height:600px">
+          <div class="menubar" id="mbQa"></div>
+          <div class="call">
+            <span class="lights"><i></i><i></i><i></i></span>
+            <div class="tile share"><i style="width:50%;height:16px;background:#9aa5b4"></i><i style="width:90%"></i><i style="width:82%"></i><i style="width:88%"></i><i style="width:40%"></i><small>Marcus is sharing</small></div>
+            <div class="tile"><b style="background:#a36e09">PR</b><small>Priya Raman</small></div>
+            <div class="tile"><b style="background:#2f7a52">MC</b><small>Marcus Chen</small></div>
+            <div class="bar"><span></span><span></span><span></span><span class="end"></span></div>
+          </div>
+          <div class="qask">
+            <div class="in"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 9v6"/><path d="M8 6v12"/><path d="M12 3v18"/><path d="M16 7v10"/><path d="M20 10v4"/></svg><span class="q" id="qq"></span><span class="scope"><i></i>Offline sync · live<svg class="i" viewBox="0 0 24 24"><use href="#i-x"/></svg></span></div>
+            <div class="ans"><div id="qans"></div><div class="srcs" id="qsrc" hidden><svg class="i" viewBox="0 0 24 24"><use href="#i-file"/></svg>1 · Halvorsen MSA 2026.pdf · p. 14</div></div>
+            <div class="foot"><span>GPT-5 mini</span><span class="grow"></span><span><kbd>↩</kbd> Ask</span><span><kbd>⌘↩</kbd> Add to note</span><span><kbd>esc</kbd> Close, keep the question</span></div>
+          </div>
+        </div>
+      </div></div>
+      <div class="controls"><button class="btn" type="button" id="qReplay"></button></div>
+      <div class="notice-grid">
+        <div class="note-card"><h3>Scoped before you ask</h3><p>The chip says what it will search: the live meeting first, then your vault. One click on ✕ widens it to everything.</p></div>
+        <div class="note-card"><h3>Where it was answered</h3><p>Every answer says which model made it. When the cloud is unreachable it falls back to this Mac and says “On this Mac (offline)”.</p></div>
+        <div class="note-card"><h3>Nothing on the shared screen</h3><p>Quick ask opens only when you call it. It never appears by itself, so it can’t surprise you during a screen share.</p></div>
+        <div class="note-card"><h3>Esc forgets nothing</h3><p>Closing keeps a half-typed question for ten minutes. ⌘↩ inserts the answer under your cursor in the note, as your line, with its source.</p></div>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>The clipper</h2>
+      <p>The Chrome extension clips into the meeting in progress. It says which meeting before you press anything.</p>
+      <div class="stage" data-w="1120" data-h="380"><div class="scaler">
+        <div class="desk2" style="width:1120px;height:380px">
+          <div class="browser">
+            <div class="tb"><span class="lights"><i></i><i></i><i></i></span><span class="url">support.apple.com/en-us/HT201656</span><span class="ext"><svg class="i" viewBox="0 0 24 24"><use href="#i-wave"/></svg></span></div>
+            <div class="page"><h4>If your iPhone storage is full</h4><p>When storage is almost full, <mark>some apps can’t save new photos or videos until you free up space</mark>. You can check your storage in Settings, and get recommendations for freeing space.</p></div>
+          </div>
+          <div class="pop">
+            <span class="to"><i></i>Recording · 12:58</span>
+            <b>Clip into “Offline sync — v2.4 scope”</b>
+            <div class="opt on"><span class="r"></span>Your highlight<small>1 sentence</small></div>
+            <div class="opt"><span class="r"></span>Whole page<small>~400 words</small></div>
+            <span class="go">Clip</span>
+            <span class="fine">Lands in Clips/ and as a link at the end of the note, stamped 12:58. Never at your cursor.</span>
+          </div>
+        </div>
+      </div></div>
+    </section>
+  </div>
+</div>
+
+<script src="care.js"></script>
+<script>
+Care.ready(function () {
+  const $ = (s, r) => (r || document).querySelector(s);
+  const T = [
+    ["idle", "", "Idle", "Nothing is being recorded. A 16 pt waveform glyph that never animates."],
+    ["soon", "", "Soon", "A meeting on your calendar starts within 5 minutes. A dot under the glyph, no notification yet."],
+    ["recording", "12:41", "Recording", "A red dot and the elapsed time in tabular numerals. The dot swells once on start, then holds still."],
+    ["finishing", "", "Finishing", "Recording has stopped; the final pass is reading the call. A ring that fills."],
+    ["attention", "0:12", "Needs you", "Still recording, but only your mic is coming through. Amber, never red: red only ever means recording."],
+  ];
+  $("#tallies").innerHTML = T.map(([st, tm, name, body], i) =>
+    '<div class="tcell"><div class="strip"><div class="menubar" id="ts' + i + '"></div></div><h3>' + name + "</h3><p>" + body + "</p></div>").join("");
+  T.forEach(([st, tm], i) => {
+    const el = $("#ts" + i);
+    el.innerHTML = '<span class="st">' + Care.icon("wifi") + '</span><span class="st">' + Care.tally(st, tm) + '</span><span class="st">' + Care.icon("toggles") + '</span><span class="clockm">10:14</span>';
+  });
+  Care.menubar($("#mbRec"), { app: "Zoom", menus: ["Meeting", "View"], tally: Care.tally("recording", "12:41"), clock: "10:14" });
+  Care.menubar($("#mbIdle"), { app: "Obsidian", menus: ["File", "Edit"], tally: Care.tally("soon"), clock: "09:58" });
+  Care.menubar($("#mbQa"), { app: "Zoom", menus: ["Meeting", "View", "Window"], tally: Care.tally("recording", "12:58"), clock: "Wed 14 Oct 10:15" });
+  document.querySelectorAll("#mbRec .st, #mbIdle .st").forEach((s) => { if (s.querySelector(".tally")) s.classList.add("open"); });
+
+  const BANS = [
+    ["09:58 · four minutes before", "Offline sync — v2.4 scope in 4 min", "Priya Raman, Marcus Chen · Zoom. The note is open for prep lines.", ["Open Note"], "now",
+      "Sent once, four minutes ahead, only for meetings with a call link. Opening the note doesn’t start recording; the call does."],
+    ["10:02:12 · ten seconds in", "Only your mic is coming through", "Zoom’s audio isn’t reaching WorkScribe, so Priya and Marcus won’t be in the transcript.", ["Fix", "Keep Mic Only"], "now",
+      "Checked within ten seconds of starting, named by person, with the fix one click away. Also shown in amber on the tally and in the pill."],
+    ["Thu 09:34 · the next morning", "Finalized “1:1 with Priya” for you", "You didn’t finalize it, so WorkScribe wrote the AI lines into the note an hour before the transcript fades.", ["Open Note"], "9:34",
+      "The only notification after a meeting. It exists so the 24-hour fade can never take something you didn’t see."],
+  ];
+  const icon = '<svg class="icon" viewBox="0 0 32 32"><rect width="32" height="32" rx="8" fill="#23456b"/><g stroke="#f4f1ea" stroke-width="2" stroke-linecap="round"><path d="M8 13v6"/><path d="M12 10v12"/><path d="M16 7v18"/><path d="M20 11v10"/><path d="M24 14v4"/></g></svg>';
+  $("#bans").innerHTML = BANS.map(([when, h, b, acts, t, note]) =>
+    '<div class="bancell"><span class="when">' + when + '</span><div class="bg"><div class="banner">' + icon + '<span class="h">' + h + '</span><span class="when">' + t + '</span><span class="b">' + b + '</span><span class="acts">' + acts.map((a) => "<span>" + a + "</span>").join("") + "</span></div></div><p>" + note + "</p></div>").join("");
+
+  // Quick ask: type, then stream
+  const Q = "what does halvorsen’s contract say about sync?";
+  const A = 'Sync within 24 hours of reconnecting, and offline capture of inspections and photos by Dec 31<span class="cite">1</span>. It says nothing about how conflicts are resolved<span class="cite">1</span>.';
+  let timers = [];
+  function runQ(instant) {
+    timers.forEach(clearTimeout); timers = [];
+    const q = $("#qq"), a = $("#qans");
+    $("#qsrc").hidden = true;
+    a.innerHTML = "";
+    if (instant || Care.reduce) { q.innerHTML = Q; a.innerHTML = A; $("#qsrc").hidden = false; return; }
+    q.innerHTML = '<span class="ph">Ask about this meeting or your notes</span>';
+    let t = 500;
+    for (let i = 1; i <= Q.length; i++) { const s = Q.slice(0, i); timers.push(setTimeout(() => { q.innerHTML = s + '<span class="cur"></span>'; }, t)); t += 40 + ((i * 37) % 50); }
+    t += 450;
+    timers.push(setTimeout(() => { q.textContent = Q; }, t));
+    const parts = A.split(/ (?![^<]*>)/);
+    parts.forEach((p, i) => timers.push(setTimeout(() => { a.innerHTML = parts.slice(0, i + 1).join(" "); }, t + 300 + i * 65)));
+    timers.push(setTimeout(() => { $("#qsrc").hidden = false; }, t + 400 + parts.length * 65));
+  }
+  $("#qReplay").innerHTML = Care.icon("replay") + "Replay Quick ask";
+  $("#qReplay").onclick = () => runQ(false);
+  runQ(/still/.test(location.hash) || true);
+  Care.fitStages();
+});
+</script>
+</body>
+</html>

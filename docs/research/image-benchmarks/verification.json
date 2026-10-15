@@ -1,0 +1,29 @@
+{
+  "date": "2026-10-14",
+  "machine": "Apple M4 Max, 36 GiB, macOS 26.5.1",
+  "checks": {
+    "swift test": {
+      "tests": 146,
+      "failures": 0
+    },
+    "--verify-api": "pass",
+    "--verify-purge": "pass",
+    "plugin npm test": {
+      "tests": 74,
+      "pass": 72,
+      "skipped": 2
+    },
+    "plugin npm run build": "pass",
+    "plugin npm run smoke": "pass",
+    "WORKSCRIBE_API_BINARY=../.build/debug/WorkScribe npm test": {
+      "tests": 74,
+      "pass": 74
+    },
+    "native Obsidian image command": "pass, synthetic frame and disposable profile/vault",
+    "watchcat": "insertion and Undo sequence observed; fixture only"
+  },
+  "not_verified": [
+    "physical live ScreenCaptureKit capture/deny-list exercise",
+    "release app package installation"
+  ]
+}

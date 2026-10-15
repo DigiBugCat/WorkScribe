@@ -1,3 +1,4 @@
+#if WORKSCRIBE_PLAUD
 import XCTest
 import WorkScribeCore
 import WorkScribePlaud
@@ -28,3 +29,5 @@ final class PlaudImportTests: XCTestCase {
         XCTAssertNil(levels.system)
     }
 }
+
+#endif

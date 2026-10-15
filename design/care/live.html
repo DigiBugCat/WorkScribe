@@ -1,0 +1,367 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Live Meeting Note</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="care.css">
+<style>
+  .wide { max-width: 1480px; }
+  .seg .q-mark { grid-column: 2; font-size: 11px; color: var(--ob-accent-text); margin-top: 2px; }
+  .tr-wrap { flex: 1; min-height: 0; overflow: hidden; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 56px); mask-image: linear-gradient(to bottom, transparent, #000 56px); display: flex; flex-direction: column; justify-content: flex-end; padding: 0 14px 12px; }
+  .empty { color: var(--ob-faint); font-size: 13px; text-align: center; padding: 40px 18px; line-height: 1.5; }
+  .scene-cap { font-size: 13.5px; color: var(--pencil); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar"><div class="wide">
+    <a class="brand" href="index.html">WorkScribe <span>Care</span></a>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="live.html" aria-current="page">Live note</a>
+      <a href="line.html">The AI line</a>
+      <a href="finalize.html">Stop → Finalize</a>
+      <a href="menubar.html">Menu bar</a>
+    </nav>
+    <button class="themebtn" data-theme-btn type="button">Theme: auto</button>
+  </div></header>
+
+  <div class="wide">
+    <div class="mhead">
+      <div>
+        <p class="eyebrow">Mockup · real scale · Obsidian default theme</p>
+        <h1>The live note</h1>
+      </div>
+      <p>Ten minutes into “Offline sync — v2.4 scope”. You type in Obsidian’s own editor. Under each line, WorkScribe’s line keeps rewriting itself in pencil as the conversation arrives. Press play, then hover any grey line and click <b>Why?</b></p>
+    </div>
+
+    <div class="stage" data-w="1480" data-h="966">
+      <div class="scaler">
+        <div class="desk" style="width:1480px;height:966px;padding:0;position:relative;overflow:hidden">
+          <div class="menubar" id="mb"></div>
+          <div class="mac-win ob" id="win" style="position:absolute;left:20px;top:46px;width:1440px;height:900px">
+            <main class="ob-main">
+              <div class="ob-viewhead">
+                <span class="ic"></span><span class="ic" data-i="chevron-left"></span><span class="ic" data-i="chevron-right"></span>
+                <div class="crumb">Meetings / <b>2026-10-14 Offline sync — v2.4 scope</b></div>
+                <span class="ws-pill" id="pill"><span class="dot"></span><span class="tm" id="pillTime">10:00</span><span class="src">Mic + system</span><button type="button" id="stopBtn" title="Stop recording (⌥⌘R)"><span class="sq"></span>Stop</button></span>
+                <span class="ic" data-i="book"></span><span class="ic" data-i="more"></span>
+              </div>
+              <div class="ob-scroll">
+                <div class="ob-doc" id="doc">
+                  <div class="inline-title">Offline sync — v2.4 scope</div>
+                  <div class="ob-props">
+                    <div class="ph">Properties</div>
+                    <div class="pr"><span class="pk" data-ik="calendar">date</span><span class="pv">2026-10-14 10:02</span></div>
+                    <div class="pr"><span class="pk" data-ik="list">attendees</span><span class="pv"><span class="lnk">Priya Raman</span><span class="lnk">Marcus Chen</span></span></div>
+                    <div class="pr"><span class="pk" data-ik="list">tags</span><span class="pv"><span class="pill">meeting</span></span></div>
+                  </div>
+                  <div class="lines" id="lines"></div>
+                </div>
+              </div>
+              <div class="ob-status"><span><span class="dot"></span>Recording <span id="sbTime">10:00</span></span><span id="words">0 words</span><span>0 backlinks</span></div>
+            </main>
+            <aside class="ob-right">
+              <div class="ws-tabs" role="tablist">
+                <button type="button" role="tab" data-tab="ask" aria-selected="false">Ask</button>
+                <button type="button" role="tab" data-tab="qa" aria-selected="false">Live Q&amp;A <span class="count" id="qaCount" hidden>0</span></button>
+                <button type="button" role="tab" data-tab="tr" aria-selected="true">Transcript</button>
+              </div>
+
+              <section class="ws-pane" data-pane="ask" hidden>
+                <div class="ws-scroll">
+                  <div class="chat">
+                    <div class="bubble">What did we decide about Android last time?</div>
+                    <div class="ans">
+                      <div class="worked">Searched your notes · 0:02</div>
+                      <p>Android offline lands in 2.5, not 2.4<span class="cite">1</span>. Marcus wanted the checklist merge rule shared so both apps behave the same<span class="cite">1</span>.</p>
+                      <p>That meeting’s transcript has faded, so this comes from your note.</p>
+                      <div class="qa" style="box-shadow:none;background:none;padding:0">
+                        <div class="srcs"><div><span data-ik="file"></span>1 · 2026-10-06 Walk-and-talk with Marcus</div></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="composer">
+                  <div class="ctx"><span class="chip"><span data-ik="file"></span>Offline sync — v2.4 scope</span><span class="chip">Live transcript</span></div>
+                  <div class="ph">Ask about this meeting or your notes</div>
+                  <div class="bar"><span data-ik="clip"></span><span class="grow"></span><span>GPT-5 mini · on this Mac if offline</span></div>
+                </div>
+              </section>
+
+              <section class="ws-pane" data-pane="qa" hidden>
+                <div class="ws-scroll" id="qaList">
+                  <div class="empty" id="qaEmpty">Questions people ask out loud are answered here, with sources. Nothing pops up while you type.</div>
+                </div>
+              </section>
+
+              <section class="ws-pane" data-pane="tr">
+                <div style="padding:0 14px"><div class="tr-head"><span data-ik="hourglass"></span>Live · the transcript fades 24 h after the meeting</div></div>
+                <div class="tr-wrap"><div class="tr" id="tr"></div></div>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="controls">
+      <button class="btn primary" id="play" type="button"></button>
+      <button class="btn" id="replay" type="button"></button>
+      <button class="btn" id="speed" type="button" aria-pressed="false">2× speed</button>
+      <span class="steps" aria-label="Jump to">
+        <button type="button" data-jump="6.2">Waiting for you</button>
+        <button type="button" data-jump="27.4">A rewrite</button>
+        <button type="button" data-jump="26.5" data-tab-jump="qa">A question</button>
+        <button type="button" data-jump="99">End</button>
+      </span>
+      <span class="clock" id="sceneClock"></span>
+    </div>
+    <p class="scene-cap">The scene runs about three times faster than a real call: WorkScribe’s real debounce is 4 s and it rewrites at most once every 15 s.</p>
+
+    <div class="notice-grid">
+      <div class="note-card"><span class="t">0:02 – 0:07</span><h3>It waits for you</h3><p>Priya just said she’ll tell Halvorsen on Friday, so the “Ship date” line has news. You’re typing two lines below it, so the rewrite holds until you pause for two seconds. Nothing moves near your cursor while your hands are busy.</p></div>
+      <div class="note-card"><span class="t">0:05 – 0:09</span><h3>Never under the line you’re typing</h3><p>“beta 40 accts” gets no AI line until you press Return. Then a hollow nib appears (it heard you), and the words arrive one at a time in pencil.</p></div>
+      <div class="note-card"><span class="t">0:27</span><h3>Only the changed words move</h3><p>When “Photo queue” is rewritten, words that survive stay exactly where they are. Removed words fade out in place; new words arrive dark and dry to pencil grey over 2.4 s, so you can see what changed without a highlight.</p></div>
+      <div class="note-card"><span class="t">0:21</span><h3>A question doesn’t take the panel</h3><p>Priya asks about the Halvorsen contract. The Transcript tab stays put; Live Q&amp;A gets a count. The answer is waiting when you look, with its sources and where it was made.</p></div>
+      <div class="note-card"><span class="t">0:34</span><h3>Asked of you</h3><p>When someone says your name and asks something, the card is marked “Asked of you” and sorted first. That’s the one you might need in the next ten seconds.</p></div>
+      <div class="note-card"><span class="t">0:35</span><h3>Listening for this</h3><p>“android?” hasn’t come up yet. Its line says so once, in the faintest grey, and then stays quiet. If it never comes up, the line is simply left alone at Finalize.</p></div>
+      <div class="note-card"><span class="t">Always</span><h3>One clock</h3><p>The menu bar, the pill and the status bar show the same tabular time, so the digits never jitter and the three never disagree by a second.</p></div>
+      <div class="note-card"><span class="t">Hover</span><h3>Why?</h3><p>Hover a grey line for <b>Why?</b>. It opens the transcript at the moments the line came from. This works until the transcript fades; after Finalize the note stands on its own.</p></div>
+    </div>
+  </div>
+</div>
+
+<script src="care.js"></script>
+<script>
+Care.ready(function () {
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const fillIcons = () => {
+    $$("[data-i]").forEach((e) => { if (!e.firstChild) e.innerHTML = Care.icon(e.dataset.i); });
+    $$("[data-ik]").forEach((e) => { if (!e.querySelector("svg")) e.insertAdjacentHTML("afterbegin", Care.icon(e.dataset.ik)); });
+  };
+  Care.obChrome($("#win"), { recording: true });
+  Care.menubar($("#mb"), { app: "Obsidian", menus: ["File", "Edit", "View", "Window", "Help"], tally: Care.tally("recording", "10:00"), clock: "Wed 14 Oct 10:12" });
+  fillIcons();
+
+  const START = 600; // meeting clock at scene t=0 (10:00)
+  const SPK = { Priya: "priya", Marcus: "marcus", You: "you" };
+  const priorSegs = [
+    ["s4", "Marcus", 482, "If it’s last-write-wins, an inspector’s checklist edits just vanish when the office touches the same job."],
+    ["s5", "You", 494, "Does merging per field get us most of the way? Checklists are mostly booleans and notes."],
+    ["s6", "Priya", 511, "Okay, merge at the field level for checklists, keep last-write-wins for the rest. Marcus, can you prototype that?"],
+    ["s7", "Marcus", 524, "Yeah. Give me till Monday."],
+    ["s8", "Priya", 542, "Which brings us to the date. I don’t think October 28th survives this."],
+    ["s9", "Marcus", 556, "Not with the SQLite migration. QA needs a full week on it. November 4th."],
+  ];
+
+  function seg(id, who, at, text, partial) {
+    const d = document.createElement("div");
+    d.className = "seg" + (partial ? " partial" : "");
+    d.dataset.id = id;
+    d.innerHTML = '<span class="ts">' + Care.clock(at) + '</span><span class="sp"><i class="spk-' + SPK[who] + '"></i>' + (who === "You" ? "You" : who + (who === "Priya" ? " Raman" : " Chen")) + '</span><span class="tx"></span>';
+    $(".tx", d).textContent = text;
+    return d;
+  }
+
+  const LINES = [
+    { id: "L0", par: true, you: "They’ll push for a date. Don’t agree to Oct 28 until Marcus has sized the migration.", ai: "Oct 28 is off: QA needs a full week on the SQLite migration, so v2.4 ships Nov 4.", ev: "s8 s9" },
+    { id: "L1", you: "offline conflicts → LWW?? marcus pushback", ai: "Marcus warned last-write-wins would silently drop inspectors’ checklist edits when the office edits the same job; field-level merge for checklists, last-write-wins for the rest.", ev: "s4 s5 s6" },
+    { id: "L2", you: "ship date nov 4 not oct 28", ai: "v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration.", ev: "s8 s9 s10" },
+  ];
+  function lineEl(L) {
+    const d = document.createElement("div");
+    d.className = "ln" + (L.par ? " par" : "");
+    d.id = L.id;
+    d.dataset.state = L.ai ? "settled" : "none";
+    if (L.ev) d.dataset.ev = L.ev;
+    d.innerHTML = '<div class="b"></div><div class="t"><div class="you"></div><div class="aiw"><span class="nib"></span><div class="ai"></div><span class="why" role="button" tabindex="0">Why?</span></div></div>';
+    $(".you", d).textContent = L.you || "";
+    if (L.ai) Care.setLine($(".ai", d), L.ai);
+    return d;
+  }
+
+  let tl;
+  function words() {
+    const n = $$(".ln .you").reduce((a, e) => a + (e.textContent.trim() ? e.textContent.trim().split(/\s+/).length : 0), 0);
+    $("#words").textContent = (n + 371) + " words";
+  }
+  function caretTo(el) { $$(".caret").forEach((c) => c.remove()); if (el) { const c = document.createElement("span"); c.className = "caret"; el.after(c); } }
+  function newLine(id) {
+    const L = { id };
+    const d = lineEl(L);
+    d.dataset.state = "none";
+    $("#lines").appendChild(d);
+    caretTo($(".you", d));
+    return d;
+  }
+  function setState(id, st, hint) {
+    const d = document.getElementById(id);
+    d.dataset.state = st;
+    if (hint !== undefined) { $(".ai", d).innerHTML = hint ? '<span class="hint">' + hint + "</span>" : ""; }
+  }
+  function draft(id, text, ev) {
+    const d = document.getElementById(id);
+    if (ev) d.dataset.ev = ev;
+    d.dataset.state = "drafting";
+    Care.draft($(".ai", d), text, { every: 60, done: () => { d.dataset.state = "settled"; } });
+    if (Care.instant) d.dataset.state = "settled";
+  }
+  function rewrite(id, text, ev) {
+    const d = document.getElementById(id);
+    if (ev) d.dataset.ev = ev;
+    Care.rewrite($(".ai", d), text);
+  }
+  function say(id, who, at, text) {
+    // a provisional turn, then its final form
+    const words = text.split(" ");
+    const half = words.slice(0, Math.ceil(words.length * 0.55)).join(" ") + " …";
+    const s = seg(id, who, at, half, true);
+    $("#tr").appendChild(s);
+    trim();
+    return () => { s.classList.remove("partial"); $(".tx", s).textContent = text; };
+  }
+  function trim() { const tr = $("#tr"); while (tr.children.length > 14) tr.firstChild.remove(); }
+  function qaCard(o) {
+    const c = document.createElement("div");
+    c.className = "qa enter";
+    c.innerHTML = '<div class="who">' + (o.mine ? '<span class="you-tag">Asked of you</span> · ' : "") + o.who + " asked · " + o.at + '</div><div class="q"></div><div class="a"></div><div class="srcs">' +
+      o.srcs.map((s, i) => "<div>" + Care.icon(s[0]) + (i + 1) + " · " + s[1] + "</div>").join("") +
+      '</div><div class="foot"><span class="where">' + Care.icon("laptop") + o.where + '</span><button class="tbtn" type="button">' + Care.icon("insert") + 'Add to note</button></div>';
+    $(".q", c).textContent = o.q;
+    return c;
+  }
+  function addQuestion(o) {
+    $("#qaEmpty") && $("#qaEmpty").remove();
+    const c = qaCard(o);
+    const list = $("#qaList");
+    list.prepend(c);
+    requestAnimationFrame(() => requestAnimationFrame(() => c.classList.remove("enter")));
+    if (Care.instant) c.classList.remove("enter");
+    const tab = $('[data-tab="qa"]');
+    if (tab.getAttribute("aria-selected") !== "true") {
+      const n = $("#qaCount");
+      n.textContent = String(+n.textContent + 1);
+      n.hidden = false;
+    }
+    return $(".a", c);
+  }
+
+  function build() {
+    $("#lines").innerHTML = "";
+    LINES.forEach((L) => $("#lines").appendChild(lineEl(L)));
+    $("#tr").innerHTML = "";
+    priorSegs.forEach((s) => $("#tr").appendChild(seg(...s)));
+    $("#qaList").innerHTML = '<div class="empty" id="qaEmpty">Questions people ask out loud are answered here, with sources. Nothing pops up while you type.</div>';
+    $("#qaCount").textContent = "0"; $("#qaCount").hidden = true;
+    words();
+
+    tl = Care.Timeline();
+    const tick = (t) => {
+      const c = Care.clock(START + t);
+      $("#pillTime").textContent = c; $("#sbTime").textContent = c;
+      const tm = $("#tally .tm"); if (tm) tm.textContent = c;
+      $("#sceneClock").textContent = "scene " + Care.clock(t) + " / " + Care.clock(tl.end());
+    };
+    tl.onTick(tick).onEnd(() => setPlay(false));
+
+    // 0:01 Priya: she'll tell Halvorsen on Friday (news for the Ship date line)
+    let fin;
+    tl.at(1.0, () => { fin = say("s10", "Priya", 601, "Nov 4 then. I’ll tell Halvorsen on Friday, before they hear it elsewhere."); });
+    tl.at(2.2, () => fin());
+    // 0:02 you start a new bullet and type
+    let L3;
+    tl.at(2.3, () => { L3 = newLine("L3"); });
+    const typed3 = tl.type(2.5, { set textContent(v) { $("#L3 .you").textContent = v; words(); } }, "beta 40 accts, halvorsen first", 12);
+    // the Ship date rewrite waits for a 2 s pause in typing
+    tl.at(typed3 + 2.0, () => rewrite("L2", "v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday."));
+    tl.at(5.4, () => { fin = say("s11", "Priya", 606, "For the beta, forty accounts. Halvorsen first: their contract names offline capture by year end."); });
+    tl.at(6.8, () => fin());
+    // Return: L3 gets a hollow nib, then a draft
+    tl.at(typed3 + 0.6, () => { newLine("L4"); setState("L3", "listening", ""); });
+    tl.at(typed3 + 3.2, () => draft("L3", "40 accounts, Halvorsen Construction first, because their contract names offline capture by year end.", "s11"));
+    const t4 = typed3 + 4.6;
+    const typed4 = tl.type(t4, { set textContent(v) { $("#L4 .you").textContent = v; words(); } }, "photo uploads queue — cap?", 12);
+    tl.at(10.8, () => { fin = say("s12", "Marcus", 611, "The photo queue is the scary part. The 12 mini stalled once the queue went past a gig."); });
+    tl.at(12.4, () => fin());
+    tl.at(typed4 + 0.6, () => { newLine("L5"); setState("L4", "listening", ""); });
+    tl.at(typed4 + 2.4, () => draft("L4", "Marcus says the 12 mini stalled once the queue passed 1 GB.", "s12"));
+    tl.at(17.0, () => { fin = say("s14", "You", 617, "Let’s cap it. Two hundred photos or one and a half gigs, oldest first on reconnect."); });
+    tl.at(18.6, () => fin());
+    // 0:21 a question
+    tl.at(21.0, () => { fin = say("s13", "Priya", 621, "What does the Halvorsen contract actually commit us to on offline?"); });
+    tl.at(22.0, () => { fin(); const s = $('[data-id="s13"]'); s.insertAdjacentHTML("beforeend", '<span class="q-mark">Question · answered in Live Q&amp;A</span>'); });
+    let a1;
+    tl.at(22.6, () => { a1 = addQuestion({ who: "Priya", at: "10:21", q: "What does the Halvorsen contract commit us to on offline?", where: "GPT-5 mini", srcs: [["file", "Halvorsen MSA 2026.pdf · p. 14"], ["file", "Offline PRD v3"]] }); });
+    const ans1 = 'Offline capture of inspections and photos by Dec 31, with sync within 24 hours of reconnecting<span class="cite">1</span>. Nothing on conflict handling<span class="cite">1</span>; PRD v3 still says last-write-wins<span class="cite">2</span>.';
+    ans1.split(/ (?![^<]*>)/).forEach((p, i, arr) => tl.at(22.9 + i * 0.07, () => { a1.innerHTML = arr.slice(0, i + 1).join(" "); }));
+    tl.at(24.6, () => { fin = say("s15", "Marcus", 625, "If we cap it, we need to tell them what happens at the cap. Not just silently stop."); });
+    tl.at(26.0, () => fin());
+    tl.at(27.4, () => rewrite("L4", "Cap at 200 photos or 1.5 GB per device, oldest first on reconnect, with a banner at the cap; the 12 mini stalled past 1 GB.", "s12 s14 s15"));
+    // 0:29 you type "android?"
+    const typed5 = tl.type(29.6, { set textContent(v) { $("#L5 .you").textContent = v; words(); } }, "android?", 9);
+    tl.at(typed5 + 0.7, () => { newLine("L6"); setState("L5", "listening", ""); });
+    // 0:33 asked of you
+    tl.at(33.2, () => { fin = say("s16", "Marcus", 633, "Andrew, what did we measure for photo sizes last time?"); });
+    tl.at(34.2, () => { fin(); const s = $('[data-id="s16"]'); s.insertAdjacentHTML("beforeend", '<span class="q-mark">Asked of you · answered in Live Q&amp;A</span>'); });
+    let a2;
+    tl.at(34.6, () => { a2 = addQuestion({ mine: true, who: "Marcus", at: "10:34", q: "What did we measure for photo sizes last time?", where: "On this Mac", srcs: [["file", "Photo pipeline benchmarks.numbers"], ["file", "2026-10-06 Walk-and-talk with Marcus"]] }); });
+    const ans2 = '3.1 MB average after HEIC compression; a site day ran 140–180 photos<span class="cite">1</span>. The 12 mini stalled above about 1 GB queued<span class="cite">2</span>.';
+    ans2.split(/ (?![^<]*>)/).forEach((p, i, arr) => tl.at(34.8 + i * 0.07, () => { a2.innerHTML = arr.slice(0, i + 1).join(" "); }));
+    tl.at(typed5 + 5.5, () => setState("L5", "listening", "Listening for this"));
+    tl.at(40.5, () => {});
+    tick(0);
+  }
+
+  // tabs: never switched by the scene, only by you
+  function selectTab(name) {
+    $$(".ws-tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+    $$(".ws-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
+    if (name === "qa") { $("#qaCount").hidden = true; $("#qaCount").textContent = "0"; }
+  }
+  $(".ws-tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) selectTab(b.dataset.tab); });
+
+  // Why? → transcript at the evidence
+  $("#lines").addEventListener("click", (e) => {
+    const w = e.target.closest(".why");
+    if (!w) return;
+    const ln = w.closest(".ln");
+    selectTab("tr");
+    $$(".seg.ev").forEach((s) => s.classList.remove("ev"));
+    (ln.dataset.ev || "").split(" ").forEach((id) => { const s = $('.seg[data-id="' + id + '"]'); s && s.classList.add("ev"); });
+  });
+
+  const playBtn = $("#play"), replay = $("#replay"), speed = $("#speed");
+  replay.innerHTML = Care.icon("replay") + "Replay";
+  function setPlay(on) { playBtn.innerHTML = Care.icon(on ? "pause" : "play") + (on ? "Pause" : (tl && tl.time >= tl.end() ? "Play again" : tl && tl.time > 0.1 ? "Resume" : "Play the scene")); }
+  playBtn.addEventListener("click", () => { if (tl.playing) { tl.pause(); setPlay(false); } else { if (tl.time >= tl.end()) restart(); tl.play(); setPlay(true); } });
+  function restart() { tl && tl.pause(); build(); selectTab("tr"); }
+  replay.addEventListener("click", () => { restart(); tl.play(); setPlay(true); });
+  speed.addEventListener("click", () => { const on = speed.getAttribute("aria-pressed") !== "true"; speed.setAttribute("aria-pressed", String(on)); tl.speed = on ? 2 : 1; });
+  $$("[data-jump]").forEach((b) => b.addEventListener("click", () => {
+    restart();
+    tl.seek(Math.min(+b.dataset.jump, tl.end() + 0.2));
+    if (b.dataset.tabJump) selectTab(b.dataset.tabJump);
+    setPlay(false);
+    if (+b.dataset.jump < tl.end()) { tl.play(); setPlay(true); }
+  }));
+
+  build();
+  setPlay(false);
+  // deep links for screenshots and sharing: #question, #end, #ask, #why
+  const h = location.hash;
+  if (/question/.test(h)) { tl.seek(37.5); selectTab("qa"); }
+  else if (/end|why/.test(h)) { tl.seek(tl.end() + 0.1); if (/why/.test(h)) { const w = $("#L2 .why"); $("#L2").classList.add("show-why"); w.click(); } }
+  else if (/ask/.test(h)) { tl.seek(tl.end() + 0.1); selectTab("ask"); }
+  else if (/autoplay/.test(h)) { tl.play(); setPlay(true); }
+  setPlay(tl.playing);
+  Care.fitStages();
+});
+</script>
+</body>
+</html>

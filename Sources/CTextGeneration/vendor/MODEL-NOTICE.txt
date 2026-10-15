@@ -1,5 +1,5 @@
 Optional title models. Both are Apache-2.0 licensed.
-Only the selected model is included in a built application.
+Models are downloaded into the runtime home, outside the built application.
 
 Source: https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf
 Revision: 675cff42a74c774d6cb76f76d8eacb49b48c9b93

@@ -1,0 +1,28 @@
+Independent observation of the final synthetic native test recording.
+Exact strings are verified separately by the native harness.
+
+phase=upload bytes=579590
+phase=processing state=ACTIVE waited=2s
+0:00  Obsidian is open in light mode with a note titled `Offline sync — v2.4 scope`. The right sidebar displays meeting recording controls at `00:00` with an empty Transcript tab.
+0:01  Bullet points begin streaming into the note body, showing placeholder text `Listening for this...`.
+0:03  The right sidebar transcript updates with a speaker entry for Marcus Chen (`The sync engine is...`).
+0:04  In the note, placeholders shift to `Updating AI line...`.
+0:06  Marcus Chen's statement in the transcript finishes updating.
+0:06  The note text populates with detailed sentences regarding the ship date and beta cohort under each bullet.
+0:08  The ship date paragraph suddenly expands into a tall repetitive block (`An updated sentence that wraps across many lines without clipping...`), pushing the second bullet down.
+0:08  A small action popover appears over the expanded text with options `Make it mine` and `Why?`.
+0:09  The popover disappears and an inline footer appears below the paragraph reading `Your text · Let AI rewrite`.
+0:10  The paragraph text flashes markdown formatting (`**Ship date**`), then reverts to plain rendered text.
+0:11  The transcript adds an entry for Priya Raman. A floating pill button reading `AI suggestion. Show actions` appears at the bottom of the long paragraph.
+0:12  The interface instantly switches from light mode to dark mode. The note layout shifts, hiding the YAML properties block, and the note title tab displays struck-through text indicating a file rename.
+0:12  The repetitive text block is now styled with a purple left border callout/quote line.
+0:13  The top of the note shows the original bullet `ship date nov 4 not oct 28` above the boxed expanded block. The note title tab truncates to `m-live-mv918s0d renamed na...`.
+0:14  Priya Raman's entry in the transcript updates to complete her question about conflicts.
+0:15  A toast notification appears in the top right corner: `WorkScribe: Recording stopped. Final AI lines will settle into this note.`
+0:15  The status bar updates to reflect `935 words 4,883 characters`, and the notification remains visible.
+
+Moments worth a closer rewatch:
+- 0:08 – Sudden layout shift and vertical expansion when the repetitive test text is inserted.
+- 0:10 – Rapid markdown syntax toggle (`**Ship date**`) visible for a fraction of a second.
+- 0:12 – Abrupt transition to dark mode accompanied by simultaneous file rename and structural layout changes.
+tokens=4379 cost_usd=0.0038 prompt=v2

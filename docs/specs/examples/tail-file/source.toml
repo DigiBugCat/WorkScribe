@@ -1,0 +1,40 @@
+# The manifest for the tail-file reference source (wsp/1).
+# Install by copying this folder to ~/Library/Application Support/WorkScribe/Sources/tail-file/
+# and declaring it in sources.toml:
+#
+#   [sources.tail-file]
+#   kind = "command"
+#   path = "Sources/tail-file"
+#   [sources.tail-file.config]
+#   path = "~/captions.txt"
+
+id = "tail-file"
+name = "Text file"
+version = "0.1.0"
+protocol = 1
+command = ["/usr/bin/python3", "-I", "tail_source.py"]
+role = "transcript"
+stores_outside_scratch = false
+
+[label]
+sentence = "the lines in your captions file"
+short = "Captions file"
+
+# WorkScribe reads this before launching anything, so policy can rule the source out
+# without running it. It must match what tail_source.py says in hello.
+[capabilities]
+timing = "live"
+partials = true
+speakers = "names"
+words = false
+corrections = false
+audio = { microphone = false, system = false, files = false }
+screen = false
+permissions = ["files"]
+egress = "none"
+clock = "wall"
+latency = 0.5
+keepsAudio = false
+
+[config]
+path = "~/captions.txt"

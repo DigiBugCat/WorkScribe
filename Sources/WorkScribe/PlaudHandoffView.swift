@@ -1,3 +1,4 @@
+#if WORKSCRIBE_PLAUD
 import SwiftUI
 import AppKit
 import WorkScribePlaud
@@ -261,3 +262,5 @@ struct PlaudHandoffView: View {
         .background(tint.opacity(0.10), in: RoundedRectangle(cornerRadius: 10))
     }
 }
+
+#endif

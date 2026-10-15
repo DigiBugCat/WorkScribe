@@ -1,0 +1,318 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://workscribe.local/schemas/transcript-source.schema.json",
+  "title": "WorkScribe source protocol, wsp/1",
+  "description": "One JSON object per line (UTF-8, at most 1 MiB). Used on a command source's stdin/stdout and as the NDJSON body of POST /v1/sources/ingest/sessions/:sid/events. Unknown message types and unknown fields must be ignored by both sides, which is why no object sets additionalProperties to false. Times are numbers in the source's declared clock: meeting (seconds since the meeting started), wall (Unix epoch seconds) or media (seconds from media zero).",
+  "oneOf": [
+    { "$ref": "#/$defs/hostHello" },
+    { "$ref": "#/$defs/start" },
+    { "$ref": "#/$defs/stop" },
+    { "$ref": "#/$defs/purge" },
+    { "$ref": "#/$defs/sourceHello" },
+    { "$ref": "#/$defs/availability" },
+    { "$ref": "#/$defs/status" },
+    { "$ref": "#/$defs/clock" },
+    { "$ref": "#/$defs/partial" },
+    { "$ref": "#/$defs/final" },
+    { "$ref": "#/$defs/revise" },
+    { "$ref": "#/$defs/retract" },
+    { "$ref": "#/$defs/speaker" },
+    { "$ref": "#/$defs/moment" },
+    { "$ref": "#/$defs/error" },
+    { "$ref": "#/$defs/end" },
+    { "$ref": "#/$defs/purged" }
+  ],
+  "$defs": {
+    "id": { "type": "string", "minLength": 1, "maxLength": 128, "description": "Chosen by the source. Stable through partial, final and revise; never reused for different speech." },
+    "time": { "type": "number", "minimum": 0 },
+    "text": { "type": "string", "maxLength": 10000, "description": "Plain text. No markup." },
+    "human": { "type": "string", "minLength": 1, "maxLength": 300, "description": "A sentence a person can read. Never transcript text, never a stack trace." },
+    "fix": {
+      "type": "object",
+      "required": ["label"],
+      "properties": {
+        "label": { "type": "string", "minLength": 1, "maxLength": 80, "examples": ["Turn on captions in Zoom", "Open Settings"] },
+        "url": { "type": "string", "description": "Optional. https:// or x-apple.systempreferences: links only." }
+      }
+    },
+    "word": {
+      "type": "object",
+      "required": ["text", "start", "end"],
+      "properties": {
+        "text": { "type": "string", "minLength": 1 },
+        "start": { "$ref": "#/$defs/time" },
+        "end": { "$ref": "#/$defs/time" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "capabilities": {
+      "type": "object",
+      "required": ["timing", "partials", "speakers", "words", "corrections", "audio", "screen", "permissions", "egress", "clock", "keepsAudio"],
+      "properties": {
+        "timing": { "enum": ["live", "post-hoc"] },
+        "partials": { "type": "boolean" },
+        "speakers": { "enum": ["none", "labels", "names"] },
+        "words": { "type": "boolean" },
+        "corrections": { "type": "boolean" },
+        "audio": {
+          "type": "object",
+          "required": ["microphone", "system", "files"],
+          "properties": {
+            "microphone": { "type": "boolean" },
+            "system": { "type": "boolean" },
+            "files": { "type": "boolean" }
+          }
+        },
+        "screen": { "type": "boolean" },
+        "permissions": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": { "enum": ["microphone", "system-audio", "screen-recording", "accessibility", "automation", "files", "network"] }
+        },
+        "egress": { "enum": ["none", "local", "internet"] },
+        "clock": { "enum": ["meeting", "wall", "media"] },
+        "latency": { "type": "number", "minimum": 0, "description": "Live sources: typical seconds from speech to final." },
+        "expectedDelay": { "type": "number", "minimum": 0, "description": "Post-hoc sources: typical seconds after the meeting ends until text exists." },
+        "keepsAudio": { "type": "boolean" }
+      }
+    },
+    "hostHello": {
+      "type": "object",
+      "description": "host → source. The first line the host writes.",
+      "required": ["type", "protocols", "mode", "host"],
+      "properties": {
+        "type": { "const": "hello" },
+        "protocols": { "type": "array", "items": { "type": "integer", "minimum": 1 }, "minItems": 1 },
+        "mode": { "enum": ["probe", "session", "purge"] },
+        "host": {
+          "type": "object",
+          "required": ["name", "version"],
+          "properties": { "name": { "type": "string" }, "version": { "type": "string" } }
+        },
+        "config": { "type": "object", "description": "The manifest's [config], overridden by sources.toml." },
+        "context": {
+          "type": "object",
+          "description": "Probe mode: what WorkScribe knows about the meeting about to start. Absent fields are unknown.",
+          "properties": {
+            "trigger": { "enum": ["call", "manual", "api", "import"] },
+            "app": { "type": "object", "properties": { "name": { "type": "string" }, "bundleId": { "type": "string" } } },
+            "windowTitle": { "type": "string" },
+            "online": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "start": {
+      "type": "object",
+      "description": "host → source. Session mode only, after hello.",
+      "required": ["type", "meeting", "session", "scratch"],
+      "properties": {
+        "type": { "const": "start" },
+        "meeting": {
+          "type": "object",
+          "required": ["id", "startedAt", "startedAtEpoch"],
+          "properties": {
+            "id": { "type": "string" },
+            "title": { "type": "string" },
+            "startedAt": { "type": "string", "format": "date-time" },
+            "startedAtEpoch": { "type": "number" },
+            "app": { "type": "object", "properties": { "name": { "type": "string" }, "bundleId": { "type": "string" } } },
+            "calendar": {
+              "type": "object",
+              "properties": {
+                "title": { "type": "string" },
+                "organizer": { "type": "string" },
+                "attendees": { "type": "array", "items": { "type": "string" } },
+                "link": { "type": "string" }
+              }
+            }
+          }
+        },
+        "session": {
+          "type": "object",
+          "required": ["id", "resumed"],
+          "properties": {
+            "id": { "type": "string", "description": "\"initial\" for the first session of a meeting." },
+            "resumed": { "type": "boolean", "description": "True after a restart or a Resume." },
+            "lastId": { "type": "string", "description": "After a restart: the last final id the host stored from this source." }
+          }
+        },
+        "scratch": { "type": "string", "description": "Absolute path. The only place the source may write; deleted with the meeting." },
+        "input": {
+          "type": "object",
+          "description": "Import sources: the file the user handed over.",
+          "required": ["path"],
+          "properties": { "path": { "type": "string" } }
+        }
+      }
+    },
+    "stop": {
+      "type": "object",
+      "description": "host → source. Live sources flush and send end; post-hoc sources keep waiting.",
+      "required": ["type", "reason"],
+      "properties": {
+        "type": { "const": "stop" },
+        "reason": { "enum": ["user", "call-ended", "policy", "quit", "switched"] }
+      }
+    },
+    "purge": {
+      "type": "object",
+      "description": "host → source. Purge mode only. Delete anything kept outside scratch for this meeting, then answer purged. Must be idempotent.",
+      "required": ["type", "meetingId"],
+      "properties": { "type": { "const": "purge" }, "meetingId": { "type": "string" } }
+    },
+    "sourceHello": {
+      "type": "object",
+      "description": "source → host. The first line the source writes. Capabilities must match the manifest.",
+      "required": ["type", "protocol", "source", "capabilities"],
+      "properties": {
+        "type": { "const": "hello" },
+        "protocol": { "type": "integer", "minimum": 1 },
+        "source": {
+          "type": "object",
+          "required": ["id", "name", "version"],
+          "properties": { "id": { "type": "string" }, "name": { "type": "string" }, "version": { "type": "string" } }
+        },
+        "capabilities": { "$ref": "#/$defs/capabilities" }
+      }
+    },
+    "availability": {
+      "type": "object",
+      "description": "source → host. Probe mode: within 3 seconds of hello.",
+      "required": ["type", "available"],
+      "properties": {
+        "type": { "const": "availability" },
+        "available": { "type": "boolean" },
+        "reason": { "$ref": "#/$defs/human" },
+        "permission": { "enum": ["microphone", "system-audio", "screen-recording", "accessibility", "automation", "files", "network"] },
+        "fix": { "$ref": "#/$defs/fix" }
+      },
+      "if": { "properties": { "available": { "const": false } } },
+      "then": { "required": ["reason"] }
+    },
+    "status": {
+      "type": "object",
+      "description": "source → host. Also the heartbeat: a live source sends something at least every 30 seconds.",
+      "required": ["type", "state"],
+      "properties": {
+        "type": { "const": "status" },
+        "state": { "enum": ["starting", "listening", "waiting", "degraded", "paused"] },
+        "message": { "$ref": "#/$defs/human" },
+        "lag": { "type": "number", "minimum": 0, "description": "Seconds of captured input not yet transcribed." }
+      }
+    },
+    "clock": {
+      "type": "object",
+      "description": "source → host. Media-clock sources: when media time 0 happened, if known.",
+      "required": ["type", "mediaOrigin"],
+      "properties": {
+        "type": { "const": "clock" },
+        "mediaOrigin": { "type": "number", "description": "Unix epoch seconds." },
+        "exact": { "type": "boolean", "default": false }
+      }
+    },
+    "partial": {
+      "type": "object",
+      "description": "source → host. Provisional text; replaces the previous partial with the same id.",
+      "required": ["type", "id", "text"],
+      "properties": {
+        "type": { "const": "partial" },
+        "id": { "$ref": "#/$defs/id" },
+        "channel": { "type": "string", "maxLength": 64 },
+        "speaker": { "type": "string", "maxLength": 128 },
+        "start": { "$ref": "#/$defs/time" },
+        "text": { "$ref": "#/$defs/text" }
+      }
+    },
+    "final": {
+      "type": "object",
+      "description": "source → host. Settled text. Promotes a partial with the same id. Finals per channel arrive in time order (0.5 s overlap allowed).",
+      "required": ["type", "id", "start", "end", "text"],
+      "properties": {
+        "type": { "const": "final" },
+        "id": { "$ref": "#/$defs/id" },
+        "channel": { "type": "string", "maxLength": 64 },
+        "speaker": { "type": "string", "maxLength": 128 },
+        "start": { "$ref": "#/$defs/time" },
+        "end": { "$ref": "#/$defs/time" },
+        "text": { "$ref": "#/$defs/text" },
+        "words": { "type": "array", "items": { "$ref": "#/$defs/word" } },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+    "revise": {
+      "type": "object",
+      "description": "source → host. Correct a final already sent. The id stays; only the given fields change.",
+      "required": ["type", "id"],
+      "minProperties": 3,
+      "properties": {
+        "type": { "const": "revise" },
+        "id": { "$ref": "#/$defs/id" },
+        "text": { "$ref": "#/$defs/text" },
+        "start": { "$ref": "#/$defs/time" },
+        "end": { "$ref": "#/$defs/time" },
+        "speaker": { "type": "string", "maxLength": 128 },
+        "words": { "type": "array", "items": { "$ref": "#/$defs/word" } }
+      }
+    },
+    "retract": {
+      "type": "object",
+      "description": "source → host. Withdraw a final.",
+      "required": ["type", "id"],
+      "properties": { "type": { "const": "retract" }, "id": { "$ref": "#/$defs/id" } }
+    },
+    "speaker": {
+      "type": "object",
+      "description": "source → host. A display name for a speaker key, or mark it as the user. A name the user chose always wins.",
+      "required": ["type", "key"],
+      "properties": {
+        "type": { "const": "speaker" },
+        "key": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "channel": { "type": "string", "maxLength": 64 },
+        "name": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "you": { "type": "boolean" }
+      }
+    },
+    "moment": {
+      "type": "object",
+      "description": "source → host. Context sources only (role = \"context\"): what was on screen or in front, for a span of the meeting.",
+      "required": ["type", "id", "start", "end", "text"],
+      "properties": {
+        "type": { "const": "moment" },
+        "id": { "$ref": "#/$defs/id" },
+        "start": { "$ref": "#/$defs/time" },
+        "end": { "$ref": "#/$defs/time" },
+        "text": { "$ref": "#/$defs/text" },
+        "app": { "type": "string" },
+        "window": { "type": "string" }
+      }
+    },
+    "error": {
+      "type": "object",
+      "description": "source → host. permission/unavailable: try the next source. transient: the host may restart. fatal: stop. protocol: the other side broke the contract.",
+      "required": ["type", "code", "message"],
+      "properties": {
+        "type": { "const": "error" },
+        "code": { "enum": ["permission", "unavailable", "transient", "fatal", "protocol"] },
+        "message": { "$ref": "#/$defs/human" },
+        "fix": { "$ref": "#/$defs/fix" }
+      }
+    },
+    "end": {
+      "type": "object",
+      "description": "source → host. The last message of a session.",
+      "required": ["type", "reason", "complete"],
+      "properties": {
+        "type": { "const": "end" },
+        "reason": { "enum": ["stopped", "meeting-ended", "complete", "failed", "timeout"] },
+        "complete": { "type": "boolean", "description": "False: this is what there is and nothing more will come." }
+      }
+    },
+    "purged": {
+      "type": "object",
+      "description": "source → host. Answer to purge.",
+      "required": ["type", "meetingId"],
+      "properties": { "type": { "const": "purged" }, "meetingId": { "type": "string" } }
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import Foundation
 import CNemo
+import WorkScribeCore
 
 /// All model and stream calls stay inside WorkScribe on one inference queue.
 final class SpeechRuntime: @unchecked Sendable {
@@ -11,13 +12,11 @@ final class SpeechRuntime: @unchecked Sendable {
     func start() async throws {
         try await perform {
             if self.recognizer != nil { return }
-            let models = Bundle.main.bundleURL.appendingPathComponent("Contents/Resources/Models")
-            let asr = models.appendingPathComponent("nemotron-3.5-asr-streaming-0.6b.q8_0.gguf").path
-            let diar = models.appendingPathComponent("Nemotron-3-Diarization.q8_0.gguf").path
-            guard FileManager.default.fileExists(atPath: asr), FileManager.default.fileExists(atPath: diar) else {
-                throw CaptureError.message("Embedded speech models are missing. Rebuild WorkScribe using scripts/build-app.sh.")
-            }
-            try self.check(ws_engine_create(asr, diar, &self.recognizer))
+            let asr = RuntimeAssets.model("nemotron-3.5-asr-streaming-0.6b.q8_0.gguf")
+            let diar = RuntimeAssets.model("Nemotron-3-Diarization.q8_0.gguf")
+            try RuntimeAssets.require(asr)
+            try RuntimeAssets.require(diar)
+            try self.check(ws_engine_create(asr.path, diar.path, &self.recognizer))
             self.loadCount += 1
         }
     }
@@ -87,6 +86,22 @@ final class SpeechRuntime: @unchecked Sendable {
             try self.check(nemo_speech_asr_stream_finish(stream)); return try self.drain(stream)
         }
     }
+    /// Whole-utterance offline decoding. No stream endpoints or
+    /// streaming diarizer; the final pass reuses the meeting's speaker timeline.
+    func batch(_ samples: [Float]) async throws -> [String: Any] {
+        try await perform {
+            guard let recognizer = self.recognizer else { throw CaptureError.message("Speech model is not loaded") }
+            var options = nemo_speech_asr_recognition_options_default()
+            options.enable_word_time_offsets = true
+            options.enable_automatic_punctuation = true
+            options.enable_speaker_diarization = false
+            var result: OpaquePointer?
+            try self.check(nemo_speech_asr_recognize_f32(recognizer, &options, samples, samples.count, 16000, &result))
+            guard let result else { throw CaptureError.message("Batch recognition returned no result") }
+            defer { nemo_speech_asr_result_destroy(result) }
+            return self.event(result)
+        }
+    }
     func close(_ id: UUID) {
         queue.async { if let stream = self.streams.removeValue(forKey: id) { nemo_speech_asr_stream_close(stream) } }
     }
@@ -98,6 +113,11 @@ final class SpeechRuntime: @unchecked Sendable {
             guard let result else { break }
             defer { nemo_speech_asr_result_destroy(result) }
             guard nemo_speech_asr_result_alternative_count(result) > 0 else { continue }
+            events.append(event(result))
+        }
+        return events
+    }
+    private func event(_ result: OpaquePointer) -> [String: Any] {
             let final = nemo_speech_asr_result_is_final(result)
             let transcript = nemo_speech_asr_result_transcript(result, 0).map { String(cString: $0) } ?? ""
             var words: [[String: Any]] = []
@@ -109,10 +129,8 @@ final class SpeechRuntime: @unchecked Sendable {
                 let speaker = nemo_speech_asr_result_word_speaker_tag(result, 0, index)
                 if speaker > 0 { word["speaker"] = Int(speaker) }; words.append(word)
             }
-            events.append(["type": final ? "transcript.completed" : "transcript.partial", "transcript": transcript,
-                           "words": words, "audio_processed": Double(nemo_speech_asr_result_audio_processed(result))])
-        }
-        return events
+            return ["type": final ? "transcript.completed" : "transcript.partial", "transcript": transcript,
+                    "words": words, "audio_processed": Double(nemo_speech_asr_result_audio_processed(result))]
     }
     private func check(_ status: nemo_speech_asr_status) throws {
         guard status == NEMO_SPEECH_ASR_OK else {

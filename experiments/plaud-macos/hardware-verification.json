@@ -27,7 +27,7 @@
   "pcm_correlation": 0.999993111240462,
   "final_transcript_segments": 2,
   "nonempty_transcript_segments": 1,
-  "local_capture_directory": "/Users/andrew.sulistio/Library/Application Support/WorkScribePlaudLab/Recordings/2C94AB87-F525-4CB6-B490-A456FDD0448B",
+  "local_capture_directory": "<local-artifact>",
   "scope": "Isolated native lab; main app UX unchanged",
   "capture_sha256": "6d68a80f3cbb38e0298fe6cb97ee72f83fe7be692756b18396c4fa8a2d607ea2",
   "limitations": [

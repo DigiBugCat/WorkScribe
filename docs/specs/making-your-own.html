@@ -1,0 +1,774 @@
+<title>Making your own WorkScribe</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap');
+/* Layout: a reading column with a sticky contents rail on wide screens; code and tables may run wider inside
+   their own scroll boxes. Tokens follow design/care (paper, sheet, ink, pencil, Indigo Wash blue), so this page
+   sits beside the care pages as one family. Host-to-source lines are blue (the app), source-to-host lines are pencil. */
+:root {
+  --paper: #f4f5f6;
+  --sheet: #ffffff;
+  --ink: #1a1c20;
+  --pencil: #5f656e;
+  --faint: #9aa0a8;
+  --rule: #dcdfe3;
+  --wash: #e9ecf0;
+  --blue: #23456b;
+  --blue-wash: #dbe4ef;
+  --amber: #8f5c0f;
+  --amber-wash: #f6ead3;
+  --code-bg: #f7f8f9;
+  --code-ink: #23262b;
+  --tok-str: #2f5e3a;
+  --tok-com: #7b818a;
+  --tok-key: #23456b;
+  --f-display: Newsreader, "Iowan Old Style", Georgia, serif;
+  --f-body: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --measure: 46rem;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --paper: #121417; --sheet: #191c20; --ink: #e9ebee; --pencil: #a2a9b2; --faint: #6b717a;
+    --rule: #2b3036; --wash: #22262b; --blue: #9dbbdd; --blue-wash: #233246;
+    --amber: #e3ad5c; --amber-wash: #3a2c14;
+    --code-bg: #15181b; --code-ink: #dfe2e6; --tok-str: #9fcf9f; --tok-com: #7d848d; --tok-key: #9dbbdd;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --paper: #121417; --sheet: #191c20; --ink: #e9ebee; --pencil: #a2a9b2; --faint: #6b717a;
+  --rule: #2b3036; --wash: #22262b; --blue: #9dbbdd; --blue-wash: #233246;
+  --amber: #e3ad5c; --amber-wash: #3a2c14;
+  --code-bg: #15181b; --code-ink: #dfe2e6; --tok-str: #9fcf9f; --tok-com: #7d848d; --tok-key: #9dbbdd;
+}
+
+* { box-sizing: border-box; }
+html { scroll-padding-top: 4.5rem; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--f-body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+.page { padding-inline: 16px; padding-block: 0 4rem; }
+a { color: var(--blue); text-underline-offset: 2px; text-decoration-thickness: 1px; }
+a:focus-visible, button:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 3px; }
+code { font-family: var(--f-mono); font-size: .86em; }
+p code, li code, td code, h2 code, h3 code { background: var(--wash); padding: .08em .32em; border-radius: 4px; overflow-wrap: anywhere; }
+
+/* Top bar */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  display: flex; align-items: center; gap: 1rem; flex-wrap: wrap;
+  max-width: 76rem; margin-inline: auto; padding-block: .7rem;
+  background: var(--paper); border-bottom: 1px solid var(--rule);
+}
+.brand { font-family: var(--f-display); font-size: 1.2rem; font-weight: 500; margin-right: auto; display: inline-flex; gap: .55rem; align-items: baseline; }
+.brand span { font-family: var(--f-mono); font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--pencil); }
+.theme { display: inline-flex; border: 1px solid var(--rule); border-radius: 999px; padding: 2px; background: var(--sheet); }
+.theme button {
+  font: inherit; font-size: .78rem; color: var(--pencil); background: transparent; border: 0;
+  padding: .2rem .65rem; border-radius: 999px; cursor: pointer;
+}
+.theme button[aria-pressed="true"] { background: var(--wash); color: var(--ink); }
+
+/* Layout */
+.layout { max-width: 76rem; margin-inline: auto; display: grid; grid-template-columns: minmax(0, 1fr); gap: 3rem; }
+main { min-width: 0; }
+.toc { display: none; }
+@media (min-width: 1100px) {
+  .layout { grid-template-columns: 15rem minmax(0, 1fr); }
+  .toc {
+    display: block; position: sticky; top: 4.2rem; align-self: start;
+    max-height: calc(100vh - 5rem); overflow-y: auto; padding-block: 2.5rem 2rem; font-size: .84rem;
+  }
+}
+.toc ol { list-style: none; margin: 0; padding: 0; display: grid; gap: .1rem; }
+.toc a { display: block; color: var(--pencil); text-decoration: none; padding: .18rem .5rem; border-radius: 5px; line-height: 1.35; }
+.toc a:hover { color: var(--ink); background: var(--wash); }
+.toc a.on { color: var(--blue); background: var(--blue-wash); }
+.toc .l3 a { padding-left: 1.35rem; font-size: .8rem; }
+.toc code { background: none; padding: 0; font-size: .92em; }
+.eyebrow { font-family: var(--f-mono); font-size: .72rem; letter-spacing: .09em; text-transform: uppercase; color: var(--pencil); margin: 0 0 .6rem; }
+
+/* Hero */
+.hero { max-width: var(--measure); padding-block: 3rem 1rem; }
+.hero h1 {
+  font-family: var(--f-display); font-weight: 500; font-size: clamp(2.3rem, 6vw, 3.6rem);
+  line-height: 1.04; letter-spacing: -.02em; margin: 0 0 1.2rem; text-wrap: balance;
+}
+.hero .lede { font-family: var(--f-display); font-size: clamp(1.2rem, 2.6vw, 1.42rem); line-height: 1.42; margin: 0 0 1rem; }
+.hero p { margin: 0 0 1rem; }
+.status { font-size: .9rem; color: var(--pencil); border-top: 1px solid var(--rule); padding-top: 1rem; margin-top: 1.5rem !important; }
+.pill {
+  display: inline-block; font-family: var(--f-mono); font-size: .68rem; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--amber); background: var(--amber-wash); border-radius: 999px; padding: .12rem .55rem; margin-right: .35rem;
+}
+.files { list-style: none; padding: 0; margin: 1.2rem 0 0; display: grid; gap: .35rem; font-size: .86rem; }
+.files li { display: flex; flex-wrap: wrap; gap: .3rem .8rem; align-items: baseline; }
+.files code { background: none; padding: 0; color: var(--ink); }
+.files span { color: var(--pencil); }
+
+/* Document */
+.doc { max-width: var(--measure); }
+.doc > hr { border: 0; border-top: 1px solid var(--rule); margin: 3.5rem 0 0; }
+.doc h2 {
+  font-family: var(--f-display); font-weight: 500; font-size: clamp(1.7rem, 3.6vw, 2.1rem); line-height: 1.15;
+  letter-spacing: -.01em; margin: 2.6rem 0 1rem; text-wrap: balance;
+}
+.doc h3 { font-size: 1.12rem; font-weight: 600; margin: 2.2rem 0 .6rem; text-wrap: balance; }
+.doc h2 code, .doc h3 code { font-size: .8em; }
+.doc p { margin: 0 0 1rem; }
+.doc ul, .doc ol { padding-left: 1.3rem; margin: 0 0 1.1rem; display: grid; gap: .4rem; }
+.doc li > p { margin: 0 0 .5rem; }
+.doc li > ul, .doc li > ol { margin: .4rem 0 0; }
+.doc strong { font-weight: 600; }
+
+/* Code: may be wider than the column, scrolls in its own box */
+.code { position: relative; margin: 0 0 1.25rem; background: var(--code-bg); border: 1px solid var(--rule); border-radius: 8px; }
+.code[data-lang]:not([data-lang="text"])::before {
+  content: attr(data-lang); position: absolute; top: .4rem; right: .6rem;
+  font-family: var(--f-mono); font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; color: var(--faint);
+}
+.code pre { margin: 0; padding: .95rem 1.05rem; overflow-x: auto; }
+.code code { font-size: .79rem; line-height: 1.55; color: var(--code-ink); white-space: pre; background: none; padding: 0; }
+.tc { color: var(--tok-com); font-style: italic; }
+.ts { color: var(--tok-str); }
+.tk { color: var(--tok-key); font-weight: 500; }
+.ln.h { color: var(--blue); }
+.ln.s { color: var(--pencil); }
+.ln.h .ts, .ln.s .ts { color: inherit; }
+
+/* Tables */
+.table { overflow-x: auto; margin: 0 0 1.4rem; border: 1px solid var(--rule); border-radius: 8px; background: var(--sheet); }
+table { border-collapse: collapse; width: 100%; font-size: .86rem; line-height: 1.45; }
+th, td { text-align: left; vertical-align: top; padding: .55rem .75rem; border-bottom: 1px solid var(--rule); }
+th { font-weight: 600; font-size: .76rem; letter-spacing: .02em; color: var(--pencil); background: var(--wash); white-space: nowrap; }
+tr:last-child td { border-bottom: 0; }
+td:first-child { font-weight: 500; }
+td code { font-size: .82em; }
+
+/* Lifecycle figure */
+.flow { margin: 0 0 1.5rem; padding: 1.1rem; background: var(--sheet); border: 1px solid var(--rule); border-radius: 10px; }
+.flow ol {
+  list-style: none; margin: 0; padding: 0;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(6.6rem, 1fr)); gap: .5rem; counter-reset: step;
+}
+.flow li { position: relative; display: grid; gap: .15rem; padding: .6rem .7rem .65rem; border-radius: 7px; background: var(--wash); counter-increment: step; min-width: 0; }
+.flow li::before { content: counter(step); font-family: var(--f-mono); font-size: .66rem; color: var(--faint); }
+.flow b { font-weight: 600; font-size: .9rem; }
+.flow span { font-size: .76rem; color: var(--pencil); line-height: 1.35; }
+.flow code { font-size: .9em; background: none; padding: 0; }
+.flow-foot { display: flex; flex-wrap: wrap; gap: .4rem 1.4rem; margin: .8rem 0 0 !important; font-size: .78rem; color: var(--pencil); }
+.flow-foot span::before { content: "\21B3  "; color: var(--faint); }
+
+@media (max-width: 520px) {
+  body { font-size: 15.5px; }
+  .code code { font-size: .74rem; }
+  .brand span { display: none; }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .toc a { transition: background-color .12s, color .12s; }
+}
+
+</style>
+<div class="page">
+<header class="top">
+  <span class="brand">WorkScribe <span>spec &#xB7; forks</span></span>
+  <div class="theme" role="group" aria-label="Theme">
+    <button type="button" id="theme-auto" data-set="auto" aria-pressed="true">Auto</button>
+    <button type="button" id="theme-light" data-set="light" aria-pressed="false">Light</button>
+    <button type="button" id="theme-dark" data-set="dark" aria-pressed="false">Dark</button>
+  </div>
+</header>
+<div class="layout">
+<nav class="toc" aria-label="Contents"><p class="eyebrow">Contents</p><ol><li class="l2"><a href="#0-the-short-version">0. The short version</a></li><li class="l2"><a href="#1-the-seams">1. The seams</a></li><li class="l2"><a href="#2-transcript-sources">2. Transcript sources</a></li><li class="l3"><a href="#21-what-a-source-is">2.1 What a source is</a></li><li class="l3"><a href="#22-capabilities">2.2 Capabilities</a></li><li class="l3"><a href="#23-lifecycle">2.3 Lifecycle</a></li><li class="l3"><a href="#24-events">2.4 Events</a></li><li class="l3"><a href="#25-time">2.5 Time</a></li><li class="l3"><a href="#26-identity">2.6 Identity</a></li><li class="l3"><a href="#27-errors-and-degradation">2.7 Errors and degradation</a></li><li class="l3"><a href="#28-retention-and-purge">2.8 Retention and purge</a></li><li class="l3"><a href="#29-the-swift-protocol">2.9 The Swift protocol</a></li><li class="l2"><a href="#3-sources-outside-the-app">3. Sources outside the app</a></li><li class="l3"><a href="#31-command-sources-wsp1">3.1 Command sources: <code>wsp/1</code></a></li><li class="l3"><a href="#32-http-ingest">3.2 HTTP ingest</a></li><li class="l3"><a href="#33-handing-over-a-file">3.3 Handing over a file</a></li><li class="l2"><a href="#4-choosing-a-source-rules-and-policy">4. Choosing a source: rules and policy</a></li><li class="l3"><a href="#41-where-configuration-lives">4.1 Where configuration lives</a></li><li class="l3"><a href="#42-why-toml">4.2 Why TOML</a></li><li class="l3"><a href="#43-the-file">4.3 The file</a></li><li class="l3"><a href="#44-conditions">4.4 Conditions</a></li><li class="l3"><a href="#45-chains-policy-and-the-no-record-guarantee">4.5 Chains, policy and the no-record guarantee</a></li><li class="l3"><a href="#46-what-the-user-sees">4.6 What the user sees</a></li><li class="l3"><a href="#47-worked-examples">4.7 Worked examples</a></li><li class="l2"><a href="#5-the-other-seams">5. The other seams</a></li><li class="l3"><a href="#51-note-and-answer-models">5.1 Note and answer models</a></li><li class="l3"><a href="#52-screen-and-context-sources">5.2 Screen and context sources</a></li><li class="l3"><a href="#53-where-notes-live">5.3 Where notes live</a></li><li class="l3"><a href="#54-embedder">5.4 Embedder</a></li><li class="l2"><a href="#6-forking">6. Forking</a></li><li class="l3"><a href="#61-repository-layout">6.1 Repository layout</a></li><li class="l3"><a href="#62-where-your-code-goes">6.2 Where your code goes</a></li><li class="l3"><a href="#63-the-conformance-kit">6.3 The conformance kit</a></li><li class="l3"><a href="#64-staying-mergeable">6.4 Staying mergeable</a></li><li class="l3"><a href="#65-naming-and-branding">6.5 Naming and branding</a></li><li class="l3"><a href="#66-licensing">6.6 Licensing</a></li><li class="l2"><a href="#7-reference-examples">7. Reference examples</a></li><li class="l3"><a href="#71-local-recorder-todays-recorder-as-just-another-source">7.1 <code>local-recorder</code>: today's recorder as just another source</a></li><li class="l3"><a href="#72-file-import-vtt-and-srt-after-the-call">7.2 <code>file-import</code>: VTT and SRT after the call</a></li><li class="l3"><a href="#73-examplessourcestail-file-a-command-source-in-python">7.3 <code>examples/sources/tail-file</code>: a command source in Python</a></li><li class="l2"><a href="#8-migration-plan">8. Migration plan</a></li><li class="l2"><a href="#9-decisions-for-you">9. Decisions for you</a></li></ol></nav>
+<main>
+<section class="hero">
+  <p class="eyebrow">Extensibility spec &#xB7; for developers forking WorkScribe</p>
+  <h1>Making your own WorkScribe</h1>
+  <p class="lede">This is for a developer who wants WorkScribe to work somewhere it doesn't yet: a company that forbids recording, a team whose meetings all happen in one platform, a person who wants a different model or a different notes app. It describes the seams WorkScribe exposes for that, the contract each seam enforces, and how to keep a fork small enough that you can still merge upstream next month.</p>
+  <p>The transcript is the main case. Some workplaces don't allow recording, but they do allow the meeting platform's own transcript. Others allow recording on this Mac but not anything that leaves it. WorkScribe should handle all of them without anyone editing the recorder. "If Zoom's captions are on, use them; otherwise take notes only" should be a few lines of config, and writing the piece that reads Zoom's captions should be a small program in whatever language you like.</p><p>Upstream will not ship platform integrations. It ships the seams, the contract, a conformance kit and three reference sources that prove the contract holds. Reading Zoom's live captions through macOS Accessibility is the motivating example of a source someone else writes, and this document uses it throughout as the example. Nothing here claims that it works or is allowed where you are.</p>
+  <p class="status"><span class="pill">Design spec</span> this is a design spec. The seams described in sections 2&#x2013;5 do not exist yet; section 8 is the plan that builds them. Everything said about <em>today's</em> code was read from the integration branch at <code>1383630</code>.</p>
+  <ul class="files" aria-label="Companion files">
+    <li><code>docs/specs/making-your-own.md</code><span>this document</span></li>
+    <li><code>docs/specs/transcript-source.schema.json</code><span>wsp/1 messages</span></li>
+    <li><code>docs/specs/sources.schema.json</code><span>rules and policy</span></li>
+    <li><code>docs/specs/sources.example.toml</code><span>every key, commented</span></li>
+    <li><code>docs/specs/examples/tail-file/</code><span>Python reference source</span></li>
+  </ul>
+</section>
+<article class="doc">
+<h2 id="0-the-short-version">0. The short version</h2>
+<p>There are three ways to change where a meeting's transcript comes from, from least to most work:</p>
+<ol><li><strong>Write a rule.</strong> <code>~/Library/Application Support/WorkScribe/sources.toml</code> decides which source a meeting uses, with an ordered fallback chain and a policy layer that can forbid recording outright. No code.</li><li><strong>Write a command source.</strong> Any executable that reads and writes JSON lines on stdin/stdout can be a transcript source. Python, Node, a shell script, a Rust binary. WorkScribe launches it, supervises it and throws it away. About 120 lines for a real one.</li><li><strong>Write a Swift source.</strong> Conform to <code>TranscriptSource</code>, register it in <code>Sources/WorkScribeExtensions/</code>, which upstream never edits. Same contract as a command source, without the process boundary.</li></ol>
+<p>Whatever you write, run <code>WorkScribe --verify-source &lt;id&gt;</code> before you trust it. It replays fixtures through the real meeting pipeline and checks clock alignment, evidence links and purge.</p>
+<p>The same pattern, with less depth, covers the note and answer model, the screen and context source, where notes are written, and the embedder (section 5).</p>
+<hr>
+<h2 id="1-the-seams">1. The seams</h2>
+<p>A seam is a place where you can replace one part without touching the parts around it. Each seam has a contract, which is what the rest of WorkScribe relies on, and a registration point, which is where you plug in.</p>
+<div class="table"><table><thead><tr><th>Seam</th><th>Today</th><th>What changes</th><th>Your interface</th></tr></thead><tbody><tr><td><strong>Transcript source</strong></td><td>Hard-wired in <code>AppModel.start</code> / <code>finishRecording</code>: two <code>AudioTrack</code>s, <code>AudioCapture</code>, one <code>SpeechConnection</code> per track, NeMo event dictionaries parsed in <code>AppModel.consume</code>. Two more sources hide in AppModel: Plaud import (<code>PlaudImport.swift</code>) and the synthetic caption demo (<code>runCaptionDemo</code>).</td><td>Extract the recorder into <code>LocalRecorderSource</code>. AppModel talks to <code>SourceHost</code>, which consumes canonical events. Add rules, policy, command and ingest sources.</td><td><code>TranscriptSource</code> (Swift), the <code>wsp/1</code> JSON-lines protocol, or <code>POST /v1/sources/ingest</code></td></tr><tr><td><strong>Note and answer model</strong></td><td><code>AnswerGenerator</code> is already a protocol with three conformers. Note lines (<code>NoteEnhancer</code>) and titles (<code>TitleGenerator</code>) call llama.cpp directly and format chat templates themselves.</td><td>One <code>TextModel</code> protocol used by all three jobs. Templates move into providers. An OpenAI-compatible provider with a configurable base URL covers Ollama, LM Studio and vLLM.</td><td><code>TextModel</code> (Swift) or any OpenAI-compatible endpoint</td></tr><tr><td><strong>Screen and context</strong></td><td><code>ScreenRecorder</code> (ScreenCaptureKit video + Vision OCR &#x2192; <code>ScreenMoment</code>), started from <code>AppModel+Screen.swift</code>.</td><td><code>ContextSource</code> with the transcript source's lifecycle and the same wire protocol, emitting <code>moment</code> events.</td><td><code>ContextSource</code> (Swift) or <code>wsp/1</code> with <code>role = "context"</code></td></tr><tr><td><strong>Where notes live</strong></td><td><code>VaultStore</code> writes Markdown into an Obsidian vault or a folder. The live document is bound to the Obsidian plugin.</td><td><code>NoteDestination</code> for the final write-up. The live pencil stays Obsidian-only.</td><td><code>NoteDestination</code> (Swift)</td></tr><tr><td><strong>Embedder</strong></td><td><code>Embedder</code> is already a protocol in Core. <code>IndexService</code> stores a concrete <code>CoreMLEmbedder?</code>.</td><td>Store <code>any Embedder</code>. Add an OpenAI-compatible <code>/v1/embeddings</code> provider.</td><td><code>Embedder</code> (Swift) or an embeddings endpoint</td></tr></tbody></table></div>
+<p>Two things are deliberately <em>not</em> seams: the meeting store and the retention journal. They are what make "only the note survives" true, and every seam above has obligations toward them rather than a way around them.</p>
+<hr>
+<h2 id="2-transcript-sources">2. Transcript sources</h2>
+<h3 id="21-what-a-source-is">2.1 What a source is</h3>
+<p>A transcript source turns a meeting into a stream of timed, attributed text. Some listen and some only read.</p>
+<div class="table"><table><thead><tr><th>Source</th><th>Kind</th><th>Live or after</th><th>Hears audio?</th><th>Ships</th></tr></thead><tbody><tr><td>This Mac's mic and call audio, NeMo on device</td><td><code>local-recorder</code></td><td>live</td><td>yes, mic + system</td><td>upstream (refactor of today's recorder)</td></tr><tr><td>A transcript file (VTT, SRT) imported after the call</td><td><code>file-import</code></td><td>after</td><td>no</td><td>upstream</td></tr><tr><td>A program speaking <code>wsp/1</code></td><td><code>command</code></td><td>either</td><td>it declares</td><td>upstream supervisor + a Python example</td></tr><tr><td>Something posting to the local API</td><td><code>ingest</code></td><td>either</td><td>it declares</td><td>upstream endpoint</td></tr><tr><td>Nothing: notes only</td><td><code>notes-only</code></td><td>n/a</td><td>no</td><td>upstream, always available</td></tr><tr><td>A replayed fixture</td><td><code>replay</code></td><td>live</td><td>no</td><td>upstream, for tests and the QA preview</td></tr><tr><td>Zoom's live captions via Accessibility</td><td><code>command</code> (yours)</td><td>live</td><td>no</td><td>a fork</td></tr><tr><td>A Note Pro recording, transcribed on device</td><td><code>plaud-import</code></td><td>after</td><td>audio files only</td><td>upstream, after migration step 9</td></tr></tbody></table></div>
+<p><code>notes-only</code> is a real source with no output. Every fallback chain ends with it, so a meeting always has somewhere to land. In notes-only mode the note, the pencil lines (which still tidy your shorthand and can use screen evidence where allowed), Ask over your files and Finalize all keep working. What disappears is transcript evidence.</p>
+<h3 id="22-capabilities">2.2 Capabilities</h3>
+<p>Every source declares what it does before it is started. WorkScribe uses the declaration three ways: policy filters on it without launching anything, the UI words its status from it, and the conformance kit checks the source's behaviour against it.</p>
+<div class="code" data-lang="swift"><pre><code><span class="tk">public</span> <span class="tk">struct</span> SourceCapabilities: Codable, Equatable, Sendable {
+    <span class="tk">public</span> <span class="tk">enum</span> Timing: String, Codable, Sendable { <span class="tk">case</span> live, postHoc = <span class="ts">"post-hoc"</span> }
+    <span class="tk">public</span> <span class="tk">enum</span> Speakers: String, Codable, Sendable { <span class="tk">case</span> none, labels, names }
+    <span class="tk">public</span> <span class="tk">enum</span> Clock: String, Codable, Sendable { <span class="tk">case</span> meeting, wall, media }
+    <span class="tk">public</span> <span class="tk">enum</span> Egress: String, Codable, Sendable { <span class="tk">case</span> none, local, internet }
+    <span class="tk">public</span> <span class="tk">enum</span> Permission: String, Codable, Sendable {
+        <span class="tk">case</span> microphone, systemAudio = <span class="ts">"system-audio"</span>, screenRecording = <span class="ts">"screen-recording"</span>,
+             accessibility, automation, files, network
+    }
+    <span class="tk">public</span> <span class="tk">struct</span> Audio: Codable, Equatable, Sendable {
+        <span class="tk">public</span> <span class="tk">var</span> microphone = <span class="tk">false</span>   <span class="tc">// opens an input device</span>
+        <span class="tk">public</span> <span class="tk">var</span> system = <span class="tk">false</span>       <span class="tc">// captures other apps' output (ScreenCaptureKit or a Core Audio tap)</span>
+        <span class="tk">public</span> <span class="tk">var</span> files = <span class="tk">false</span>        <span class="tc">// transcribes audio files it was given (a hardware recorder's)</span>
+    }
+
+    <span class="tk">public</span> <span class="tk">var</span> timing: Timing
+    <span class="tk">public</span> <span class="tk">var</span> partials: Bool           <span class="tc">// emits provisional text that later becomes final</span>
+    <span class="tk">public</span> <span class="tk">var</span> speakers: Speakers       <span class="tc">// none &#xB7; labels ("speaker 2") &#xB7; names ("Priya Raman")</span>
+    <span class="tk">public</span> <span class="tk">var</span> words: Bool              <span class="tc">// word-level timing</span>
+    <span class="tk">public</span> <span class="tk">var</span> corrections: Bool        <span class="tc">// may revise or retract text it already called final</span>
+    <span class="tk">public</span> <span class="tk">var</span> audio: Audio
+    <span class="tk">public</span> <span class="tk">var</span> screen: Bool             <span class="tc">// records or reads the screen</span>
+    <span class="tk">public</span> <span class="tk">var</span> permissions: [Permission]
+    <span class="tk">public</span> <span class="tk">var</span> egress: Egress           <span class="tc">// where meeting content goes: nowhere, another local process, the internet</span>
+    <span class="tk">public</span> <span class="tk">var</span> clock: Clock             <span class="tc">// the time basis of every time it emits (2.5)</span>
+    <span class="tk">public</span> <span class="tk">var</span> latency: Double?         <span class="tc">// live: typical seconds from speech to final</span>
+    <span class="tk">public</span> <span class="tk">var</span> expectedDelay: Double?   <span class="tc">// post-hoc: typical seconds after the meeting ends until text exists</span>
+    <span class="tk">public</span> <span class="tk">var</span> keepsAudio: Bool         <span class="tc">// writes audio into the meeting folder (voice matching, audio search)</span>
+}</code></pre></div>
+<p>Today's recorder, Zoom captions read through Accessibility, and an imported VTT, side by side:</p>
+<div class="table"><table><thead><tr><th></th><th><code>local-recorder</code></th><th>Zoom captions (fork)</th><th><code>file-import</code> (VTT)</th></tr></thead><tbody><tr><td>timing</td><td>live</td><td>live</td><td>post-hoc</td></tr><tr><td>partials</td><td>true</td><td>true (the caption line grows)</td><td>false</td></tr><tr><td>speakers</td><td>labels</td><td>names</td><td>names when the file has them</td></tr><tr><td>words</td><td>true</td><td>false</td><td>false</td></tr><tr><td>corrections</td><td>false</td><td>false</td><td>false</td></tr><tr><td>audio</td><td>mic + system</td><td>none</td><td>none</td></tr><tr><td>permissions</td><td>microphone, system-audio</td><td>accessibility</td><td>files</td></tr><tr><td>egress</td><td>none</td><td>none</td><td>none</td></tr><tr><td>clock</td><td>meeting</td><td>wall</td><td>media</td></tr><tr><td>latency</td><td>~1 s</td><td>depends on Zoom; measure it</td><td>n/a</td></tr><tr><td>keepsAudio</td><td>true</td><td>false</td><td>false</td></tr></tbody></table></div>
+<p>Declare what is true, not what is flattering. A source that says <code>speakers = "names"</code> and then sends "Speaker 1" fails the kit. A source that declares no audio and then opens the microphone is killed (4.5).</p>
+<h3 id="23-lifecycle">2.3 Lifecycle</h3>
+<figure class="flow" aria-label="Source lifecycle">
+<ol>
+<li><b>Availability</b><span>3 s probe, in parallel</span></li>
+<li><b>Start</b><span>scratch folder created</span></li>
+<li><b>Events</b><span>partial &#xB7; final &#xB7; revise</span></li>
+<li><b>Stop</b><span>live: flush &#xB7; post-hoc: keep waiting</span></li>
+<li><b>Drain</b><span>until <code>end</code> or stall</span></li>
+<li><b>End</b><span>complete, or what there is</span></li>
+</ol>
+<p class="flow-foot"><span>Unavailable &#x2192; the next source in the chain</span><span>Purge &#x2192; at Done, or 24 h after the meeting ends</span></p>
+</figure>
+<ol><li><strong>Availability.</strong> Before a meeting starts, WorkScribe asks each source in the chosen chain whether it can work right now, in parallel, with a 3-second limit each. For an automatic start the probes run during the existing 3-second settle window, so they cost no time. An answer is <code>ready</code>, <code>unavailable(reason, fix)</code> or <code>needsPermission(permission, fix)</code>. The reason is a sentence a person can read: "Zoom isn't in a meeting", "Captions are off in this meeting". The first <code>ready</code> source wins.</li><li><strong>Start.</strong> The host creates the meeting (or a new session of a resumed one), creates <code>Meetings/&lt;id&gt;/sources/&lt;source-id&gt;/</code> as the source's scratch folder, and calls <code>start</code>. A live source starts emitting. A post-hoc source says it is <code>waiting</code>.</li><li><strong>Events.</strong> Partials, finals, revisions, speaker names, status. Section 2.4.</li><li><strong>Stop.</strong> The user presses Stop, the call ends, or the app quits. The host calls <code>stop(reason)</code>. A live source flushes its last line as final and sends <code>end</code>. A post-hoc source keeps its stream open: it is now waiting for the platform's transcript.</li><li><strong>Drain.</strong> The host keeps consuming until <code>end</code>, with the same stall rule today's recorder uses (<code>RecordingDeadline</code>: give up when no progress for 30 s). For post-hoc sources the deadline is <code>expectedDelay &#xD7; 3</code>, capped at 22 hours so it always lands before the 23-hour automatic Finalize.</li><li><strong>End.</strong> <code>end(reason, complete)</code>. <code>complete: false</code> means "this is what I have and there won't be more". The meeting records it so the note can say "Transcript ends at 41:10".</li><li><strong>Finalize</strong> belongs to the meeting, not the source. The final pencil pass runs after the source ends (live) or when the post-hoc transcript arrives. If you press Finalize before a post-hoc transcript arrives, the note finalizes without it. A transcript that arrives later is kept for Ask and search until the fade but never changes a finalized note, and the pill says so in one line.</li><li><strong>Purge</strong> happens at Done or 24 hours after the meeting ended, exactly as today. Section 2.8.</li></ol>
+<p><strong>Resume</strong> and <strong>switching sources</strong> reuse what already exists. Resume (<code>Meeting.resume</code>) appends a <code>RecordingSession</code> with its own speaker namespace and per-channel offsets. Switching from Zoom's captions to local recording halfway through a meeting is the same operation with a different source: a new session whose <code>source</code> field names the new source. Nothing is merged across the boundary.</p>
+<h3 id="24-events">2.4 Events</h3>
+<p>One vocabulary, used three ways: as a Swift enum for in-process sources, as JSON lines for command sources, and as the request body of the ingest endpoint.</p>
+<div class="code" data-lang="swift"><pre><code><span class="tk">public</span> <span class="tk">enum</span> SourceEvent: Equatable, Sendable {
+    <span class="tk">case</span> status(SourceState, message: String?)       <span class="tc">// starting &#xB7; listening &#xB7; waiting &#xB7; degraded &#xB7; paused</span>
+    <span class="tk">case</span> clock(mediaOrigin: Date, exact: Bool)       <span class="tc">// media-clock sources: when media time 0 happened</span>
+    <span class="tk">case</span> partial(SourcePartial)                      <span class="tc">// provisional; replaces the previous partial with this id</span>
+    <span class="tk">case</span> <span class="tk">final</span>(SourceSegment)                        <span class="tc">// settled text; promotes a partial with the same id</span>
+    <span class="tk">case</span> revise(SourceRevision)                      <span class="tc">// correction to a final segment; the id stays</span>
+    <span class="tk">case</span> retract(id: String)                         <span class="tc">// the platform withdrew this text</span>
+    <span class="tk">case</span> speaker(SpeakerInfo)                        <span class="tc">// a name for a speaker key, or "this is you"</span>
+    <span class="tk">case</span> end(EndReason, complete: Bool)              <span class="tc">// stopped &#xB7; meeting-ended &#xB7; complete &#xB7; failed &#xB7; timeout</span>
+}
+
+<span class="tk">public</span> <span class="tk">struct</span> SourcePartial: Equatable, Sendable {
+    <span class="tk">public</span> <span class="tk">var</span> id: String; <span class="tk">public</span> <span class="tk">var</span> channel: String?; <span class="tk">public</span> <span class="tk">var</span> speaker: String?
+    <span class="tk">public</span> <span class="tk">var</span> start: Double?; <span class="tk">public</span> <span class="tk">var</span> text: String
+}
+<span class="tk">public</span> <span class="tk">struct</span> SourceSegment: Equatable, Sendable {
+    <span class="tk">public</span> <span class="tk">var</span> id: String; <span class="tk">public</span> <span class="tk">var</span> channel: String?; <span class="tk">public</span> <span class="tk">var</span> speaker: String?
+    <span class="tk">public</span> <span class="tk">var</span> start: Double; <span class="tk">public</span> <span class="tk">var</span> end: Double; <span class="tk">public</span> <span class="tk">var</span> text: String
+    <span class="tk">public</span> <span class="tk">var</span> words: [SourceWord]?; <span class="tk">public</span> <span class="tk">var</span> confidence: Double?
+}
+<span class="tk">public</span> <span class="tk">struct</span> SourceWord: Equatable, Sendable { <span class="tk">public</span> <span class="tk">var</span> text: String; <span class="tk">public</span> <span class="tk">var</span> start: Double; <span class="tk">public</span> <span class="tk">var</span> end: Double; <span class="tk">public</span> <span class="tk">var</span> confidence: Double? }
+<span class="tk">public</span> <span class="tk">struct</span> SourceRevision: Equatable, Sendable {
+    <span class="tk">public</span> <span class="tk">var</span> id: String; <span class="tk">public</span> <span class="tk">var</span> text: String?; <span class="tk">public</span> <span class="tk">var</span> start: Double?; <span class="tk">public</span> <span class="tk">var</span> end: Double?
+    <span class="tk">public</span> <span class="tk">var</span> speaker: String?; <span class="tk">public</span> <span class="tk">var</span> words: [SourceWord]?
+}
+<span class="tk">public</span> <span class="tk">struct</span> SpeakerInfo: Equatable, Sendable {
+    <span class="tk">public</span> <span class="tk">var</span> key: String; <span class="tk">public</span> <span class="tk">var</span> channel: String?; <span class="tk">public</span> <span class="tk">var</span> name: String?; <span class="tk">public</span> <span class="tk">var</span> you: Bool?
+}</code></pre></div>
+<div class="table"><table><thead><tr><th>Event</th><th>Means</th><th>Host does</th></tr></thead><tbody><tr><td><code>partial</code></td><td>"Someone is saying this, and it may change."</td><td>Sets the channel's provisional line (today's <code>Meeting.setPartial</code>). Not saved as evidence, not cited, shown live.</td></tr><tr><td><code>final</code></td><td>"This was said, by this speaker, at this time."</td><td>Appends a <code>Segment</code> (<code>Meeting.finishPartial</code>), saves, schedules the title and pencil passes, emits SSE <code>transcript</code>.</td></tr><tr><td><code>revise</code></td><td>"I called this final but it was wrong."</td><td>Replaces text/time/speaker on the stored segment, keeping its ID. Notes citing it are marked stale and re-enhanced.</td></tr><tr><td><code>retract</code></td><td>"Forget this."</td><td>Removes the segment. Excerpts that cited it drop out on the next pass.</td></tr><tr><td><code>speaker</code></td><td>"Key <code>p-2</code> is Priya Raman" or "key <code>me</code> is you".</td><td>Stores a source-provided name (2.6). Never overrides a name the user chose.</td></tr><tr><td><code>status</code></td><td>Human status.</td><td>Shown in the pill and the menu. <code>degraded</code> is amber, never red.</td></tr><tr><td><code>clock</code></td><td>"Media time 0 was 14:02:07Z."</td><td>Fixes alignment for <code>media</code> clocks (2.5).</td></tr><tr><td><code>end</code></td><td>No more events.</td><td>Ends the session. Anything after <code>end</code> is a protocol error.</td></tr></tbody></table></div>
+<p>Rules a source must keep:</p>
+<ul><li><strong>Finals per channel arrive in time order</strong>, allowing up to 0.5 s of overlap between neighbours. Out-of-order corrections go through <code>revise</code>.</li><li><strong>Segments are sentence-sized.</strong> Aim for one speaker turn of 1&#x2013;30 seconds. Rolling captions should be coalesced: keep emitting <code>partial</code> with one id while the line grows, then <code>final</code> when the speaker changes, after 1.5 s without change, or at 30 s. These are the same thresholds <code>TranscriptParser</code> and <code>TranscriptTurns</code> use for NeMo output, so turns read the same whichever source made them.</li><li><strong>Text is plain.</strong> No markup, no caption positioning, no <code>[MUSIC]</code> unless the platform really said that. At most 10,000 characters per segment.</li><li><strong>No transcript text in logs.</strong> stderr and <code>status.message</code> are for humans and may be shown on screen.</li></ul>
+<h3 id="25-time">2.5 Time</h3>
+<p>Everything in a meeting is on one clock: <strong>seconds since <code>Meeting.startedAt</code></strong>. Segment times, the time each note line was first typed (<code>Note.createdAt</code>, <code>NoteDocument.Block.at</code>), screen moments, clip offsets and deep links (<code>workscribe://meeting/&lt;id&gt;?t=541</code>) all use it. Pencil lines depend on it: <code>ExcerptPolicy</code> prefers transcript that ended up to 90 seconds before you typed a line, or started up to 10 seconds after. If a source's clock is off by two minutes, every pencil line cites the wrong moment, confidently.</p>
+<p>A source declares one of three clocks, and every time it emits is a number in that clock:</p>
+<div class="table"><table><thead><tr><th><code>clock</code></th><th>Times are</th><th>Host converts with</th><th>Typical source</th></tr></thead><tbody><tr><td><code>meeting</code></td><td>seconds since <code>startedAt</code></td><td>nothing</td><td>in-process Swift sources using <code>session.meetingTime()</code></td></tr><tr><td><code>wall</code></td><td>Unix epoch seconds (fractional)</td><td><code>t &#x2212; startedAt</code></td><td>anything watching a live meeting: captions, a bridge</td></tr><tr><td><code>media</code></td><td>seconds from the start of some recording</td><td><code>t + offset</code>, where offset is found by alignment</td><td>VTT/SRT files, cloud recording transcripts</td></tr></tbody></table></div>
+<p><strong>Live sources</strong> stamp each segment with when the words were <em>spoken</em>, not when they were seen. A source that can only observe arrival (an Accessibility observer sees a caption when Zoom draws it) subtracts its typical delay and declares it in <code>latency</code>. The kit measures your residual error against a fixture; the target is &#xB1;5 seconds, well inside the 10-second lead <code>ExcerptPolicy</code> allows.</p>
+<p><strong>Post-hoc sources</strong> usually only know media time. A Teams or Zoom transcript file starts at 00:00:00 when <em>the platform's</em> recording started, which may be before or after WorkScribe's meeting started. The host finds the offset in this order, and records which method won in <code>Meeting.transcriptSource.alignment</code>:</p>
+<ol><li><strong>Declared.</strong> The source sends <code>clock(mediaOrigin:exact:)</code> because it knows (an API returned the recording's start time, or the file says so). <code>exact: true</code> is used as is.</li><li><p><strong>From your notes.</strong> If at least three note lines have typing times, the host searches offsets from &#x2212;15 to +15 minutes in 2-second steps and scores each one with the matcher the pencil already uses:</p><div class="code" data-lang="text"><pre><code>score(&#x3B4;) = &#x3A3; over typed notes  max over transcript chunks  meaning(note, chunk) &#xD7; timeScore(chunk shifted by &#x3B4;, note.at)</code></pre></div>
+<p>with <code>LexicalMatcher</code> (or the embedder, when loaded) and the default <code>ExcerptPolicy</code>. It accepts the best &#x3B4; when its score is at least 1.0 and at least 1.25 times the score at the prior guess; otherwise it keeps the prior. Screen moments, when allowed, add a second signal: OCR text against transcript text.</p></li><li><strong>Prior guess.</strong> Media zero equals the meeting start, or the declared origin with <code>exact: false</code>.</li></ol>
+<p>The result is shown plainly: "Transcript lined up with your notes (shifted 1 min 37 s)" or "Times are approximate". A nudge control in the Transcript tab moves the whole channel in 5-second steps. Alignment rewrites segment times for that channel and stores the offset in <code>Meeting.sourceOffsets[channel]</code>, the dictionary the recorder already uses for per-track offsets. Segment IDs don't change, so evidence links survive; the next pencil pass re-matches notes against the shifted times.</p>
+<p>Clock drift inside one meeting is not modelled. Platform servers and your Mac both use network time; over an hour the difference is far below the matching tolerance.</p>
+<h3 id="26-identity">2.6 Identity</h3>
+<p>Pencil lines cite evidence, and evidence must still resolve after a correction, a resume, a crash and a replay. Today:</p>
+<ul><li><code>Segment.id</code> is a random UUID, except that the first final segment reuses its partial's ID (<code>Meeting.finishPartial</code>).</li><li>An excerpt reference is a chunk ID, <code>"&lt;segment id&gt;#&lt;n&gt;"</code>, where the segment is the first of a grouped turn (<code>TranscriptChunker</code>).</li><li>Links are <code>workscribe://meeting/&lt;meeting&gt;?t=&lt;seconds&gt;&amp;segment=&lt;segment id&gt;</code>.</li></ul>
+<p>The contract keeps all three and makes IDs deterministic:</p>
+<ul><li><strong>The source owns its IDs.</strong> Any string up to 128 characters, unique within the source's session. The same speech keeps the same ID through <code>partial</code>, <code>final</code> and every <code>revise</code>. An ID is never reused for different speech. If one partial becomes several finals, the first keeps the partial's ID and the rest get new ones, which is today's rule written down.</li><li><strong>The host derives the stored ID.</strong> <code>Segment.id = UUIDv5(namespace: meetingID, name: "&lt;source id&gt;/&lt;session id&gt;/&lt;source segment id&gt;")</code>. Replaying the same events gives the same IDs, so a command source that crashes and re-sends its last minute after restart produces duplicates the host can recognise, and a re-imported VTT doesn't orphan evidence. The result still looks like a UUID, so existing code that stores or links segment IDs needs no change.</li><li><strong>Chunk references fall back to their segment.</strong> A revision can move sentence boundaries, which renumbers <code>#n</code>. When a stored <code>excerptRef</code> no longer exists, the host resolves it to the nearest chunk of the same segment. Migration step 6 adds this; it fixes a latent issue with today's recorder too.</li><li><strong>Channels.</strong> <code>Segment.source</code> is <code>&lt;source id&gt;</code> or <code>&lt;source id&gt;/&lt;channel&gt;</code>. The local recorder is grandfathered: its channels stay <code>microphone</code> and <code>system</code>, so old meetings and new ones read the same.</li><li><strong>Speakers.</strong> A source sends a speaker key. The host stores <code>Segment.speaker = "&lt;channel or source&gt;:&lt;key&gt;"</code>, prefixed with the session namespace on resumed sessions (today's rule). Keys are scoped to one session: "speaker-2" in session one and session two are not assumed to be the same person.</li><li><strong>Names.</strong> A source-provided name goes into a new <code>Meeting.speakerNames[speakerKey]</code>, not into <code>speakerAssignments</code>. Display precedence becomes: this line's user override, then the user's name for the speaker, then the source's name, then "Speaker N". The user always wins, and "Only this line" keeps working. <code>you: true</code> marks a speaker as the user; today that is inferred only for a solo microphone voice.</li></ul>
+<h3 id="27-errors-and-degradation">2.7 Errors and degradation</h3>
+<div class="table"><table><thead><tr><th>Situation</th><th>How the source says it</th><th>What the host does</th><th>What the user sees</th></tr></thead><tbody><tr><td>Can't work right now</td><td><code>availability = unavailable(reason, fix)</code></td><td>Tries the next source in the chain.</td><td>The source that was used, and on hover why the others weren't.</td></tr><tr><td>Needs a permission</td><td><code>needsPermission(.accessibility, fix)</code></td><td>Tries the next source; offers the fix once.</td><td>"Zoom's captions need Accessibility access &#xB7; Open Settings"</td></tr><tr><td>Working, but badly</td><td><code>status(.degraded, "No captions for 2 minutes. Are captions on in Zoom?")</code></td><td>Keeps the source.</td><td>The message, in amber, in the pill.</td></tr><tr><td>Transient failure</td><td>the stream throws or the process exits non-zero</td><td>Restarts it up to 3 times (1 s, 4 s, 16 s backoff), deduplicating by ID.</td><td>"Reconnecting to Zoom's captions"</td></tr><tr><td>Gone for good</td><td>still failing after the restarts</td><td>Follows the rule's <code>on_failure</code>.</td><td>"Zoom's captions stopped at 23:40. Notes only from here."</td></tr><tr><td>Lying about itself</td><td>uses a capability it didn't declare</td><td>Kills it and records the violation.</td><td>"Stopped the Zoom captions helper: it tried to use the microphone, which isn't allowed on this Mac."</td></tr></tbody></table></div>
+<p><code>on_failure</code> is <code>"notes-only"</code> (the default) or <code>"next"</code>. <strong>A source never fails over to one that captures more.</strong> If captions die and the next source in the chain is the local recorder, WorkScribe offers "Record instead" as a button rather than starting the microphone mid-meeting on its own. Someone who chose captions over recording chose it for a reason, and a silent switch would break that. <code>"next"</code> only moves to sources whose <code>audio</code> and <code>screen</code> capabilities are a subset of the failed one's.</p>
+<h3 id="28-retention-and-purge">2.8 Retention and purge</h3>
+<p>"Only the note survives" is WorkScribe's central promise. A source must not weaken it.</p>
+<ol><li><strong>Write only into your scratch folder.</strong> <code>Meetings/&lt;id&gt;/sources/&lt;source id&gt;/</code>. The existing purge deletes the whole meeting folder, so anything there disappears on schedule with no extra work. Command sources get it as <code>WORKSCRIBE_SCRATCH</code>, and their <code>TMPDIR</code> points inside it.</li><li><strong>If you keep anything elsewhere, declare it and purge it.</strong> A manifest says <code>stores_outside_scratch = true</code>, and the source implements <code>purge(meetingID:)</code> (Swift) or purge mode (<code>wsp/1</code>). Purge must be idempotent and safe to replay after a crash, like <code>RetentionStore.purge</code>. The host calls it after the raw meeting folder is gone and before it reports <code>meeting.purged</code>. If a source's purge keeps failing, WorkScribe finishes its own purge, keeps retrying the source's every minute, and says "Couldn't confirm Zoom's captions helper deleted its copy. Trying again in a minute."</li><li><strong>Never extend retention.</strong> Late events for a purging or purged meeting are dropped (<code>410 Gone</code> on the ingest endpoint). A post-hoc transcript arriving at hour 20 is kept for the remaining 4 hours. Arrival does not restart the clock.</li><li><strong>Never write the note.</strong> Sources produce evidence. The note belongs to the user and the note destination.</li><li><strong>Never log meeting content.</strong> stderr from command sources is kept in memory (the last 200 lines, at most 64 KB) for Settings &#x203A; Sources &#x203A; Details. It is never written to disk, because it may contain transcript text.</li><li><strong>Leave the user's own files alone.</strong> <code>file-import</code> copies the file into scratch. The <code>.vtt</code> in Downloads is the user's and stays where it is; the import screen says so.</li></ol>
+<h3 id="29-the-swift-protocol">2.9 The Swift protocol</h3>
+<div class="code" data-lang="swift"><pre><code><span class="tc">// Sources/WorkScribeCore/Sources/TranscriptSource.swift</span>
+
+<span class="tc">/// "Zoom's captions" completes "Transcript from &#x2026;". `short` fits the pill: "Zoom captions".</span>
+<span class="tk">public</span> <span class="tk">struct</span> SourceLabel: Codable, Equatable, Sendable { <span class="tk">public</span> <span class="tk">var</span> sentence: String; <span class="tk">public</span> <span class="tk">var</span> short: String }
+
+<span class="tk">public</span> <span class="tk">struct</span> SourceFix: Codable, Equatable, Sendable { <span class="tk">public</span> <span class="tk">var</span> label: String; <span class="tk">public</span> <span class="tk">var</span> url: String? }
+
+<span class="tk">public</span> <span class="tk">enum</span> Availability: Equatable, Sendable {
+    <span class="tk">case</span> ready
+    <span class="tk">case</span> unavailable(reason: String, fix: SourceFix?)
+    <span class="tk">case</span> needsPermission(SourceCapabilities.Permission, fix: SourceFix)
+}
+
+<span class="tk">public</span> <span class="tk">enum</span> StopReason: String, Codable, Sendable { <span class="tk">case</span> user, callEnded = <span class="ts">"call-ended"</span>, policy, quit, switched }
+
+<span class="tc">/// What WorkScribe knows when it chooses a source. Nil means unknown, never "no".</span>
+<span class="tk">public</span> <span class="tk">struct</span> MeetingContext: Sendable {
+    <span class="tk">public</span> <span class="tk">enum</span> Trigger: String, Sendable { <span class="tk">case</span> call, manual, api, `<span class="tk">import</span>` }
+    <span class="tk">public</span> <span class="tk">var</span> trigger: Trigger
+    <span class="tk">public</span> <span class="tk">var</span> app: CallApp?                              <span class="tc">// CallDetector's signal: name and bundle ID</span>
+    <span class="tk">public</span> <span class="tk">var</span> windowTitle: String?
+    <span class="tk">public</span> <span class="tk">var</span> calendar: CalendarEvent?                   <span class="tc">// needs a calendar provider; nil until one exists</span>
+    <span class="tk">public</span> <span class="tk">var</span> online: Bool?
+    <span class="tk">public</span> <span class="tk">var</span> now: Date
+}
+
+<span class="tk">public</span> <span class="tk">struct</span> SourceSession: Sendable {
+    <span class="tk">public</span> <span class="tk">let</span> meetingID: String
+    <span class="tk">public</span> <span class="tk">let</span> sessionID: String          <span class="tc">// RecordingSession.id; "initial" for the first</span>
+    <span class="tk">public</span> <span class="tk">let</span> startedAt: Date            <span class="tc">// the meeting clock's zero</span>
+    <span class="tk">public</span> <span class="tk">let</span> scratch: URL               <span class="tc">// Meetings/&lt;id&gt;/sources/&lt;source id&gt;/, purged with the meeting</span>
+    <span class="tk">public</span> <span class="tk">let</span> resumed: Bool
+    <span class="tk">public</span> <span class="tk">let</span> input: URL?                <span class="tc">// a file the user gave an import source</span>
+    <span class="tk">public</span> <span class="tk">let</span> context: MeetingContext
+    <span class="tk">public</span> <span class="tk">func</span> meetingTime(_ date: Date = Date()) -&gt; Double { date.timeIntervalSince(startedAt) }
+}
+
+<span class="tk">public</span> <span class="tk">protocol</span> TranscriptSource: AnyObject, Sendable {
+    <span class="tk">var</span> id: String { get }
+    <span class="tk">var</span> label: SourceLabel { get }
+    <span class="tk">var</span> capabilities: SourceCapabilities { get }
+    <span class="tk">func</span> availability(_ context: MeetingContext) <span class="tk">async</span> -&gt; Availability
+    <span class="tc">/// The stream ends with `.end`. Throwing means a transient failure; the host may restart the source.</span>
+    <span class="tk">func</span> start(_ session: SourceSession) <span class="tk">async</span> <span class="tk">throws</span> -&gt; AsyncThrowingStream&lt;SourceEvent, Error&gt;
+    <span class="tc">/// Wind down. Live sources flush and end; post-hoc sources keep waiting for their transcript.</span>
+    <span class="tk">func</span> stop(_ reason: StopReason) <span class="tk">async</span>
+    <span class="tc">/// Remove anything kept outside `session.scratch`. Idempotent. Default: nothing to do.</span>
+    <span class="tk">func</span> purge(meetingID: String) <span class="tk">async</span> <span class="tk">throws</span>
+}
+
+<span class="tk">public</span> <span class="tk">extension</span> TranscriptSource {
+    <span class="tk">func</span> purge(meetingID: String) <span class="tk">async</span> <span class="tk">throws</span> {}
+}</code></pre></div>
+<p>Sources that hear audio don't each bring a recognizer. <code>AudioTranscriber</code> wraps today's <code>SpeechRuntime</code>, <code>SpeechConnection</code>, <code>AudioBacklog</code> and <code>TranscriptParser</code>, takes 16 kHz mono PCM and yields canonical events. <code>LocalRecorderSource</code> is <code>AudioCapture</code> plus one <code>AudioTranscriber</code> per track; Plaud import is a file reader plus one <code>AudioTranscriber</code>. Both keep today's backlog-on-disk design, so a slow Mac still never drops audio.</p>
+<p>A source that hears audio reports pressure as status. Today's <code>RecordingPressure</code> (lag &#x2265; 2 s pauses screen, &#x2265; 6 s pauses live AI, &#x2265; 12 s delays the transcript) becomes <code>status(.degraded, "Your Mac is busy &#xB7; still recording, the transcript will catch up")</code> plus a <code>lag</code> value the host uses for the same decisions.</p>
+<hr>
+<h2 id="3-sources-outside-the-app">3. Sources outside the app</h2>
+<p>Most people adapting WorkScribe to an environment won't want to write Swift or rebuild the app. They want to read some captions, watch a folder, or bridge something their company already runs. Two ways in, one vocabulary.</p>
+<h3 id="31-command-sources-wsp1">3.1 Command sources: <code>wsp/1</code></h3>
+<p>A command source is a folder with a manifest and an executable:</p>
+<div class="code" data-lang="text"><pre><code>~/Library/Application Support/WorkScribe/Sources/zoom-captions/
+&#x251C;&#x2500;&#x2500; source.toml
+&#x251C;&#x2500;&#x2500; run                      # any executable; the manifest names it
+&#x2514;&#x2500;&#x2500; README.md                # what it reads, what it needs, how to turn it off</code></pre></div>
+<div class="code" data-lang="toml"><pre><code><span class="tc"># source.toml</span>
+id = <span class="ts">"zoom-captions"</span>
+name = <span class="ts">"Zoom captions (Accessibility)"</span>
+version = <span class="ts">"0.1.0"</span>
+protocol = 1
+command = [<span class="ts">"./run"</span>]                   <span class="tc"># argv, relative to this folder. No shell.</span>
+role = <span class="ts">"transcript"</span>                   <span class="tc"># or "context" for a screen/context source (5.2)</span>
+stores_outside_scratch = false
+
+<span class="tk">[label]</span>
+sentence = <span class="ts">"Zoom's captions"</span>
+short = <span class="ts">"Zoom captions"</span>
+
+<span class="tk">[capabilities]</span>                         <span class="tc"># must match what the program says in hello</span>
+timing = <span class="ts">"live"</span>
+partials = true
+speakers = <span class="ts">"names"</span>
+words = false
+corrections = false
+audio = { microphone = false, system = false, files = false }
+screen = false
+permissions = [<span class="ts">"accessibility"</span>]
+egress = <span class="ts">"none"</span>
+clock = <span class="ts">"wall"</span>
+latency = 1.5
+keepsAudio = false
+
+<span class="tk">[config]</span>                               <span class="tc"># passed in hello.config; sources.toml may override</span>
+poll_ms = 250</code></pre></div>
+<p>The manifest exists so WorkScribe can decide whether a source is allowed <strong>without running it</strong>. Under a no-recording policy, a source whose manifest declares microphone audio is never launched.</p>
+<p><strong>The conversation.</strong> One JSON object per line, UTF-8, at most 1 MiB per line. The host writes to the program's stdin; the program writes to stdout; stderr is a human log. Every message has a <code>type</code>. Unknown types and unknown fields are ignored in both directions, which is how the protocol grows without breaking anyone.</p>
+<p>A live session, in full (host lines marked <code>&#x2192;</code>, source lines <code>&#x2190;</code>; times are epoch seconds because this source declared <code>clock = "wall"</code>):</p>
+<div class="code" data-lang="jsonc"><pre><code><span class="ln h">&#x2192; {<span class="ts">"type"</span>:<span class="ts">"hello"</span>,<span class="ts">"protocols"</span>:[1],<span class="ts">"mode"</span>:<span class="ts">"session"</span>,<span class="ts">"host"</span>:{<span class="ts">"name"</span>:<span class="ts">"WorkScribe"</span>,<span class="ts">"version"</span>:<span class="ts">"0.9.0"</span>},<span class="ts">"config"</span>:{<span class="ts">"poll_ms"</span>:250}}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"hello"</span>,<span class="ts">"protocol"</span>:1,<span class="ts">"source"</span>:{<span class="ts">"id"</span>:<span class="ts">"zoom-captions"</span>,<span class="ts">"name"</span>:<span class="ts">"Zoom captions (Accessibility)"</span>,<span class="ts">"version"</span>:<span class="ts">"0.1.0"</span>},<span class="ts">"capabilities"</span>:{<span class="ts">"timing"</span>:<span class="ts">"live"</span>,<span class="ts">"partials"</span>:true,<span class="ts">"speakers"</span>:<span class="ts">"names"</span>,<span class="ts">"words"</span>:false,<span class="ts">"corrections"</span>:false,<span class="ts">"audio"</span>:{<span class="ts">"microphone"</span>:false,<span class="ts">"system"</span>:false,<span class="ts">"files"</span>:false},<span class="ts">"screen"</span>:false,<span class="ts">"permissions"</span>:[<span class="ts">"accessibility"</span>],<span class="ts">"egress"</span>:<span class="ts">"none"</span>,<span class="ts">"clock"</span>:<span class="ts">"wall"</span>,<span class="ts">"latency"</span>:1.5,<span class="ts">"keepsAudio"</span>:false}}</span>
+<span class="ln h">&#x2192; {<span class="ts">"type"</span>:<span class="ts">"start"</span>,<span class="ts">"meeting"</span>:{<span class="ts">"id"</span>:<span class="ts">"6F1C&#x2026;"</span>,<span class="ts">"title"</span>:<span class="ts">"Offline sync &#x2014; v2.4 scope"</span>,<span class="ts">"startedAt"</span>:<span class="ts">"2026-10-14T17:02:00.000Z"</span>,<span class="ts">"startedAtEpoch"</span>:1791997320.0,<span class="ts">"app"</span>:{<span class="ts">"name"</span>:<span class="ts">"Zoom"</span>,<span class="ts">"bundleId"</span>:<span class="ts">"us.zoom.xos"</span>}},<span class="ts">"session"</span>:{<span class="ts">"id"</span>:<span class="ts">"initial"</span>,<span class="ts">"resumed"</span>:false},<span class="ts">"scratch"</span>:<span class="ts">"/Users/you/Library/Application Support/WorkScribe/Meetings/6F1C&#x2026;/sources/zoom-captions"</span>}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"status"</span>,<span class="ts">"state"</span>:<span class="ts">"listening"</span>,<span class="ts">"message"</span>:<span class="ts">"Reading Zoom's captions"</span>}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"partial"</span>,<span class="ts">"id"</span>:<span class="ts">"c-0041"</span>,<span class="ts">"speaker"</span>:<span class="ts">"Priya Raman"</span>,<span class="ts">"text"</span>:<span class="ts">"So the ship date"</span>}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"partial"</span>,<span class="ts">"id"</span>:<span class="ts">"c-0041"</span>,<span class="ts">"speaker"</span>:<span class="ts">"Priya Raman"</span>,<span class="ts">"text"</span>:<span class="ts">"So the ship date moves to November"</span>}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"final"</span>,<span class="ts">"id"</span>:<span class="ts">"c-0041"</span>,<span class="ts">"speaker"</span>:<span class="ts">"Priya Raman"</span>,<span class="ts">"start"</span>:1791997845.2,<span class="ts">"end"</span>:1791997849.9,<span class="ts">"text"</span>:<span class="ts">"So the ship date moves to November 4 so QA gets a full week."</span>}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"speaker"</span>,<span class="ts">"key"</span>:<span class="ts">"Andrew S."</span>,<span class="ts">"you"</span>:true}</span>
+<span class="ln h">&#x2192; {<span class="ts">"type"</span>:<span class="ts">"stop"</span>,<span class="ts">"reason"</span>:<span class="ts">"user"</span>}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"end"</span>,<span class="ts">"reason"</span>:<span class="ts">"stopped"</span>,<span class="ts">"complete"</span>:true}</span>
+   (the program exits 0)</code></pre></div>
+<p>Before a meeting, the host probes availability with a short-lived process:</p>
+<div class="code" data-lang="jsonc"><pre><code><span class="ln h">&#x2192; {<span class="ts">"type"</span>:<span class="ts">"hello"</span>,<span class="ts">"protocols"</span>:[1],<span class="ts">"mode"</span>:<span class="ts">"probe"</span>,<span class="ts">"host"</span>:{<span class="ts">"name"</span>:<span class="ts">"WorkScribe"</span>,<span class="ts">"version"</span>:<span class="ts">"0.9.0"</span>},<span class="ts">"config"</span>:{<span class="ts">"poll_ms"</span>:250},<span class="ts">"context"</span>:{<span class="ts">"trigger"</span>:<span class="ts">"call"</span>,<span class="ts">"app"</span>:{<span class="ts">"name"</span>:<span class="ts">"Zoom"</span>,<span class="ts">"bundleId"</span>:<span class="ts">"us.zoom.xos"</span>}}}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"hello"</span>,<span class="ts">"protocol"</span>:1,<span class="ts">"source"</span>:{<span class="ts">"id"</span>:<span class="ts">"zoom-captions"</span>,<span class="ts">"name"</span>:<span class="ts">"Zoom captions (Accessibility)"</span>,<span class="ts">"version"</span>:<span class="ts">"0.1.0"</span>},<span class="ts">"capabilities"</span>:{&#x2026;}}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"availability"</span>,<span class="ts">"available"</span>:false,<span class="ts">"reason"</span>:<span class="ts">"Captions are off in this meeting."</span>,<span class="ts">"fix"</span>:{<span class="ts">"label"</span>:<span class="ts">"Turn on captions in Zoom"</span>}}</span>
+   (the program exits 0)</code></pre></div>
+<p>And for purge, when the manifest says <code>stores_outside_scratch = true</code>:</p>
+<div class="code" data-lang="jsonc"><pre><code><span class="ln h">&#x2192; {<span class="ts">"type"</span>:<span class="ts">"hello"</span>,<span class="ts">"protocols"</span>:[1],<span class="ts">"mode"</span>:<span class="ts">"purge"</span>,<span class="ts">"host"</span>:{&#x2026;},<span class="ts">"config"</span>:{&#x2026;}}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"hello"</span>,<span class="ts">"protocol"</span>:1,&#x2026;}</span>
+<span class="ln h">&#x2192; {<span class="ts">"type"</span>:<span class="ts">"purge"</span>,<span class="ts">"meetingId"</span>:<span class="ts">"6F1C&#x2026;"</span>}</span>
+<span class="ln s">&#x2190; {<span class="ts">"type"</span>:<span class="ts">"purged"</span>,<span class="ts">"meetingId"</span>:<span class="ts">"6F1C&#x2026;"</span>}</span></code></pre></div>
+<p><strong>Messages.</strong> The exact schema is <code>docs/specs/transcript-source.schema.json</code> (JSON Schema 2020-12).</p>
+<div class="table"><table><thead><tr><th>Direction</th><th><code>type</code></th><th>Required fields</th><th>Optional</th></tr></thead><tbody><tr><td>host &#x2192; source</td><td><code>hello</code></td><td><code>protocols</code>, <code>mode</code> (probe &#xB7; session &#xB7; purge), <code>host</code></td><td><code>config</code>, <code>context</code> (probe)</td></tr><tr><td>host &#x2192; source</td><td><code>start</code></td><td><code>meeting{id,startedAt,startedAtEpoch}</code>, <code>session{id,resumed}</code>, <code>scratch</code></td><td><code>meeting.title</code>, <code>meeting.app</code>, <code>meeting.calendar</code>, <code>session.lastId</code>, <code>input{path}</code></td></tr><tr><td>host &#x2192; source</td><td><code>stop</code></td><td><code>reason</code></td><td></td></tr><tr><td>host &#x2192; source</td><td><code>purge</code></td><td><code>meetingId</code></td><td></td></tr><tr><td>source &#x2192; host</td><td><code>hello</code></td><td><code>protocol</code>, <code>source{id,name,version}</code>, <code>capabilities</code></td><td></td></tr><tr><td>source &#x2192; host</td><td><code>availability</code></td><td><code>available</code></td><td><code>reason</code>, <code>fix{label,url?}</code></td></tr><tr><td>source &#x2192; host</td><td><code>status</code></td><td><code>state</code></td><td><code>message</code>, <code>lag</code></td></tr><tr><td>source &#x2192; host</td><td><code>clock</code></td><td><code>mediaOrigin</code> (epoch seconds)</td><td><code>exact</code></td></tr><tr><td>source &#x2192; host</td><td><code>partial</code></td><td><code>id</code>, <code>text</code></td><td><code>channel</code>, <code>speaker</code>, <code>start</code></td></tr><tr><td>source &#x2192; host</td><td><code>final</code></td><td><code>id</code>, <code>start</code>, <code>end</code>, <code>text</code></td><td><code>channel</code>, <code>speaker</code>, <code>words[]</code>, <code>confidence</code></td></tr><tr><td>source &#x2192; host</td><td><code>revise</code></td><td><code>id</code></td><td><code>text</code>, <code>start</code>, <code>end</code>, <code>speaker</code>, <code>words[]</code></td></tr><tr><td>source &#x2192; host</td><td><code>retract</code></td><td><code>id</code></td><td></td></tr><tr><td>source &#x2192; host</td><td><code>speaker</code></td><td><code>key</code></td><td><code>channel</code>, <code>name</code>, <code>you</code></td></tr><tr><td>source &#x2192; host</td><td><code>moment</code></td><td><code>id</code>, <code>start</code>, <code>end</code>, <code>text</code></td><td><code>app</code>, <code>window</code> (context sources)</td></tr><tr><td>source &#x2192; host</td><td><code>error</code></td><td><code>code</code> (permission &#xB7; unavailable &#xB7; transient &#xB7; fatal &#xB7; protocol), <code>message</code></td><td><code>fix</code></td></tr><tr><td>source &#x2192; host</td><td><code>end</code></td><td><code>reason</code>, <code>complete</code></td><td></td></tr><tr><td>source &#x2192; host</td><td><code>purged</code></td><td><code>meetingId</code></td><td></td></tr></tbody></table></div>
+<p><strong>Versioning.</strong> The host offers every protocol major it speaks (<code>"protocols":[1]</code>); the source answers with one. Adding a message type or an optional field never changes the major. Removing or changing the meaning of a field does, and the host keeps speaking the old major for at least two releases after a new one ships. A source that answers with a major the host didn't offer is stopped with "This source needs a newer WorkScribe."</p>
+<p><strong>Supervision.</strong></p>
+<div class="table"><table><thead><tr><th>What</th><th>Rule</th></tr></thead><tbody><tr><td>Launch</td><td><code>Process</code> with the manifest's argv, working directory = the source's folder, no shell. Its own process group.</td></tr><tr><td>Environment</td><td><code>PATH=/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin</code>, <code>HOME</code>, <code>LANG</code>, <code>TMPDIR</code> (inside scratch), <code>WORKSCRIBE_SOURCE_PROTOCOL=1</code>, <code>WORKSCRIBE_SOURCE_ID</code>, <code>WORKSCRIBE_SCRATCH</code> (session mode only). Nothing else is inherited. The API token is never passed.</td></tr><tr><td>Timeouts</td><td><code>hello</code> within 5 s; probe answer within 3 s; <code>end</code> within 10 s of <code>stop</code>, then SIGTERM, then SIGKILL 3 s later.</td></tr><tr><td>stdin closes</td><td>The source must exit within 5 s. This is how WorkScribe makes sure no helper outlives a crash. The kit checks it.</td></tr><tr><td>Liveness</td><td>A live source sends something (a <code>status</code> with no change is fine) at least every 30 s. After 60 s of silence the host marks it degraded; after 3 minutes it stops and restarts it.</td></tr><tr><td>Restarts</td><td>Up to 3, at 1 s, 4 s and 16 s. The new process gets <code>start</code> with <code>resumed:true</code> and <code>lastId</code>. Re-sent finals with known IDs are deduplicated: identical ones are ignored, changed ones are treated as <code>revise</code>.</td></tr><tr><td>Flooding</td><td>More than 200 messages a second: partials are dropped, finals are kept, and the source is marked degraded.</td></tr><tr><td>Bad lines</td><td>A line that isn't valid JSON or fails the schema is dropped and counted. After 50, the source is stopped.</td></tr><tr><td>Logs</td><td>stderr in an in-memory ring (2.8).</td></tr></tbody></table></div>
+<p><strong>Permissions and the sandbox.</strong> WorkScribe is not App Sandboxed; it is a signed developer build. A child process is not sandboxed either. macOS's privacy system (TCC) generally attributes a child's access to the app that launched it (the "responsible process"), so a Python script reading Zoom's Accessibility tree will need <strong>WorkScribe</strong> to have Accessibility access, and the prompt and the System Settings entry will name WorkScribe. Verify this on your macOS version before you write instructions for others; it is the behaviour we expect, not something this spec guarantees. Two consequences:</p>
+<ul><li>Settings &#x203A; Sources lists, for each source, which permissions it asked WorkScribe to hold on its behalf, so a user can see why WorkScribe has Accessibility access.</li><li>The same inheritance is why WorkScribe must police what a child does with audio (4.5).</li></ul>
+<p>An organization can require signed sources: <code>source_signers = ["ABCDE12345"]</code> in policy makes the host check each command's executable against a Developer ID team before launch. A script interpreter's signature says nothing about the script it runs, so a signed-sources policy effectively means compiled helpers.</p>
+<h3 id="32-http-ingest">3.2 HTTP ingest</h3>
+<p>For something that is already running and wants to push text in: a team's caption bridge, a browser helper, a hardware box on the network that has a small local agent. It uses the local API as it exists today: <code>127.0.0.1</code> only, the bearer token from <code>~/Library/Application Support/WorkScribe/api.json</code> (mode 0600), 1 MB request bodies. Requests from a browser page are refused by the existing Origin rule; browser extensions should go through the native messaging host (<code>WorkScribeNativeHost</code>), as the clipper does.</p>
+<p>An ingest source must be declared in <code>sources.toml</code> (<code>kind = "ingest"</code>) with its capabilities. Possessing the token is not enough to inject a transcript into a meeting: the session must name a declared source that the current policy allows.</p>
+<div class="table"><table><thead><tr><th>Method and path</th><th>Body</th><th>Response</th></tr></thead><tbody><tr><td>POST <code>/v1/sources/ingest/sessions</code></td><td><code>{source:"team-bridge", meetingId?, startMeeting?:false}</code></td><td>201 <code>{sessionId, meetingId, startedAt, startedAtEpoch, clock}</code>; 403 <code>{error, reason}</code> when policy forbids; 404 unknown source; 409 no meeting and <code>startMeeting</code> false; 410 meeting purged</td></tr><tr><td>POST <code>/v1/sources/ingest/sessions/:sid/events</code></td><td>NDJSON (<code>application/x-ndjson</code>), one <code>wsp/1</code> source &#x2192; host message per line</td><td>200 <code>{accepted, rejected:[{line, error}]}</code></td></tr><tr><td>DELETE <code>/v1/sources/ingest/sessions/:sid</code></td><td>&#x2014;</td><td>204; equivalent to <code>end{reason:"stopped",complete:true}</code></td></tr></tbody></table></div>
+<p>A session lapses to degraded after 60 seconds without events and ends after 10 minutes. <code>GET /v1/events</code> gains one event, <code>source {meetingId, id, label, state, message?}</code>, and <code>GET /v1/status</code> gains a <code>transcript</code> object (4.6).</p>
+<div class="code" data-lang="sh"><pre><code>TOKEN=$(jq -r .token ~/Library/Application\ Support/WorkScribe/api.json)
+PORT=$(jq -r .port ~/Library/Application\ Support/WorkScribe/api.json)
+SID=$(curl -s -H <span class="ts">"Authorization: Bearer $TOKEN"</span> -H 'Content-Type: application/json' \
+  -d '{<span class="ts">"source"</span>:<span class="ts">"team-bridge"</span>}' http://127.0.0.1:$PORT/v1/sources/ingest/sessions | jq -r .sessionId)
+printf '%s\n' \
+  '{<span class="ts">"type"</span>:<span class="ts">"final"</span>,<span class="ts">"id"</span>:<span class="ts">"b-1"</span>,<span class="ts">"speaker"</span>:<span class="ts">"Marcus Chen"</span>,<span class="ts">"start"</span>:1791997850.1,<span class="ts">"end"</span>:1791997853.0,<span class="ts">"text"</span>:<span class="ts">"I can size the migration by Thursday."</span>}' |
+curl -s -H <span class="ts">"Authorization: Bearer $TOKEN"</span> -H 'Content-Type: application/x-ndjson' --data-binary @- \
+  http://127.0.0.1:$PORT/v1/sources/ingest/sessions/$SID/events</code></pre></div>
+<h3 id="33-handing-over-a-file">3.3 Handing over a file</h3>
+<p>Post-hoc transcripts usually arrive as a file. Three ways to hand one to a meeting, all ending in the same <code>file-import</code> source:</p>
+<ul><li><code>POST /v1/meetings/:id/transcript {path, format?, mediaOrigin?}</code>, by absolute path, like attachments. The Obsidian plugin gets an <strong>Attach transcript file&#x2026;</strong> command that calls it.</li><li>Drop the file on the meeting in the menu bar popover.</li><li>A <code>file-import</code> source with <code>watch</code> set picks up a matching file that appears after a meeting it is waiting for. If two meetings are waiting, it asks which one instead of guessing.</li></ul>
+<p>The importer reads WebVTT and SRT. It accepts speakers as WebVTT voice spans (<code>&lt;v Priya Raman&gt;</code>) and as a leading <code>Name: </code> prefix, the latter only when the prefix is at most four words and repeats across cues, so a line like "Note: the vendor said&#x2026;" isn't turned into a speaker called Note. Styling tags and positioning are stripped. Each cue becomes one final segment with ID <code>cue-&lt;cue identifier or index&gt;</code>; WorkScribe's own turn grouping joins short cues into readable turns, as it already does for NeMo's fragments (<code>RealRecordingTests</code> covers 25 fragments becoming 5 turns).</p>
+<hr>
+<h2 id="4-choosing-a-source-rules-and-policy">4. Choosing a source: rules and policy</h2>
+<h3 id="41-where-configuration-lives">4.1 Where configuration lives</h3>
+<div class="table"><table><thead><tr><th>Layer</th><th>Location</th><th>Can set</th><th>Who edits it</th></tr></thead><tbody><tr><td>Built-in</td><td>compiled in</td><td><code>use = ["local-recorder", "notes-only"]</code></td><td>upstream</td></tr><tr><td>Fork defaults</td><td><code>WorkScribe.app/Contents/Resources/sources.default.toml</code></td><td>sources, rules, policy</td><td>the fork's author</td></tr><tr><td>User</td><td><code>~/Library/Application Support/WorkScribe/sources.toml</code></td><td>sources, rules, policy (self-imposed)</td><td>the person, directly or in Settings &#x203A; Sources</td></tr><tr><td>Organization file</td><td><code>/Library/Application Support/WorkScribe/policy.toml</code></td><td>sources, rules, policy, <code>user_rules</code></td><td>an administrator</td></tr><tr><td>Managed</td><td>a configuration profile for the app's bundle ID, key <code>SourcePolicy</code>, a dictionary with the same schema</td><td>same as the organization file</td><td>MDM</td></tr></tbody></table></div>
+<p>The organization file is read only if it is owned by root and not writable by others; otherwise it is ignored and Settings says why. That doesn't stop an administrator of the Mac from editing it. The point is that the app can't, and the user can't by accident. When both organization layers exist, both apply.</p>
+<p><strong>Rules</strong> are tried in this order, and the first rule whose <code>when</code> matches chooses the chain: managed, organization, user, fork defaults, built-in. If an organization sets <code>user_rules = false</code>, user rules are skipped and Settings &#x203A; Sources says "Your organization chooses sources on this Mac".</p>
+<p><strong>Policy</strong> is not ordered. Every <code>[[policy]]</code> entry whose <code>when</code> matches, from every layer, applies, and prohibitions add up. Nothing can turn a prohibition back off. A user may write policy too, as a promise to themselves ("never record calls with my doctor"), and it is enforced the same way.</p>
+<h3 id="42-why-toml">4.2 Why TOML</h3>
+<p>The configuration is TOML, parsed by a small strict reader in Core that accepts only what this schema uses (tables, arrays of tables, dotted keys, strings, numbers, booleans, arrays) and reports anything else with a line number. Reasons:</p>
+<ul><li>Comments. A policy file needs to say why a rule exists, for the next administrator.</li><li>Ordered <code>[[rules]]</code> express a fallback list without nesting.</li><li>No significant whitespace, and no YAML-style surprises where <code>no</code> becomes false.</li><li>It maps one-to-one onto the plist dictionary MDM delivers and onto JSON, so the same schema (<code>docs/specs/sources.schema.json</code>) validates all three.</li></ul>
+<p>The cost is a parser, since Foundation has none. Writing ~250 lines keeps WorkScribe's dependency list at two packages; taking a TOML package is the alternative (see Decisions).</p>
+<h3 id="43-the-file">4.3 The file</h3>
+<div class="code" data-lang="toml"><pre><code>version = 1
+
+<span class="tc"># Sources you've installed or configured. local-recorder, file-import and notes-only always exist.</span>
+<span class="tk">[sources.zoom-captions]</span>
+kind = <span class="ts">"command"</span>
+path = <span class="ts">"Sources/zoom-captions"</span>            <span class="tc"># relative to this file's folder</span>
+
+<span class="tk">[[rules]]</span>
+name = <span class="ts">"Zoom calls"</span>
+when.app = [<span class="ts">"zoom"</span>]
+use = [<span class="ts">"zoom-captions"</span>, <span class="ts">"local-recorder"</span>]
+on_failure = <span class="ts">"notes-only"</span>
+
+<span class="tk">[[policy]]</span>
+when.calendar.title = [<span class="ts">"*therapy*"</span>, <span class="ts">"*doctor*"</span>]
+audio = <span class="ts">"forbidden"</span>
+reason = <span class="ts">"I don't record health appointments."</span></code></pre></div>
+<h3 id="44-conditions">4.4 Conditions</h3>
+<p>All conditions in one <code>when</code> must match. A list means any of its values. Every condition can be unknown, and unknown is handled explicitly:</p>
+<div class="table"><table><thead><tr><th>Condition</th><th>Matches</th><th>Source of truth</th><th>Unknown when</th></tr></thead><tbody><tr><td><code>app</code></td><td><code>zoom</code>, <code>teams</code>, <code>webex</code>, <code>facetime</code>, <code>slack</code>, <code>discord</code>, <code>meet</code>, <code>browser</code>, or a bundle ID</td><td><code>CallDetector</code>: the app holding the microphone, or a browser whose meeting window title matched. Not the frontmost app: you're usually typing in Obsidian.</td><td>manual or API start with no call detected</td></tr><tr><td><code>trigger</code></td><td><code>call</code>, <code>manual</code>, <code>api</code>, <code>import</code></td><td>how the meeting started</td><td>never</td></tr><tr><td><code>window</code></td><td>glob over the call window's title</td><td><code>CGWindowList</code>, needs Screen Recording</td><td>permission missing</td></tr><tr><td><code>calendar.title</code></td><td>globs</td><td>a calendar provider (EventKit is planned, not built)</td><td>no provider, no access, or no event now</td></tr><tr><td><code>calendar.organizer_domain</code></td><td>domains</td><td>same</td><td>same</td></tr><tr><td><code>calendar.attendee_domain</code></td><td>domains, any attendee</td><td>same</td><td>same</td></tr><tr><td><code>calendar.link</code></td><td>globs over the meeting URL (<code>*zoom.us/j/*</code>)</td><td>same</td><td>same</td></tr><tr><td><code>source_available</code></td><td>source IDs</td><td>the availability probes</td><td>never (probes have a timeout)</td></tr><tr><td><code>network</code></td><td><code>online</code>, <code>offline</code></td><td><code>NWPathMonitor</code></td><td>before the first path update</td></tr><tr><td><code>time.days</code></td><td><code>mon</code>&#x2026;<code>sun</code></td><td>the Mac's clock and time zone</td><td>never</td></tr><tr><td><code>time.hours</code></td><td><code>"09:00-18:00"</code></td><td>same</td><td>never</td></tr></tbody></table></div>
+<p><code>if_unknown</code> decides what an unknown condition does: <code>"skip"</code> (the default for rules) treats the rule as not matching; <code>"match"</code> (the default for policy) treats it as matching. Policy fails closed: if an organization forbids recording for meetings organized from <code>acme.com</code> and WorkScribe can't see the calendar, it assumes the meeting might be one.</p>
+<h3 id="45-chains-policy-and-the-no-record-guarantee">4.5 Chains, policy and the no-record guarantee</h3>
+<p>A rule's <code>use</code> is an ordered chain. To pick a source WorkScribe:</p>
+<ol><li>finds the first rule that matches (4.1);</li><li>removes every source the combined policy forbids, remembering why;</li><li>appends <code>notes-only</code> if the chain doesn't end with it;</li><li>probes availability of what's left, in parallel;</li><li>uses the first that is ready.</li></ol>
+<p>Every step is recorded in <code>Meeting.transcriptSource</code>:</p>
+<div class="code" data-lang="json"><pre><code>{<span class="ts">"source"</span>:<span class="ts">"notes-only"</span>,<span class="ts">"kind"</span>:<span class="ts">"notes-only"</span>,<span class="ts">"label"</span>:<span class="ts">"Notes only"</span>,<span class="ts">"rule"</span>:<span class="ts">"Zoom calls"</span>,
+ <span class="ts">"chain"</span>:[{<span class="ts">"id"</span>:<span class="ts">"zoom-captions"</span>,<span class="ts">"outcome"</span>:<span class="ts">"unavailable"</span>,<span class="ts">"reason"</span>:<span class="ts">"Captions are off in this meeting."</span>},
+          {<span class="ts">"id"</span>:<span class="ts">"local-recorder"</span>,<span class="ts">"outcome"</span>:<span class="ts">"forbidden"</span>,<span class="ts">"reason"</span>:<span class="ts">"Acme doesn't allow recording meetings."</span>},
+          {<span class="ts">"id"</span>:<span class="ts">"notes-only"</span>,<span class="ts">"outcome"</span>:<span class="ts">"used"</span>}]}</code></pre></div>
+<p>Policy keys:</p>
+<div class="table"><table><thead><tr><th>Key</th><th>Values</th><th>Forbids</th></tr></thead><tbody><tr><td><code>audio</code></td><td><code>allowed</code>, <code>forbidden</code></td><td>any source with <code>audio.microphone</code> or <code>audio.system</code></td></tr><tr><td><code>audio_files</code></td><td><code>allowed</code>, <code>forbidden</code></td><td>sources with <code>audio.files</code> (transcribing another device's recording). Defaults to the value of <code>audio</code>.</td></tr><tr><td><code>screen</code></td><td><code>allowed</code>, <code>forbidden</code></td><td>screen video and OCR, and any source or context source with <code>screen</code></td></tr><tr><td><code>egress</code></td><td><code>internet</code>, <code>local</code>, <code>none</code></td><td>sources sending meeting content further than this</td></tr><tr><td><code>cloud</code></td><td><code>allowed</code>, <code>forbidden</code></td><td>cloud model and embedding providers (section 5)</td></tr><tr><td><code>sources</code></td><td>list of source IDs</td><td>everything not listed (an allowlist)</td></tr><tr><td><code>source_signers</code></td><td>Developer ID team IDs</td><td>command sources not signed by one of them</td></tr><tr><td><code>reason</code>, <code>contact</code></td><td>text</td><td>shown to the user, verbatim</td></tr></tbody></table></div>
+<p><strong>The no-record guarantee.</strong> When <code>audio = "forbidden"</code> applies, WorkScribe never opens the microphone or captures system audio. That has to hold even if a rule is wrong, a source lies, or a future change forgets to check. Three layers:</p>
+<ol><li><strong>One gate in the app.</strong> <code>CaptureGate.authorize(_ device:, meeting:)</code> is the only way to reach <code>AVCaptureDevice.requestAccess(for: .audio)</code>, <code>AVAudioEngine.inputNode</code>, an <code>SCStream</code> with <code>capturesAudio</code>, a Core Audio tap, or <code>ScreenRecorder.start</code>. It re-reads policy on every call rather than trusting the decision made at meeting start. A unit test fails the build if any of those APIs appears outside <code>Capture.swift</code> and <code>ScreenRecorder.swift</code>, and both files call the gate first. Under this policy WorkScribe never even asks for microphone permission, so macOS never shows the prompt and the orange microphone indicator never lights. The user can check that themselves.</li><li><strong>A tripwire on children.</strong> <code>CallDetector</code> already reads, every two seconds, which processes are using audio input (<code>kAudioHardwarePropertyProcessObjectList</code>, <code>kAudioProcessPropertyIsRunningInput</code>). The same loop checks WorkScribe's own process and every source it launched (by <code>kAudioProcessPropertyPID</code>). Under a no-audio policy, a child with live input is killed and the meeting records the violation. WorkScribe itself with live input is a bug, and capture is torn down immediately.</li><li><strong>An OS rule an administrator controls.</strong> A privacy preferences (PPPC) configuration profile can deny Microphone access to WorkScribe's bundle ID outright; Apple allows MDM to deny, though not to grant, microphone access. With that profile installed the guarantee no longer depends on WorkScribe's code at all, and it covers any child that macOS attributes to WorkScribe. The fork guide's sample org kit includes such a profile. Test it on your fleet's macOS version.</li></ol>
+<p>Layers 1 and 2 are what WorkScribe promises. Layer 3 is what lets an organization verify the promise without trusting WorkScribe.</p>
+<h3 id="46-what-the-user-sees">4.6 What the user sees</h3>
+<p>The pill today says "Mic + system" or "Mic only". It becomes the source's short label, and the menu and status API carry the full sentence. Words describe what is listening, never the mechanism.</p>
+<div class="table"><table><thead><tr><th>Situation</th><th>Pill</th><th>Menu / hover</th></tr></thead><tbody><tr><td>Recording on this Mac</td><td><code>&#x25CF; 12:04 &#xB7; Mic + system</code></td><td>Transcript from this Mac's mic and call audio.</td></tr><tr><td>Captions</td><td><code>&#x25CF; 12:04 &#xB7; Zoom captions</code></td><td>Transcript from Zoom's captions. Nothing is recorded.</td></tr><tr><td>Captions, recording forbidden</td><td><code>&#x25CF; 12:04 &#xB7; Zoom captions</code></td><td>Transcript from Zoom's captions. Recording is off: Acme doesn't allow recording meetings. Questions: it-help@acme.example</td></tr><tr><td>Fell back</td><td><code>&#x25CF; 12:04 &#xB7; Notes only</code></td><td>Zoom's captions are off in this meeting, so there's no transcript. Your notes still work. &#xB7; Turn on captions in Zoom</td></tr><tr><td>Waiting for a file</td><td><code>Notes only &#xB7; transcript later</code></td><td>The Teams transcript will be added when it's downloaded.</td></tr><tr><td>File arrived</td><td>&#x2014;</td><td>Transcript added and lined up with your notes (shifted 1 min 37 s).</td></tr><tr><td>Tried to record, policy says no</td><td>&#x2014;</td><td>Recording isn't allowed on this Mac. Set by Acme. Your notes still work.</td></tr><tr><td>Source degraded</td><td>amber dot</td><td>No captions for 2 minutes. Are captions on in Zoom?</td></tr></tbody></table></div>
+<p>Policy text is the administrator's, quoted, with their contact. Nothing about a policy is red: red means recording, amber means it needs you (<code>design/care</code> rule 3). Settings &#x203A; Sources shows the chain each rule produces, greys out what policy removes with the reason beside it, and marks organization-set items "Set by your organization".</p>
+<p><code>GET /v1/status</code> gains:</p>
+<div class="code" data-lang="json"><pre><code><span class="ts">"transcript"</span>: {<span class="ts">"source"</span>:<span class="ts">"zoom-captions"</span>,<span class="ts">"kind"</span>:<span class="ts">"command"</span>,<span class="ts">"label"</span>:<span class="ts">"Zoom's captions"</span>,<span class="ts">"short"</span>:<span class="ts">"Zoom captions"</span>,
+               <span class="ts">"live"</span>:true,<span class="ts">"state"</span>:<span class="ts">"listening"</span>,<span class="ts">"policy"</span>:[<span class="ts">"Acme doesn't allow recording meetings."</span>]}</code></pre></div>
+<p>The existing <code>sources:{mic,system,screen}</code> booleans stay, and become accurate: <code>mic</code> is false under captions.</p>
+<h3 id="47-worked-examples">4.7 Worked examples</h3>
+<p><strong>1. The company forbids recording, allows the platform's transcript, and otherwise wants notes only.</strong> Installed by IT as <code>/Library/Application Support/WorkScribe/policy.toml</code>, with the captions source in <code>/Library/Application Support/WorkScribe/Sources/zoom-captions/</code>.</p>
+<div class="code" data-lang="toml"><pre><code>version = 1
+user_rules = false
+
+<span class="tk">[[policy]]</span>
+audio = <span class="ts">"forbidden"</span>
+screen = <span class="ts">"forbidden"</span>
+cloud = <span class="ts">"forbidden"</span>
+sources = [<span class="ts">"zoom-captions"</span>, <span class="ts">"zoom-transcript"</span>, <span class="ts">"notes-only"</span>]
+reason = <span class="ts">"Acme doesn't allow recording meetings. Zoom's own transcript is approved."</span>
+contact = <span class="ts">"it-help@acme.example"</span>
+
+<span class="tk">[sources.zoom-captions]</span>
+kind = <span class="ts">"command"</span>
+path = <span class="ts">"/Library/Application Support/WorkScribe/Sources/zoom-captions"</span>
+
+<span class="tk">[sources.zoom-transcript]</span>
+kind = <span class="ts">"file-import"</span>
+label = { sentence = <span class="ts">"Zoom's saved transcript"</span>, short = <span class="ts">"Zoom transcript"</span> }
+watch = <span class="ts">"~/Documents/Zoom"</span>        <span class="tc"># wherever your Zoom client saves transcripts; check, don't assume</span>
+match = [<span class="ts">"*.vtt"</span>]
+within = <span class="ts">"2h"</span>                     <span class="tc"># only files that appear within 2 h of the meeting ending</span>
+
+<span class="tk">[[rules]]</span>
+name = <span class="ts">"Zoom"</span>
+when.app = [<span class="ts">"zoom"</span>]
+use = [<span class="ts">"zoom-captions"</span>, <span class="ts">"zoom-transcript"</span>]   <span class="tc"># live captions; if they're off, the saved file afterwards</span>
+
+<span class="tk">[[rules]]</span>
+name = <span class="ts">"Everything else"</span>
+use = [<span class="ts">"notes-only"</span>]</code></pre></div>
+<p>Pair it with the PPPC profile from 4.5. The local recorder can't run here: policy removes it even if someone adds it to a rule, and <code>user_rules = false</code> keeps personal rules out.</p>
+<p><strong>2. Personal default: record locally.</strong> No file is needed; this is the built-in rule. Written out, with one personal limit:</p>
+<div class="code" data-lang="toml"><pre><code>version = 1
+
+<span class="tk">[[rules]]</span>
+name = <span class="ts">"Default"</span>
+use = [<span class="ts">"local-recorder"</span>]
+
+<span class="tk">[[policy]]</span>
+when.calendar.title = [<span class="ts">"*therapy*"</span>, <span class="ts">"*doctor*"</span>, <span class="ts">"*1:1 with HR*"</span>]
+audio = <span class="ts">"forbidden"</span>
+reason = <span class="ts">"I don't record these."</span></code></pre></div>
+<p>Until a calendar provider exists, that policy's calendar condition is unknown, and policy fails closed, so <em>every</em> meeting would lose recording. Add <code>if_unknown = "skip"</code> to that <code>[[policy]]</code> if you'd rather it applied only when the calendar is known.</p>
+<p><strong>3. Import a VTT after the call.</strong> Teams lets you download a transcript after a meeting; take notes during the call and let the transcript fill in the evidence afterwards.</p>
+<div class="code" data-lang="toml"><pre><code>version = 1
+
+<span class="tk">[sources.teams-download]</span>
+kind = <span class="ts">"file-import"</span>
+label = { sentence = <span class="ts">"the transcript you download from Teams"</span>, short = <span class="ts">"Teams transcript"</span> }
+watch = <span class="ts">"~/Downloads"</span>
+match = [<span class="ts">"*.vtt"</span>]
+within = <span class="ts">"6h"</span>
+
+<span class="tk">[[rules]]</span>
+name = <span class="ts">"Teams"</span>
+when.app = [<span class="ts">"teams"</span>]
+use = [<span class="ts">"teams-download"</span>]</code></pre></div>
+<p>During the call the pill reads "Notes only &#xB7; transcript later". After Stop, the meeting waits. When a <code>.vtt</code> lands in Downloads within six hours, it's matched to the meeting that ended most recently before it appeared, aligned against your notes, and the final pencil pass runs. If you Finalize first, the note is finalized from your notes alone.</p>
+<p><strong>4. If Zoom's captions are up, use them; otherwise record locally.</strong> For someone allowed to record who would rather not when a transcript exists anyway.</p>
+<div class="code" data-lang="toml"><pre><code>version = 1
+
+<span class="tk">[sources.zoom-captions]</span>
+kind = <span class="ts">"command"</span>
+path = <span class="ts">"Sources/zoom-captions"</span>
+
+<span class="tk">[[rules]]</span>
+name = <span class="ts">"Zoom: captions first"</span>
+when.app = [<span class="ts">"zoom"</span>]
+use = [<span class="ts">"zoom-captions"</span>, <span class="ts">"local-recorder"</span>]
+on_failure = <span class="ts">"notes-only"</span>        <span class="tc"># if captions die mid-call, don't start the mic on my behalf</span>
+
+<span class="tk">[[rules]]</span>
+name = <span class="ts">"Everything else"</span>
+use = [<span class="ts">"local-recorder"</span>]</code></pre></div>
+<p>If captions are off when the call starts, the probe says so and the recorder starts. If they stop halfway, WorkScribe offers "Record instead" and doesn't start recording on its own.</p>
+<p><strong>5. A team bridge during office hours, a client who forbids recording, and local recording otherwise.</strong></p>
+<div class="code" data-lang="toml"><pre><code>version = 1
+
+<span class="tk">[sources.team-bridge]</span>
+kind = <span class="ts">"ingest"</span>
+label = { sentence = <span class="ts">"the team caption bridge"</span>, short = <span class="ts">"Team bridge"</span> }
+capabilities = { timing = <span class="ts">"live"</span>, partials = true, speakers = <span class="ts">"names"</span>, words = false, corrections = true, audio = { microphone = false, system = false, files = false }, screen = false, permissions = [<span class="ts">"network"</span>], egress = <span class="ts">"local"</span>, clock = <span class="ts">"wall"</span>, keepsAudio = false }
+
+<span class="tk">[[policy]]</span>
+when.calendar.attendee_domain = [<span class="ts">"halvorsen.example"</span>]
+if_unknown = <span class="ts">"skip"</span>
+audio = <span class="ts">"forbidden"</span>
+reason = <span class="ts">"Halvorsen's contract doesn't allow recordings."</span>
+
+<span class="tk">[[rules]]</span>
+name = <span class="ts">"Office hours"</span>
+when.time.days = [<span class="ts">"mon"</span>, <span class="ts">"tue"</span>, <span class="ts">"wed"</span>, <span class="ts">"thu"</span>, <span class="ts">"fri"</span>]
+when.time.hours = <span class="ts">"09:00-18:00"</span>
+when.network = <span class="ts">"online"</span>
+use = [<span class="ts">"team-bridge"</span>, <span class="ts">"local-recorder"</span>]
+
+<span class="tk">[[rules]]</span>
+name = <span class="ts">"Otherwise"</span>
+use = [<span class="ts">"local-recorder"</span>]</code></pre></div>
+<p>A Halvorsen meeting during office hours uses the bridge if it's up, and notes only if it isn't, because policy removes the recorder from the chain.</p>
+<p><code>docs/specs/sources.example.toml</code> is the complete reference with every key commented.</p>
+<hr>
+<h2 id="5-the-other-seams">5. The other seams</h2>
+<p>The same shape as transcript sources, with less to say. Each has a Swift protocol, a way in without Swift where one makes sense, policy that applies to it, and obligations toward retention.</p>
+<h3 id="51-note-and-answer-models">5.1 Note and answer models</h3>
+<p>Today <code>AnswerGenerator</code> (<code>displayName</code>, <code>provider</code>, <code>modelName</code>, <code>isAvailable</code>, <code>stream</code>) is a clean seam for answers, with <code>LlamaAnswerGenerator</code>, <code>AppleIntelligenceAnswerGenerator</code>, <code>OpenAIResponsesGenerator</code> and <code>FallbackAnswerGenerator</code>. Note lines and titles bypass it: <code>NoteEnhancer</code> and <code>TitleGenerator</code> call <code>ws_generate_text</code> directly and build Qwen and Gemma chat templates inline.</p>
+<p>One protocol for all three jobs, with templates owned by the provider:</p>
+<div class="code" data-lang="swift"><pre><code><span class="tk">public</span> <span class="tk">struct</span> ModelMessage: Sendable { <span class="tk">public</span> <span class="tk">enum</span> Role: String, Sendable { <span class="tk">case</span> system, user }; <span class="tk">public</span> <span class="tk">var</span> role: Role; <span class="tk">public</span> <span class="tk">var</span> text: String }
+<span class="tk">public</span> <span class="tk">struct</span> ModelRequest: Sendable {
+    <span class="tk">public</span> <span class="tk">var</span> job: ModelJob              <span class="tc">// .noteLines, .title, .answer</span>
+    <span class="tk">public</span> <span class="tk">var</span> messages: [ModelMessage]
+    <span class="tk">public</span> <span class="tk">var</span> maxTokens: Int
+    <span class="tk">public</span> <span class="tk">var</span> stop: [String]
+}
+<span class="tk">public</span> <span class="tk">protocol</span> TextModel: Sendable {
+    <span class="tk">var</span> id: String { get }                <span class="tc">// "local-qwen", "openai", "ollama"</span>
+    <span class="tk">var</span> displayName: String { get }       <span class="tc">// "Qwen 3.5 &#xB7; on this Mac" &#x2014; shown under answers and in Why?</span>
+    <span class="tk">var</span> location: ModelLocation { get }   <span class="tc">// .onDevice, .localNetwork, .cloud</span>
+    <span class="tk">var</span> isAvailable: Bool { get }
+    <span class="tk">func</span> stream(_ request: ModelRequest) -&gt; AsyncThrowingStream&lt;String, Error&gt;
+}</code></pre></div>
+<div class="code" data-lang="toml"><pre><code><span class="tk">[models]</span>
+note_lines = [<span class="ts">"local"</span>]
+titles = [<span class="ts">"local"</span>]
+answers = [<span class="ts">"openai"</span>, <span class="ts">"local"</span>]          <span class="tc"># first available; falls back before any text, like today</span>
+
+<span class="tk">[models.providers.ollama]</span>
+kind = <span class="ts">"openai-compatible"</span>
+base_url = <span class="ts">"http://127.0.0.1:11434/v1"</span>
+model = <span class="ts">"qwen3.5:7b"</span>
+location = <span class="ts">"on-device"</span></code></pre></div>
+<p><code>OpenAIResponsesGenerator</code> already has an <code>endpoint</code> property; the OpenAI-compatible provider makes it configuration. Policy <code>cloud = "forbidden"</code> removes providers whose location is <code>cloud</code>. Provenance stays honest: the <code>trace</code> shows the provider that actually answered, as <code>AnswerProvenance</code> does today. Obligations: a provider is stateless (no conversation memory outside WorkScribe's stores, which purge), treats prompt content as data, and never logs prompts.</p>
+<h3 id="52-screen-and-context-sources">5.2 Screen and context sources</h3>
+<p>Today <code>ScreenRecorder</code> records <code>screen.mov</code>, OCRs changed frames and emits <code>ScreenMoment</code>s on the meeting clock. A <code>ContextSource</code> shares the transcript source's lifecycle, capability declaration, rules and wire protocol, and emits <code>moment</code> events (<code>id, start, end, text, app?, window?</code>) that become <code>ScreenMoment</code>s. A fork might want only the frontmost window's title and no pixels at all, or slide text read from Keynote. Policy <code>screen = "forbidden"</code> removes any context source declaring <code>screen</code>, and <code>ScreenPrivacy</code>'s deny list still applies to whatever does run. Context rules are a separate <code>[[context_rules]]</code> list with the same <code>when</code> and <code>use</code>, so a meeting can use captions for text and window titles for context.</p>
+<h3 id="53-where-notes-live">5.3 Where notes live</h3>
+<p>Two paths reach the vault today. The live meeting document is a real Obsidian note bound to the plugin (<code>NoteDocument</code>, <code>VaultStore.openDocument</code> / <code>finalizeDocument</code>); that path is Obsidian-specific and stays that way, because the pencil lives in CodeMirror. The other path writes the final write-up for meetings without a live document (<code>VaultStore.writeMeeting(MeetingWriteUp)</code> &#x2192; <code>VaultWriter.render</code> and <code>merge</code>). That second path is the seam:</p>
+<div class="code" data-lang="swift"><pre><code><span class="tk">public</span> <span class="tk">protocol</span> NoteDestination: Sendable {
+    <span class="tk">var</span> id: String { get }
+    <span class="tk">var</span> displayName: String { get }                          <span class="tc">// "Obsidian vault &#x201C;Work&#x201D;", "Logseq graph", "Notion"</span>
+    <span class="tk">func</span> write(_ writeUp: MeetingWriteUp) <span class="tk">async</span> <span class="tk">throws</span> -&gt; NoteWriteOutcome   <span class="tc">// created &#xB7; updated &#xB7; unchanged &#xB7; conflicted &#xB7; unavailable</span>
+    <span class="tk">func</span> location(forMeeting id: String) -&gt; String?           <span class="tc">// shown in Recent and returned as vaultPath</span>
+    <span class="tk">func</span> releaseManagedMarkers(meetingID: String) <span class="tk">async</span> <span class="tk">throws</span> <span class="tc">// at the fade; WorkScribe never writes again</span>
+}</code></pre></div>
+<p>Obligations, all of which <code>VaultStore</code> meets today: writes are atomic; the user's edits are never overwritten (a conflicting version goes beside the note); writing is idempotent because finalization can replay after a crash; and the outcome must be honest, because <strong>raw material is purged only after a successful write</strong>. That last point is a real tradeoff: <code>MeetingRetention.finalize</code> throws <code>missingNote</code> when the destination is unavailable, and purge waits. A destination that can be offline (Notion, a network share) should render Markdown into WorkScribe's local Notes folder and report that path rather than fail, or the 24-hour promise quietly becomes "24 hours or until the destination is back".</p>
+<h3 id="54-embedder">5.4 Embedder</h3>
+<p><code>Embedder</code> (<code>modelID</code>, <code>dimension</code>, <code>text</code>, <code>texts</code>, <code>audio</code>, <code>image</code>) already lives in Core, and <code>SearchIndex</code> already re-embeds when <code>modelID</code> changes. What changes is small: <code>IndexService</code> holds <code>any Embedder</code> instead of <code>CoreMLEmbedder?</code>, and memory release becomes an optional <code>ReleasableEmbedder</code> refinement. An <code>openai-compatible</code> embeddings provider (<code>base_url</code>, <code>model</code>, <code>dimension</code>) covers Ollama and hosted models. An embedder sends text off the Mac if its endpoint is remote, so <code>cloud = "forbidden"</code> applies to it too. <code>modelID</code> must change whenever anything that affects vectors changes, or the index silently mixes spaces.</p>
+<hr>
+<h2 id="6-forking">6. Forking</h2>
+<h3 id="61-repository-layout">6.1 Repository layout</h3>
+<div class="code" data-lang="text"><pre><code>Package.swift                         // one marked block for fork dependencies (6.4)
+Sources/
+  WorkScribeCore/                     upstream. Models, stores, retention, search, API shapes. Pure, tested.
+    Sources/                          new: TranscriptSource, SourceEvent, Capabilities, Rules, Policy,
+                                      TOML reader, Alignment, Wire (wsp/1 codec), Conformance checks
+  WorkScribe/                         upstream. The app.
+    Sources/                          new: SourceHost, SourceRegistry, CaptureGate, AudioTranscriber,
+                                      LocalRecorderSource, FileImportSource, CommandSource, IngestSource,
+                                      ReplaySource, NotesOnlySource
+  WorkScribeExtensions/               yours. Upstream ships a stub and never edits this directory again.
+    Register.swift
+  WorkScribeNativeHost/               upstream. Browser native messaging.
+Resources/
+  sources.default.toml                yours if you want fork defaults (4.1). Upstream ships none.
+  Brand.plist                         yours (6.5)
+  licenses/                           upstream + yours
+examples/sources/tail-file/           upstream. The Python reference command source.
+Tests/
+  SourceConformance/fixtures/         upstream fixtures; add your own beside them
+  WorkScribeExtensionsTests/          yours
+docs/specs/                           this spec, the wire schema, the config schema, the example config
+obsidian-plugin/                      upstream</code></pre></div>
+<h3 id="62-where-your-code-goes">6.2 Where your code goes</h3>
+<p><strong>A command source</strong> needs no fork at all: put the folder in <code>~/Library/Application Support/WorkScribe/Sources/&lt;id&gt;/</code> and declare it in <code>sources.toml</code>. For a team, ship the folder and a policy file with your device management. Fork only if you need to change WorkScribe itself.</p>
+<p><strong>A Swift source</strong> goes in <code>Sources/WorkScribeExtensions/</code>:</p>
+<div class="code" data-lang="swift"><pre><code><span class="tc">// Sources/WorkScribeExtensions/Register.swift &#x2014; upstream ships this with an empty body</span>
+<span class="tk">import</span> WorkScribeCore
+
+<span class="tk">public</span> <span class="tk">enum</span> ForkExtensions {
+    <span class="tk">public</span> <span class="tk">static</span> <span class="tk">func</span> register(_ registry: inout ExtensionRegistry) {
+        registry.transcriptSource(kind: <span class="ts">"zoom-ax"</span>) { config <span class="tk">in</span> <span class="tk">try</span> ZoomCaptionsSource(config: config) }
+        <span class="tc">// registry.contextSource(kind:&#x2026;), registry.textModel(id:&#x2026;), registry.noteDestination(id:&#x2026;), registry.embedder(id:&#x2026;)</span>
+    }
+}</code></pre></div>
+<p><code>sources.toml</code> then refers to <code>kind = "zoom-ax"</code> with its own <code>[sources.&lt;id&gt;.config]</code> table, passed to your factory as <code>[String: ConfigValue]</code>. The app target calls <code>ForkExtensions.register</code> once at launch, after the built-ins, and a fork's kind may not reuse a built-in kind name.</p>
+<p><strong>Fork defaults</strong> go in <code>Resources/sources.default.toml</code>. A company fork can ship its rules and policy in the app itself; administrators can still add an organization file on top.</p>
+<h3 id="63-the-conformance-kit">6.3 The conformance kit</h3>
+<div class="code" data-lang="sh"><pre><code>.build/debug/WorkScribe --verify-source zoom-captions                  <span class="tc"># everything that applies to its capabilities</span>
+.build/debug/WorkScribe --verify-source zoom-captions --only wire,clock
+.build/debug/WorkScribe --verify-source ./my-capture.jsonl --as live-wall   <span class="tc"># check a recorded event stream</span>
+.build/debug/WorkScribe --verify-source zoom-captions --json &gt; report.json</code></pre></div>
+<p>Like <code>--verify-purge</code> and <code>--serve-api-for-tests</code>, it runs against a throwaway meeting store, conversation store, vault and index in a temporary folder. It never touches your library or vault, opens no audio device, and loads no models unless a check needs the recognizer.</p>
+<p>Your source can't be driven by a fixture (nobody can script Zoom), so the kit works on two things: your source's <em>behaviour</em> where it can control the inputs, and your source's <em>output</em>, recorded from a real session (<code>--record-fixture</code> writes the event stream to JSONL with text you can replace by synthetic text before committing it).</p>
+<div class="table"><table><thead><tr><th>Check</th><th>What it proves</th><th>How</th></tr></thead><tbody><tr><td><code>manifest</code></td><td>the manifest parses and matches <code>hello</code></td><td>launch in probe mode, compare</td></tr><tr><td><code>probe</code></td><td>availability answers within 3 s, with a readable reason when unavailable</td><td>launch in probe mode with sample contexts</td></tr><tr><td><code>wire</code></td><td>every line is valid <code>wsp/1</code>; <code>hello</code> first, <code>end</code> last, nothing after <code>end</code></td><td>schema validation over the session</td></tr><tr><td><code>ids</code></td><td>IDs are stable through partial &#x2192; final &#x2192; revise; never reused; revises and retracts refer to known finals</td><td>event-stream analysis</td></tr><tr><td><code>clock</code></td><td>times are in the declared clock, <code>start &#x2264; end</code>, finals ordered per channel, within the meeting &#xB1; 5 min</td><td>event-stream analysis</td></tr><tr><td><code>alignment</code></td><td>the golden meeting lines up: each typed note's best excerpt is the expected one</td><td>replay the fixture "Offline sync &#x2014; v2.4 scope" (notes typed at known seconds) through <code>SourceHost</code> and <code>NotePlanner</code>; for <code>media</code> sources, inject a +97 s offset and require recovery within &#xB1;5 s</td></tr><tr><td><code>evidence</code></td><td>citations survive corrections</td><td>cite segments, apply <code>revise</code> and <code>retract</code>, require every <code>excerptRef</code> and <code>workscribe://</code> link to resolve or be cleanly removed</td></tr><tr><td><code>lifecycle</code></td><td><code>stop</code> &#x2192; <code>end</code> within 10 s; stdin EOF &#x2192; exit within 5 s; a crash is restarted and deduplicated</td><td>drive the process; kill it mid-session</td></tr><tr><td><code>capabilities</code></td><td>the source does only what it declares</td><td>under <code>audio = "forbidden"</code>, run a full meeting with a <code>CaptureGate</code> spy and the child tripwire; any open input fails</td></tr><tr><td><code>purge</code></td><td>nothing survives Done</td><td>run a meeting with the sentinel text <code>zebra-quartz-7731</code>, press Done, then require: meeting folder gone, source scratch gone, <code>purged</code> received if declared, and no file under the source's folder or declared paths containing the sentinel</td></tr><tr><td><code>ux</code></td><td>status messages are human</td><td><code>status.message</code> and availability reasons are sentences under 120 characters, with no stack traces or transcript text</td></tr></tbody></table></div>
+<p>The fixtures live in <code>Tests/SourceConformance/fixtures/</code> as event streams (<code>golden-live-wall.jsonl</code>, <code>golden-media.vtt</code>, <code>golden-notes.json</code> and so on), built from the same "Offline sync &#x2014; v2.4 scope" meeting the design pages use. Upstream runs the kit against its own reference sources in CI, so a change that breaks the contract breaks upstream first.</p>
+<h3 id="64-staying-mergeable">6.4 Staying mergeable</h3>
+<ul><li><strong>Extend, don't edit.</strong> Everything in 6.2 is additive. If you find yourself editing <code>AppModel.swift</code>, that's a missing seam; open an issue upstream before you patch it.</li><li><strong>One shared file.</strong> <code>Sources/WorkScribeExtensions/Register.swift</code> is created once by upstream and never changed again. Its only conflicts will be your own.</li><li><strong>Dependencies.</strong> <code>Package.swift</code> gets a marked block, <code>// fork: dependencies</code> / <code>// end fork</code>, that upstream keeps empty. Adding a package is a clean insertion that merges without conflicts.</li><li><strong>Config instead of code.</strong> Defaults belong in <code>Resources/sources.default.toml</code>, not in Swift literals.</li><li><strong>Branding in one file.</strong> <code>Resources/Brand.plist</code> (6.5).</li><li><strong>Run the kit on every merge.</strong> It is the contract; if upstream broke it, you'll see it before your users do.</li><li><strong>Keep fork-only tests in <code>Tests/WorkScribeExtensionsTests/</code></strong> so upstream's test files merge cleanly.</li></ul>
+<h3 id="65-naming-and-branding">6.5 Naming and branding</h3>
+<p>A fork that runs beside upstream on one Mac must not share its identity, or the two will fight over data folders, keychain items, URL links and the Obsidian plugin. Today about 25 literals in 20 files carry that identity. Migration step 9 collects them into <code>Brand</code>, read from <code>Resources/Brand.plist</code> and stamped into <code>Info.plist</code> by <code>scripts/build-app.sh</code>:</p>
+<div class="table"><table><thead><tr><th>Key</th><th>Upstream</th><th>Used for</th></tr></thead><tbody><tr><td><code>name</code></td><td>WorkScribe</td><td>menu, notifications, About, MCP server name</td></tr><tr><td><code>bundleID</code></td><td><code>local.workscribe.app</code></td><td>Info.plist, managed preferences domain, TCC grants</td></tr><tr><td><code>urlScheme</code></td><td><code>workscribe</code></td><td>deep links (<code>DeepLink.swift</code>)</td></tr><tr><td><code>dataFolder</code></td><td><code>WorkScribe</code></td><td><code>~/Library/Application Support/&lt;dataFolder&gt;/</code>: meetings, <code>api.json</code>, sources, <code>sources.toml</code></td></tr><tr><td><code>orgFolder</code></td><td><code>WorkScribe</code></td><td><code>/Library/Application Support/&lt;orgFolder&gt;/</code></td></tr><tr><td><code>keychainService</code></td><td><code>local.workscribe.openai</code></td><td>the cloud API key</td></tr><tr><td><code>pluginID</code></td><td><code>workscribe</code></td><td>the Obsidian plugin's id and discovery</td></tr><tr><td><code>nativeHost</code></td><td>per <code>extras/chrome-extension</code></td><td>browser clip channel</td></tr></tbody></table></div>
+<p>Pick a name that is yours ("Fieldbook Notes"), not "WorkScribe Pro" or "WorkScribe for Acme". Replace the app icon ("Heard, then written") and the Indigo Wash identity: they are upstream's. An About line such as "Based on WorkScribe" is welcome. Keep <code>wsp/1</code> as the protocol's name: sources are meant to work with any fork.</p>
+<h3 id="66-licensing">6.6 Licensing</h3>
+<p>Check this before you share a build with anyone.</p>
+<ul><li><strong>WorkScribe is licensed under Apache-2.0</strong> (<code>LICENSE</code>). Forks may copy, modify and redistribute it under those terms, keeping the notices.</li><li><p><strong>Third-party notices are in <code>Resources/licenses/</code>:</strong></p><ul><li>DigUp, MIT: ported search files say so in their headers. Keep the headers and the notice.</li><li>FluidUse, Apache-2.0.</li><li>FluidAudio model artifacts, CC-BY-4.0 for the listed files: attribution required.</li><li>EmbeddingGemma 2 Core ML: Apache-2.0 per its model card. The notice says to verify the upstream Gemma weight terms before distributing a build that bundles them.</li><li>Image understanding: Gemma 4 terms. <code>Sources/CTextGeneration/vendor/</code> has llama.cpp's MIT license and the title models' notice, which says both are Apache-2.0.</li></ul></li><li><p><strong>Gaps to close before distributing a build:</strong></p><ul><li>NeMo-Speech.cpp and the two NVIDIA models are downloaded by <code>scripts/runtime-doctor.py</code> with pinned hashes, but there is no notice for them in <code>Resources/licenses/</code>. Check their licenses and add one.</li><li>The app target links the <strong>Plaud SDK frameworks</strong> (<code>WorkScribePlaud</code>). <code>experiments/plaud-macos/README.md</code> says the SDK binaries have a separate proprietary license and are not checked in. A fork that doesn't need Note Pro import should drop that target. One that does needs Plaud's terms for redistribution.</li></ul></li><li><strong>Your sources are your own.</strong> A command source is a separate program talking a documented protocol over pipes. It needs no particular license to run with WorkScribe; check that with whoever advises you if it matters for your distribution. What it does inside a meeting platform is between you, the platform's terms and your employer.</li></ul>
+<hr>
+<h2 id="7-reference-examples">7. Reference examples</h2>
+<p>Upstream ships three sources with the seam. Together they cover live and post-hoc timing, all three clocks, in-process and out-of-process, labels and names, and audio and no audio, without integrating any platform.</p>
+<h3 id="71-local-recorder-todays-recorder-as-just-another-source">7.1 <code>local-recorder</code>: today's recorder as just another source</h3>
+<p><strong>Demonstrates</strong> that the contract carries the hardest case without loss: two audio channels, partials, word timing, diarization labels, per-track clock offsets, resume sessions, backlog pressure and failure handling (system audio blocked &#x2192; microphone only). <strong>Built from</strong> <code>AppModel.start</code> lines 191&#x2013;243, the pump loop, <code>finishRecording</code>'s drain, and <code>consume</code>. <strong>Checks:</strong> the existing reliability, resume and voice tests pass unchanged; <code>--verify-audio</code> and <code>--verify-combined</code> produce the same transcripts as before; under a no-audio policy it is filtered without being constructed.</p>
+<h3 id="72-file-import-vtt-and-srt-after-the-call">7.2 <code>file-import</code>: VTT and SRT after the call</h3>
+<p><strong>Demonstrates</strong> the post-hoc lifecycle (waiting, a deadline, arrival after Stop, arrival after Finalize), the media clock and alignment against notes, named speakers from a file, matching a file to the right meeting, and scratch-only storage. <strong>Lives</strong> in Core, as pure parsing and alignment with no app dependencies, so it is fully unit-tested: WebVTT with voice spans, Zoom-style <code>Name:</code> prefixes, SRT with comma decimals, BOMs, CRLF, malformed cues, and alignment recovering injected offsets from &#x2212;10 to +10 minutes.</p>
+<h3 id="73-examplessourcestail-file-a-command-source-in-python">7.3 <code>examples/sources/tail-file</code>: a command source in Python</h3>
+<p><strong>Demonstrates</strong> <code>wsp/1</code> end to end in about 150 lines of standard-library Python: the manifest, <code>hello</code> for probe, session and purge, the wall clock, a growing line sent as <code>partial</code> and then <code>final</code> under one ID, <code>Name: text</code> speaker names, heartbeats, <code>stop</code>, and exiting when stdin closes. It tails a text file in which each line is <code>Speaker: what they said</code>, so you can drive a whole meeting from a second terminal with <code>echo "Priya Raman: ship it on the 4th" &gt;&gt; ~/captions.txt</code>. <strong>It is the template</strong> for a captions reader: replace <code>read_new_lines()</code> with whatever reads your platform, keep everything else. It is also the command source the kit and upstream CI use.</p>
+<p>The files are in <code>docs/specs/examples/tail-file/</code> (<code>source.toml</code>, <code>tail_source.py</code>). They move to <code>examples/sources/tail-file/</code> in migration step 7.</p>
+<hr>
+<h2 id="8-migration-plan">8. Migration plan</h2>
+<p>Nine steps, each a reviewable change that leaves WorkScribe shippable. Steps 1&#x2013;3 are pure refactors: a user can't tell the difference, and the tests prove it.</p>
+<div class="table"><table><thead><tr><th>Step</th><th>Change</th><th>Test</th></tr></thead><tbody><tr><td>1</td><td><strong>Canonical events.</strong> <code>SourceEvent</code> and friends in Core. <code>TranscriptParser</code> gains <code>events(fromNeMo:)</code>. <code>AppModel.consume</code> takes <code>SourceEvent</code> instead of <code>[String: Any]</code>. IDs stay random for now.</td><td>Golden: feed <code>realrun-fragments.json</code> and the caption demo's script through old and new paths; <code>transcript.json</code> is identical apart from UUIDs. All existing tests pass.</td></tr><tr><td>2</td><td><strong>Replay source.</strong> <code>ReplaySource</code> plays a JSONL event stream. <code>WORKSCRIBE_CAPTION_DEMO</code> becomes a replay of a fixture instead of <code>runCaptionDemo</code>. The kit's skeleton (<code>--verify-source</code>) runs <code>wire</code>, <code>ids</code> and <code>clock</code> against it.</td><td>Caption preview looks the same (screenshot diff in the QA app). Kit passes on the golden fixture and fails on deliberately broken ones.</td></tr><tr><td>3</td><td><strong>Extract the recorder.</strong> <code>AudioTranscriber</code> from <code>SpeechConnection</code> + <code>AudioBacklog</code> + parser. <code>LocalRecorderSource</code> from the start/pump/drain code. <code>SourceHost</code> owns the active source. <code>RecordingPressure</code> comes from source status. AppModel keeps the phase machine, notifications and the 10-second "only your mic" check, now asked of the source (<code>keepsAudio &amp;&amp; audio.system</code>).</td><td><code>RecordingReliabilityTests</code>, <code>ResumeCaptureTests</code>, <code>VoiceLifecycleTests</code>, <code>--verify-audio</code>, <code>--verify-combined</code>, <code>--verify-warm</code>. A real 30-minute call, comparing turn count and timings with a pre-refactor build on the same audio.</td></tr><tr><td>4</td><td><strong>Capture gate and policy (read-only).</strong> <code>CaptureGate</code> in front of every capture API; the API-usage lint test; policy layers parsed and shown in Settings, enforced by the gate; child tripwire. No rules yet: the chain is still always the recorder.</td><td>Under <code>audio = "forbidden"</code>: a full meeting runs, the gate spy counts zero opens, no microphone prompt appears (manual check on a fresh user account), and the meeting is notes-only. Lint test fails on a planted <code>AVAudioEngine()</code> elsewhere.</td></tr><tr><td>5</td><td><strong>Rules and selection.</strong> TOML reader, <code>SourceSelector</code> (pure), <code>Meeting.transcriptSource</code>, status <code>transcript</code>, SSE <code>source</code>, Settings &#x203A; Sources, the plugin pill using <code>transcript.short</code>. <code>notes-only</code> as a real source.</td><td>Table tests over contexts &#xD7; layers &#xD7; policy, including unknown conditions and <code>if_unknown</code>. TOML reader tests with line-numbered errors. Plugin tests for the pill text.</td></tr><tr><td>6</td><td><strong>Deterministic IDs, speaker names, file import.</strong> UUIDv5 segment IDs for new sessions; <code>speakerNames</code>; chunk-ref fallback to segment; <code>FileImportSource</code> with VTT/SRT parsing, matching and alignment; transcript waiting state; <code>POST /v1/meetings/:id/transcript</code>; the plugin's <strong>Attach transcript file&#x2026;</strong> command.</td><td>Parser fixtures; alignment recovering injected offsets; evidence surviving <code>revise</code>; a late transcript after Finalize leaves the note byte-identical; purge removes the imported copy and leaves the original file.</td></tr><tr><td>7</td><td><strong>Command sources.</strong> Manifest loading, the <code>wsp/1</code> codec and schema, the supervisor (timeouts, restarts, dedupe, flooding, stderr ring), purge mode, <code>tail-file</code> moved to <code>examples/</code>.</td><td>Protocol tests driving <code>tail_source.py</code>; kill it mid-session and check dedupe; close stdin and check exit; malformed lines; a source declaring no audio that opens the mic is killed (a test helper that opens input).</td></tr><tr><td>8</td><td><strong>Ingest.</strong> The three endpoints; leases; 403/404/409/410 cases; the NDJSON body parser.</td><td><code>LocalAPITests</code> additions; <code>--serve-api-for-tests</code> with the plugin's test suite; a policy that forbids the declared source returns 403 with the reason.</td></tr><tr><td>9</td><td><strong>The rest of the seams and the fork kit.</strong> <code>TextModel</code> across notes, titles and answers; <code>ContextSource</code> with <code>ScreenRecorder</code> behind it; <code>NoteDestination</code>; <code>any Embedder</code> in <code>IndexService</code>; Plaud import as <code>plaud-import</code>; <code>Brand</code>; <code>WorkScribeExtensions</code> with its stub; the <code>Package.swift</code> fork block; the org kit (sample policy and PPPC profile).</td><td>Each seam's existing verification (<code>--verify-notes</code>, <code>--verify-title</code>, <code>--verify-screen</code>, <code>--verify-embedding</code>, <code>--verify-import</code>) still passes; a scratch fork with a different <code>Brand.plist</code> runs beside upstream on one Mac without sharing data, keychain or links.</td></tr></tbody></table></div>
+<p>What not to do: don't land step 4 after step 5. Rules that can choose a source must never exist before the gate that makes a wrong choice harmless.</p>
+<hr>
+<h2 id="9-decisions-for-you">9. Decisions for you</h2>
+<ol><li><strong>A license.</strong> Without one, forks can't legally be shared. MIT or Apache-2.0 suit the goal of this spec; Apache-2.0 adds an explicit patent grant. A source-available license would allow reading but not forking.</li><li><strong>TOML with a small built-in reader, or a TOML package.</strong> Recommended: the built-in reader (~250 lines, strict, good errors), to keep two dependencies. A package is less code to own.</li><li><strong>Mid-meeting failover never escalates to more capture</strong> (2.7). Recommended as written: "Record instead" is a button, never automatic. The cost is a transcript gap when captions die and nobody presses it.</li><li><strong>Policy fails closed on unknown conditions</strong> (4.4). Recommended as written for organization policy. It means a calendar-scoped policy without a calendar provider forbids recording for every meeting, which is safe and will surprise someone.</li><li><strong>A late post-hoc transcript after Finalize</strong> is kept for search until the fade but never changes the note (2.3). The alternative, reopening the note, breaks "Finalize is the moment you strike what you don't want".</li><li><strong>Note destinations and the 24-hour promise</strong> (5.3). Today raw material waits for a successful note write. Recommended: destinations must fall back to the local Notes folder so the fade always happens on time.</li><li><strong>Calendar access.</strong> Calendar conditions are only useful once an EventKit provider exists, which <code>design/care</code> already lists as a decision (ask at the first meeting). This spec assumes it will exist and works without it.</li><li><strong>The Plaud SDK in the main app target.</strong> Recommended: make <code>WorkScribePlaud</code> an optional build product so a fork, or a public upstream build, can ship without proprietary frameworks.</li></ol>
+</article>
+</main>
+</div>
+</div>
+<script>
+(function () {
+  var root = document.documentElement, buttons = document.querySelectorAll('.theme button');
+  function apply(mode) {
+    if (mode === 'auto') root.removeAttribute('data-theme'); else root.setAttribute('data-theme', mode);
+    buttons.forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.set === mode)); });
+  }
+  var saved = 'auto';
+  try { saved = localStorage.getItem('ws-spec-theme') || 'auto'; } catch (e) {}
+  apply(saved);
+  buttons.forEach(function (b) {
+    b.addEventListener('click', function () {
+      apply(b.dataset.set);
+      try { localStorage.setItem('ws-spec-theme', b.dataset.set); } catch (e) {}
+    });
+  });
+  var links = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+  var targets = links.map(function (a) { return document.getElementById(a.getAttribute('href').slice(1)); });
+  if ('IntersectionObserver' in window) {
+    var current = null;
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) current = e.target.id; });
+      links.forEach(function (a) { a.classList.toggle('on', a.getAttribute('href') === '#' + current); });
+    }, { rootMargin: '0px 0px -70% 0px' });
+    targets.forEach(function (t) { if (t) io.observe(t); });
+  }
+})();
+</script>

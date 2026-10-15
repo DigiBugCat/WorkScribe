@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Stop and Finalize</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="care.css">
+<style>
+  .wide { max-width: 1480px; }
+  .ob-doc { padding-bottom: 160px; }
+  .pencil-h { color: var(--ws-pencil); font-size: 1.2em !important; margin: 22px 0 6px !important; transition: color 600ms var(--ease-out), font-size 300ms; }
+  .inked-all .pencil-h { color: var(--ob-text); font-size: 1.424em !important; }
+  .sec { transition: opacity 400ms var(--ease-out); }
+  .sec[hidden] { display: block !important; opacity: 0; height: 0; overflow: hidden; }
+  .tasks { display: flex; flex-direction: column; gap: 4px; }
+  .task .tt { color: var(--ws-pencil); transition: color 600ms var(--ease-out); font-size: .9375em; }
+  .inked-all .task .tt { color: var(--ob-text); font-size: 1em; }
+  .task .box { border-style: dashed; transition: border-color 400ms; }
+  .inked-all .task .box { border-style: solid; }
+  .task .who { color: var(--ob-accent-text); }
+  .rm { position: absolute; right: -60px; top: 1px; font-size: 12px; color: var(--ob-faint); padding: 1px 6px; border-radius: 4px; cursor: pointer; background: none; border: 0; font-family: var(--f-ob); }
+  .rm:hover { color: var(--ob-text); background: var(--ob-hover); }
+  .inked-all .rm { display: none; }
+  .ln.brief .you { display: none; }
+  .ln.inked.keep-lead .ai .lead { display: inline; }
+  .ln.brief { margin-bottom: 18px; }
+  .ws-pill .ring { width: 12px; height: 12px; }
+  .ws-pill .ring circle { fill: none; stroke-width: 2; }
+  .ws-pill .ring .track { stroke: var(--ob-border); }
+  .ws-pill .ring .val { stroke: var(--ob-accent); stroke-linecap: round; transform: rotate(-90deg); transform-origin: 50% 50%; transition: stroke-dashoffset 400ms var(--ease); }
+  .ws-pill .lnk { color: var(--ob-accent-text); background: none; box-shadow: none; padding: 0 8px; }
+  .ws-pill .lnk:hover { background: var(--ob-hover); }
+  .ws-pill .confirm { color: var(--ob-text); }
+  .ws-pill .danger { background: var(--ob-red); color: #fff; box-shadow: none; }
+  .faded { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; padding: 30px 28px 80px; text-align: center; color: var(--ob-muted); font-size: 13px; line-height: 1.55; }
+  .faded svg.i { width: 22px; height: 22px; color: var(--ob-faint); stroke-width: 1.5; }
+  .faded b { color: var(--ob-text); font-weight: 600; font-size: 13.5px; }
+  .tr-wrap { flex: 1; min-height: 0; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; padding: 0 14px 12px; -webkit-mask-image: linear-gradient(to bottom, transparent, #000 56px); mask-image: linear-gradient(to bottom, transparent, #000 56px); }
+  .md { display: none; margin: 0; font-family: var(--f-ob-mono); font-size: 13.5px; line-height: 1.6; color: var(--ob-text); white-space: pre-wrap; }
+  .md .k { color: var(--ob-muted); }
+  .md .h { color: var(--ob-text); font-weight: 700; }
+  .md .e { color: var(--ob-accent-text); }
+  .show-md .md { display: block; }
+  .show-md .rendered { display: none; }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar"><div class="wide">
+    <a class="brand" href="index.html">WorkScribe <span>Care</span></a>
+    <nav>
+      <a href="index.html">Overview</a>
+      <a href="live.html">Live note</a>
+      <a href="line.html">The AI line</a>
+      <a href="finalize.html" aria-current="page">Stop → Finalize</a>
+      <a href="menubar.html">Menu bar</a>
+    </nav>
+    <button class="themebtn" data-theme-btn type="button">Theme: auto</button>
+  </div></header>
+
+  <div class="wide">
+    <div class="mhead">
+      <div>
+        <p class="eyebrow">Mockup · real scale · click through the steps</p>
+        <h1>Stop, Finalize, and the fade</h1>
+      </div>
+      <p>The end of a meeting is where trust is won or lost. Stop is instant. The final pass reads the whole call and sweeps down your note. Finalize inks the pencil in one undoable step. Then the transcript fades, and the note is all that’s left.</p>
+    </div>
+
+    <div class="controls" style="padding-top:0">
+      <span class="steps" id="steps">
+        <button type="button" data-step="0"><b>1</b>Recording</button>
+        <button type="button" data-step="1"><b>2</b>Stop · final pass</button>
+        <button type="button" data-step="2"><b>3</b>Ready</button>
+        <button type="button" data-step="3"><b>4</b>Finalized</button>
+        <button type="button" data-step="4"><b>5</b>A week later</button>
+      </span>
+      <button class="btn" type="button" id="mdBtn" aria-pressed="false">Show Markdown source</button>
+    </div>
+
+    <div class="stage" data-w="1480" data-h="966">
+      <div class="scaler">
+        <div class="desk" style="width:1480px;height:966px;padding:0;position:relative;overflow:hidden">
+          <div class="menubar" id="mb"></div>
+          <div class="mac-win ob" id="win" style="position:absolute;left:20px;top:46px;width:1440px;height:900px">
+            <main class="ob-main">
+              <div class="ob-viewhead">
+                <span class="ic"></span><span class="ic" data-i="chevron-left"></span><span class="ic" data-i="chevron-right"></span>
+                <div class="crumb">Meetings / <b>2026-10-14 Offline sync — v2.4 scope</b></div>
+                <span class="ws-pill" id="pill"></span>
+                <span class="ic" data-i="book"></span><span class="ic" data-i="more"></span>
+              </div>
+              <div class="ob-scroll">
+                <div class="ob-doc" id="doc">
+                  <div class="rendered">
+                    <div class="inline-title">Offline sync — v2.4 scope</div>
+                    <div class="ob-props">
+                      <div class="ph">Properties</div>
+                      <div class="pr"><span class="pk" data-ik="calendar">date</span><span class="pv">2026-10-14 10:02</span></div>
+                      <div class="pr" id="durRow" hidden><span class="pk" data-ik="clock">duration</span><span class="pv">32 min</span></div>
+                      <div class="pr"><span class="pk" data-ik="list">attendees</span><span class="pv"><span class="lnk">Priya Raman</span><span class="lnk">Marcus Chen</span></span></div>
+                      <div class="pr"><span class="pk" data-ik="list">tags</span><span class="pv"><span class="pill">meeting</span></span></div>
+                    </div>
+                    <div class="sec" id="briefSec" hidden><div class="lines" id="brief"></div></div>
+                    <div class="lines" id="lines"></div>
+                    <div class="sec" id="alsoSec" hidden>
+                      <h2 class="pencil-h">Also discussed</h2>
+                      <div class="lines" id="also"></div>
+                    </div>
+                    <div class="sec" id="taskSec" hidden>
+                      <h2 class="pencil-h">Action items</h2>
+                      <div class="tasks" id="tasks"></div>
+                    </div>
+                  </div>
+                  <pre class="md" id="md"></pre>
+                </div>
+              </div>
+              <div class="fin-bar" id="finBar" hidden>
+                <div class="txt"><b>Finished listening · 32 min</b>Write 5 AI lines, a brief, 3 action items and 1 more topic into this note? Lines you edited stay as you wrote them. If you don’t, it happens on its own at 9:34 tomorrow, an hour before the transcript fades.</div>
+                <button class="ob-btn" type="button" id="notYet">Not yet</button>
+                <button class="ob-btn cta" type="button" id="finBtn">Finalize <kbd>⌘↩</kbd></button>
+              </div>
+              <div class="ob-notice" id="notice" hidden>Written into your note. <kbd>⌘Z</kbd> puts the pencil back.</div>
+              <div class="ob-status" id="status"></div>
+            </main>
+            <aside class="ob-right">
+              <div class="ws-tabs" role="tablist">
+                <button type="button" role="tab" data-tab="ask" aria-selected="false">Ask</button>
+                <button type="button" role="tab" data-tab="qa" aria-selected="false">Live Q&amp;A</button>
+                <button type="button" role="tab" data-tab="tr" aria-selected="true">Transcript</button>
+              </div>
+              <section class="ws-pane" data-pane="ask" hidden>
+                <div class="ws-scroll">
+                  <div class="chat">
+                    <div class="bubble">When did we say v2.4 ships?</div>
+                    <div class="ans">
+                      <div class="worked">From your note · the transcript has faded</div>
+                      <p>Nov 4. Oct 28 was dropped so QA gets a full week on the SQLite migration<span class="cite">1</span>.</p>
+                      <div class="qa" style="box-shadow:none;background:none;padding:0"><div class="srcs"><div><span data-ik="file"></span>1 · 2026-10-14 Offline sync — v2.4 scope</div></div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="composer">
+                  <div class="ctx"><span class="chip"><span data-ik="file"></span>Offline sync — v2.4 scope</span></div>
+                  <div class="ph">Ask about this note or your vault</div>
+                  <div class="bar"><span data-ik="clip"></span><span class="grow"></span><span>GPT-5 mini</span></div>
+                </div>
+              </section>
+              <section class="ws-pane" data-pane="qa" hidden>
+                <div class="ws-scroll"><div class="empty" style="color:var(--ob-faint);font-size:13px;text-align:center;padding:40px 18px">2 questions were answered during this meeting. They fade with the transcript; anything you added to the note stays.</div></div>
+              </section>
+              <section class="ws-pane" data-pane="tr" id="trPane">
+                <div style="padding:0 14px"><div class="tr-head" id="trHead"></div></div>
+                <div class="tr-wrap" id="trWrap"><div class="tr" id="tr"></div></div>
+              </section>
+            </aside>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notice-grid" id="notes"></div>
+  </div>
+</div>
+
+<script src="care.js"></script>
+<script>
+Care.ready(function () {
+  const $ = (s, r) => (r || document).querySelector(s);
+  const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  Care.obChrome($("#win"), { recording: true });
+  const fillIcons = () => {
+    $$("[data-i]").forEach((e) => { if (!e.firstChild) e.innerHTML = Care.icon(e.dataset.i); });
+    $$("[data-ik]").forEach((e) => { if (!e.querySelector("svg")) e.insertAdjacentHTML("afterbegin", Care.icon(e.dataset.ik)); });
+  };
+  fillIcons();
+  const mb = (state, time, clock) => Care.menubar($("#mb"), { app: "Obsidian", menus: ["File", "Edit", "View", "Window", "Help"], tally: Care.tally(state, time), clock });
+
+  const LINES = [
+    { id: "L0", par: true, you: "They’ll push for a date. Don’t agree to Oct 28 until Marcus has sized the migration.", ai: "**Answered.** Oct 28 is off: QA needs a full week on the SQLite migration, so v2.4 ships Nov 4." },
+    { id: "L1", you: "offline conflicts → LWW?? marcus pushback", ai: "**Conflict resolution.** Marcus warned last-write-wins would silently drop inspectors’ checklist edits when the office edits the same job; field-level merge for checklists, last-write-wins for the rest." },
+    { id: "L2", you: "ship date nov 4 not oct 28", ai: "**Ship date.** v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday." },
+    { id: "L3", you: "beta 40 accts, halvorsen first", ai: "40 accounts. Halvorsen first because of the year-end contract clause.", yours: true },
+    { id: "L4", you: "photo uploads queue — cap?", ai: "**Photo queue.** Cap at 200 photos or 1.5 GB per device, oldest first on reconnect, with a banner at the cap; the 12 mini stalled past 1 GB." },
+    { id: "L5", you: "android?", ai: "", listening: true, final: "**Android.** Offline for Android lands in 2.5, not 2.4; Marcus wants the merge rule shared so both apps behave the same." },
+    { id: "L6", you: "pricing for the beta?", ai: "", listening: true, final: null },
+  ];
+  const PHOTO_FINAL = "**Photo queue.** Cap at 200 photos or 1.5 GB per device, oldest first on reconnect, with a banner at the cap; Marcus measures it on an iPhone 12.";
+  const BRIEF = "The team kept offline in v2.4 but moved the date to Nov 4. Checklists get a field-level merge, the photo queue gets a hard cap, and Halvorsen leads a 40-account beta.";
+  const ALSO = "**Sync-failure analytics.** Priya asked for an event on every failed sync with the queue size, so support can see who is stuck.";
+  const TASKS = [
+    ["Marcus Chen", "Prototype field-level merge for checklists", "2026-10-19"],
+    ["", "Update PRD v3 with the checklist merge rule and photo cap", "2026-10-15"],
+    ["Priya Raman", "Email Halvorsen about the Nov 4 date", "2026-10-16"],
+  ];
+  const SEGS = [
+    ["Priya", "31:02", "Anything else before we lose Marcus?"],
+    ["Marcus", "31:10", "Just the analytics thing. If a sync fails I want to know the queue size."],
+    ["Priya", "31:21", "Yes, an event on every failed sync. Support keeps asking who’s stuck."],
+    ["You", "31:33", "I’ll put the cap and the merge rule in the PRD tomorrow."],
+    ["Priya", "31:44", "Great. Thanks both."],
+  ];
+  const SPK = { Priya: ["priya", "Priya Raman"], Marcus: ["marcus", "Marcus Chen"], You: ["you", "You"] };
+
+  function ln(L) {
+    const d = document.createElement("div");
+    d.className = "ln" + (L.par ? " par" : "") + (L.cls ? " " + L.cls : "");
+    d.id = L.id;
+    d.dataset.state = L.yours ? "yours" : L.listening ? "listening" : "settled";
+    d.innerHTML = '<div class="b"></div><div class="t"><div class="you"></div><div class="aiw"><span class="nib"></span><div class="ai"></div>' + (L.rm ? '<button class="rm" type="button">Remove</button>' : '<span class="why">Why?</span>') + "</div></div>";
+    $(".you", d).textContent = L.you || "";
+    if (L.ai) Care.setLine($(".ai", d), L.ai);
+    else if (L.listening) $(".ai", d).innerHTML = '<span class="hint">Listening for this</span>';
+    if (L.yours) d.classList.add("yours-ink");
+    return d;
+  }
+  const ring = (f) => { const c = 2 * Math.PI * 4.5; return '<svg class="ring" viewBox="0 0 12 12"><circle class="track" cx="6" cy="6" r="4.5"/><circle class="val" cx="6" cy="6" r="4.5" stroke-dasharray="' + c + '" stroke-dashoffset="' + c * (1 - f) + '"/></svg>'; };
+  const arc = (f) => { const c = 2 * Math.PI * 4.5; return '<svg class="arc" viewBox="0 0 12 12"><circle class="track" cx="6" cy="6" r="4.5"/><circle class="val" cx="6" cy="6" r="4.5" stroke-dasharray="' + c + '" stroke-dashoffset="' + c * (1 - f) + '"/></svg>'; };
+
+  let step = 0, timers = [];
+  const later = (ms, fn) => { if (Care.instant) fn(); else timers.push(setTimeout(fn, ms)); };
+
+  function pill(kind, a) {
+    const p = $("#pill");
+    p.hidden = false;
+    if (kind === "rec") p.innerHTML = '<span class="dot"></span><span class="tm">31:52</span><span class="src">Mic + system</span><button type="button" id="stopBtn"><span class="sq"></span>Stop</button>';
+    else if (kind === "finishing") p.innerHTML = ring(a) + '<span>Finishing · reading 32 min</span><span></span>';
+    else if (kind === "ready") p.innerHTML = ring(1) + '<span>Ready to finalize</span><span></span>';
+    else if (kind === "fade") p.innerHTML = arc(23 / 24) + '<span>Transcript fades in 23 h</span><button type="button" class="lnk" id="doneNow">Done now</button>';
+    else if (kind === "confirm") p.innerHTML = '<span class="confirm">Delete the transcript, audio and 3 screen moments now? The note stays.</span><button type="button" id="keep">Keep</button><button type="button" class="danger" id="delNow">Delete now</button>';
+    else p.hidden = true;
+    const stop = $("#stopBtn"); if (stop) stop.onclick = () => go(1);
+    const dn = $("#doneNow"); if (dn) dn.onclick = () => pill("confirm");
+    const kp = $("#keep"); if (kp) kp.onclick = () => pill("fade");
+    const dl = $("#delNow"); if (dl) dl.onclick = () => go(4);
+  }
+  function status(html) { $("#status").innerHTML = html; }
+  function trHead(html) { $("#trHead").innerHTML = Care.icon("hourglass") + html; }
+
+  function base() {
+    timers.forEach(clearTimeout); timers = [];
+    $(".ob-scroll").scrollTop = 0;
+    $("#doc").classList.remove("inked-all");
+    $("#lines").innerHTML = ""; LINES.forEach((L) => $("#lines").appendChild(ln(L)));
+    $("#brief").innerHTML = ""; $("#brief").appendChild(ln({ id: "B", par: true, cls: "brief", ai: BRIEF }));
+    $("#also").innerHTML = ""; $("#also").appendChild(ln({ id: "A1", ai: ALSO, rm: true, cls: "keep-lead" }));
+    $("#tasks").innerHTML = TASKS.map(([w, t, d]) => '<div class="task"><span class="box"></span><span class="tt">' + (w ? '<span class="who">' + w + "</span> " : "") + t + ' <span class="date">📅 ' + d + "</span></span></div>").join("");
+    ["#briefSec", "#alsoSec", "#taskSec"].forEach((s) => { $(s).hidden = true; });
+    $("#durRow").hidden = true;
+    $("#finBar").hidden = true; $("#notice").hidden = true;
+    $(".ob-tab .dot").hidden = false;
+    $("#tr").innerHTML = SEGS.map(([w, t, x]) => '<div class="seg"><span class="ts">' + t + '</span><span class="sp"><i class="spk-' + SPK[w][0] + '"></i>' + SPK[w][1] + '</span><span class="tx">' + x + "</span></div>").join("");
+    $("#trWrap").hidden = false;
+    const f = $("#trPane .faded"); f && f.remove();
+    trHead("Live · the transcript fades 24 h after the meeting");
+    pill("rec");
+    status('<span><span class="dot"></span>Recording 31:52</span><span>412 words</span><span>0 backlinks</span>');
+    mb("recording", "31:52", "Wed 14 Oct 10:34");
+    selectTab("tr");
+  }
+
+  // Step 2: the final pass sweeps down the note in reading order
+  function finalPass(upTo) {
+    pill("finishing", 0.05);
+    $(".ob-tab .dot").hidden = true;
+    mb("finishing", "", "Wed 14 Oct 10:34");
+    status("<span>Finishing · reading 32 min of conversation</span><span>412 words</span>");
+    trHead("Final pass · reading the whole call");
+    const lines = $$("#lines .ln");
+    let t = 250;
+    lines.forEach((d, i) => {
+      if (upTo !== undefined && i > upTo) return;
+      later(t, () => { lines.forEach((x) => x.classList.remove("sweep")); d.classList.add("sweep"); pill("finishing", (i + 1) / (lines.length + 3)); });
+      if (d.id === "L4") later(t + 200, () => Care.rewrite($(".ai", d), PHOTO_FINAL));
+      if (d.id === "L5") later(t + 150, () => { d.dataset.state = "drafting"; Care.draft($(".ai", d), LINES[5].final, { every: 40, done: () => { d.dataset.state = "settled"; } }); if (Care.instant) d.dataset.state = "settled"; });
+      if (d.id === "L6") later(t + 150, () => { d.dataset.state = "none"; $(".ai", d).innerHTML = '<span class="hint">Not discussed</span>'; });
+      t += d.id === "L5" ? 1100 : 520;
+    });
+    if (upTo !== undefined) return t;
+    later(t, () => { lines.forEach((x) => x.classList.remove("sweep")); $("#briefSec").hidden = false; pill("finishing", 0.85); });
+    later(t + 450, () => { $("#alsoSec").hidden = false; });
+    later(t + 900, () => { $("#taskSec").hidden = false; pill("ready"); });
+    return t + 900;
+  }
+  function scrollDoc(y) { const sc = $(".ob-scroll"); if (Care.instant) sc.scrollTop = y; else sc.scrollTo({ top: y, behavior: "smooth" }); }
+  function ready() {
+    pill("ready");
+    scrollDoc(360);
+    $("#finBar").hidden = false;
+    status("<span>Finished · 32 min</span><span>412 words</span>");
+    trHead("Transcript fades in 24 h");
+    mb("idle", "", "Wed 14 Oct 10:35");
+    $(".ob-tab .dot").hidden = true;
+  }
+  // Step 4: pencil becomes ink, in reading order, as one editor transaction
+  function finalize() {
+    $("#finBar").hidden = true;
+    $$('#lines .ln[data-state="none"] .ai').forEach((a) => { a.textContent = ""; });
+    const all = [...$$("#brief .ln"), ...$$("#lines .ln"), ...$$("#also .ln")];
+    all.forEach((d, i) => later(i * 45, () => d.classList.add("inked")));
+    later(all.length * 45 + 100, () => {
+      $("#doc").classList.add("inked-all");
+      $("#durRow").hidden = false;
+      $$("#doc .why").forEach((w) => w.remove());
+      pill("fade");
+      $("#notice").hidden = false;
+      later(4200, () => { $("#notice").hidden = true; });
+    });
+    status("<span>Transcript fades in 23 h</span><span>468 words</span><span>0 backlinks</span>");
+    trHead("Transcript fades in 23 h · Thu 10:34");
+    mb("idle", "", "Wed 14 Oct 10:35");
+  }
+  function weekLater() {
+    pill("none");
+    $("#notice").hidden = true;
+    status("<span>468 words</span><span>2 backlinks</span>");
+    mb("idle", "", "Wed 21 Oct 09:12");
+    $("#trWrap").hidden = true;
+    $("#trHead").innerHTML = "";
+    $("#trPane").insertAdjacentHTML("beforeend", '<div class="faded">' + Care.icon("hourglass") + "<b>This transcript faded on Thu 15 Oct at 10:34.</b><span>Your note is what remains. Ask and search use it now.</span></div>");
+  }
+
+  const NOTES = [
+    [["Recording", "The meeting’s last minute. The pill, tab dot, status bar and menu bar all show the same time. Stop is in the pill, in the menu bar and on ⌥⌘R."]],
+    [["Stop is instant", "Audio closes on the press. The final pass then reads the whole call while you keep reading or typing; nothing is locked."],
+     ["It sweeps in reading order", "A faint wash moves down your note one line at a time, so you can watch it reach the line you care about. “android?” finally gets its answer; “pricing for the beta?” is marked Not discussed."],
+     ["Your line stays yours", "“beta 40 accts” was edited during the call. The final pass skips it entirely."]],
+    [["One question, one button", "Finalize says exactly what it will write, promises that your edits stay, and says what happens if you walk away: it finalizes itself an hour before the transcript fades, so nothing is ever lost to the fade."],
+     ["“Also discussed”", "Not “Missed topics”. The note shouldn’t scold you. Remove anything you don’t want before finalizing."]],
+    [["Pencil becomes ink", "In reading order, 45 ms apart. AI lines lose their topic labels and turn italic; your edited line stays roman. It’s one editor transaction, so one ⌘Z puts all of it back in pencil."],
+     ["The fade, stated plainly", "“Transcript fades in 23 h”, rounded down, with a small arc that empties. In the last hour it counts minutes. “Done now” asks inline and names what goes."],
+     ["Try the source", "Show Markdown source: plain Markdown that reads well in any editor, with no IDs, links or anchors into a transcript that will soon not exist."]],
+    [["A week later", "No pill, no banner, no badge, no “AI generated” label. It’s just your note. The Transcript tab doesn’t say “error”; it says when the transcript faded and that the note is what remains."],
+     ["Ask still works", "Ask answers from the note and says so. Every citation now points at a note, never at a transcript that no longer exists."]],
+  ];
+  function notes(n) {
+    $("#notes").innerHTML = NOTES[n].map(([h, p]) => '<div class="note-card live"><h3>' + h + "</h3><p>" + p + "</p></div>").join("");
+  }
+
+  const MD = () => {
+    const it = (s) => "<span class=\"k\">*</span>" + s.replace(/^\*\*.+?\*\*\s*/, "") + "<span class=\"k\">*</span>";
+    const lines = [
+      '<span class="k">---</span>', '<span class="k">date:</span> 2026-10-14 10:02', '<span class="k">duration:</span> 32 min', '<span class="k">attendees:</span>',
+      '  - "<span class="e">[[Priya Raman]]</span>"', '  - "<span class="e">[[Marcus Chen]]</span>"', '<span class="k">tags:</span>', "  - meeting", '<span class="k">workscribe:</span> m-2026-10-14-offline-sync', '<span class="k">---</span>',
+      it(BRIEF), "",
+      LINES[0].you, it(LINES[0].ai), "",
+      "- " + LINES[1].you, "  " + it(LINES[1].ai),
+      "- " + LINES[2].you, "  " + it(LINES[2].ai),
+      "- " + LINES[3].you, "  " + LINES[3].ai,
+      "- " + LINES[4].you, "  " + it(PHOTO_FINAL),
+      "- " + LINES[5].you, "  " + it(LINES[5].final),
+      "- " + LINES[6].you, "",
+      '<span class="h">## Also discussed</span>', "- " + it(ALSO.replace("**Sync-failure analytics.** ", "Sync-failure analytics. ")), "",
+      '<span class="h">## Action items</span>',
+      ...TASKS.map(([w, t, d]) => "- [ ] " + (w ? '<span class="e">[[' + w + "]]</span> " : "") + t + " 📅 " + d),
+    ];
+    return lines.join("\n");
+  };
+  $("#md").innerHTML = MD();
+  $("#mdBtn").onclick = () => {
+    const on = $("#mdBtn").getAttribute("aria-pressed") !== "true";
+    $("#mdBtn").setAttribute("aria-pressed", String(on));
+    $("#mdBtn").textContent = on ? "Show rendered note" : "Show Markdown source";
+    $("#doc").classList.toggle("show-md", on);
+    $(".ob-scroll").scrollTop = 0;
+    if (on && step < 3) go(3, true);
+  };
+
+  function selectTab(name) {
+    $$(".ws-tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === name)));
+    $$(".ws-pane").forEach((p) => { p.hidden = p.dataset.pane !== name; });
+  }
+  $(".ws-tabs").addEventListener("click", (e) => { const b = e.target.closest("[data-tab]"); if (b) selectTab(b.dataset.tab); });
+
+  function go(n, instant) {
+    const from = step;
+    // moving forward one step animates; anything else rebuilds instantly
+    const animate = !instant && n === from + 1;
+    if (!animate) { base(); Care.instant = true; }
+    if (n === 1 && !animate) finalPass(4);
+    else if (n >= 1 && (!animate || n === 1)) { const t = finalPass(); if (animate && n === 1) later(t + 500, () => { ready(); step = 2; mark(); notes(2); }); }
+    if (n >= 2 && !(animate && n === 1)) ready();
+    if (n >= 3) finalize();
+    if (n >= 4) weekLater();
+    Care.instant = false;
+    step = n; mark(); notes(n);
+  }
+  function mark() { $$("#steps [data-step]").forEach((b) => { if (+b.dataset.step === step) b.setAttribute("aria-current", "step"); else b.removeAttribute("aria-current"); }); }
+  $("#steps").addEventListener("click", (e) => { const b = e.target.closest("[data-step]"); if (b) go(+b.dataset.step); });
+  $("#finBtn").onclick = () => go(3);
+  $("#notYet").onclick = () => { $("#finBar").hidden = true; };
+
+  base(); step = 0; mark(); notes(0);
+  const h = location.hash, m = /step(\d)/.exec(h);
+  if (m) go(+m[1], true);
+  if (/md/.test(h)) $("#mdBtn").click();
+  if (/ask/.test(h)) selectTab("ask");
+  if (/confirm/.test(h)) pill("confirm");
+  if (/notice/.test(h)) $("#notice").hidden = false;
+  Care.fitStages();
+});
+</script>
+</body>
+</html>

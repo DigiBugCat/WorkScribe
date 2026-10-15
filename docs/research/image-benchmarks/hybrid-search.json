@@ -1,0 +1,47 @@
+{
+  "cosines" : [
+    [
+      0.60579568147659302,
+      0.63483375310897827
+    ],
+    [
+      0.60178816318511963,
+      0.64307713508605957
+    ]
+  ],
+  "hybrid" : [
+    {
+      "query" : "A phone launch performance chart showing a main thread stall",
+      "top_file" : "stall.png",
+      "top_kind" : "image"
+    },
+    {
+      "query" : "A marketing budget with advertising overspend",
+      "top_file" : "budget.png",
+      "top_kind" : "image"
+    }
+  ],
+  "images" : [
+    {
+      "dimension" : 768,
+      "image" : "stall.png",
+      "image_first_seconds" : 13.265051960945129,
+      "image_warm_seconds" : 0.15597808361053467,
+      "ocr" : "iPhone 12 mini — launch trace\nWarm launch: 420 ms\nCold launch: 2,900 ms\nMain thread blocked on image decode\nFix: decode off the main thread\n١٠1.-",
+      "ocr_seconds" : 0.35162293910980225
+    },
+    {
+      "dimension" : 768,
+      "image" : "budget.png",
+      "image_first_seconds" : 0.16604697704315186,
+      "image_warm_seconds" : 0.15556001663208008,
+      "ocr" : "Marketing budget — Q4 review\nPlanned spend: $120,000\nActual spend: $148,000\nPause the lowest-performing ads\nPriya sends the revised forecast Friday",
+      "ocr_seconds" : 0.20603203773498535
+    }
+  ],
+  "model" : "embeddinggemma-2-coreml\/text@70fcf18f+vision70@3f978ddf\/768",
+  "queries" : [
+    "A phone launch performance chart showing a main thread stall",
+    "A marketing budget with advertising overspend"
+  ]
+}

@@ -1,0 +1,22 @@
+Final automated checks — 2026-10-14 PDT
+swift test: 155 passed, 0 failures
+.build/debug/WorkScribe --verify-api: PASS
+.build/debug/WorkScribe --verify-purge: PASS
+obsidian-plugin/npm install: PASS
+obsidian-plugin/npm test: 82 passed, 2 expected opt-in skips
+obsidian-plugin/npm run build: PASS
+obsidian-plugin/npm run smoke: PASS
+WORKSCRIBE_API_BINARY=../.build/debug/WorkScribe npm test: 84 passed, no skips
+Native editor harness: PASS (isolated profile)
+Native image harness: PASS (isolated profile, scripted image/provider)
+9 list indent cases: all 0 px error
+First/last glyph movement on ownership: 0 px / 0.0625 px horizontally; 0 px vertically
+Finalize scroll: 155 px before; 155 px after
+Unrelated-note Cmd+Enter: did not finalize
+One-Undo Finalize: PASS for text and image flows
+No duplicated AI text across the three-bullet listening scenario: PASS
+Composer footer bounds: checked against status bar; at least 12 px clear space
+Ownership after an earlier document edit: PASS
+Conditional open-note control: hidden while meeting note visible
+Image companion trace cleared by purge: PASS
+Independent watchcat motion review: completed; no broken transitions reported

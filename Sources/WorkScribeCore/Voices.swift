@@ -75,7 +75,7 @@ public enum VoiceMatching {
     }
     /// Avoid mixed/overlapping chunks and require three seconds of one speaker.
     public static func eligible(_ segment: Segment, in meeting: Meeting) -> Bool {
-        guard meeting.sourceOffsets?[segment.source] != nil,
+        guard meeting.audioLocation(for: segment) != nil,
               segment.end - segment.start >= 3,
               segment.speaker.contains(":speaker-"), !segment.speaker.hasSuffix("-0") else { return false }
         return !meeting.segments.contains { other in

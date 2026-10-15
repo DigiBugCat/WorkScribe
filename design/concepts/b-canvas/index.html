@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>WorkScribe Canvas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Kalam&family=Manrope:wght@400;500;600;700&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="canvas.css">
+<script src="canvas.js"></script>
+</head>
+<body>
+<main class="stage">
+<header class="stage-head">
+<div class="head-text"><span class="label">WorkScribe · Concept B</span><h1>Canvas: your work as one table you arrange</h1><p>A spatial interface. Meetings, your notes, transcript lines, files, media moments, web clips, people and answers are all cards on one infinite canvas that you cluster and connect.</p></div>
+<nav aria-label="Concept B screens"><a href="index.html" aria-current="page">Concept</a> <a href="01-today.html">Today</a> <a href="02-live.html">Live</a> <a href="03-review.html">Review</a> <a href="04-ask.html">Ask</a> <button class="theme-toggle" type="button">Theme: auto</button></nav>
+</header>
+<section class="concept">
+<p>WorkScribe stops being a set of screens and becomes a single <b>canvas</b> in the spirit of tldraw, Muse or Heptabase. Everything is a card: a PDF page, 14:32 into a voice memo, a frame of a site video, a sentence Marcus said, a web clip saved through Obsidian's Web Clipper, Priya herself. You cluster cards by customer or topic, and a link between two cards means the same thing whatever kinds they are. A meeting is a <b>region</b> that grows down the canvas while the call runs. Shorthand from a pinned jot bar lands on a time spine, the enhanced note paints in beside it, linked to the transcript lines it used, and live answers reach out to cards already sitting in your clusters. When you stop, the region settles into topics, hangs action items off people, and shows what it changed elsewhere on the map. Ask and search work as a spotlight: cited cards light up where they are, and found moments get pulled onto the canvas until you keep or dismiss them. Notes live in your Obsidian vault as Markdown with [[links]]. The canvas itself could be saved there too, as a JSON Canvas file.</p>
+</section>
+<div class="shots">
+  <a class="shot" href="01-today.html"><span class="label">01 · At rest</span><h3>Your work, today</h3><p>Clusters for Halvorsen and the photo pipeline, a Today strip with “Up next”, ghost prep cards the assistant pulled for 10:02.</p></a>
+  <a class="shot" href="02-live.html"><span class="label">02 · Live</span><h3>A call is a growing region</h3><p>Time spine, jots landing at the live edge, enhancement linked to excerpts, missed-topic ghosts, an answer that links into existing clusters.</p></a>
+  <a class="shot" href="03-review.html"><span class="label">03 · After</span><h3>The region settles</h3><p>Brief, decisions, actions hanging off people, what was said but not noted, and what the meeting made stale elsewhere.</p></a>
+  <a class="shot" href="04-ask.html"><span class="label">04 · Ask &amp; search</span><h3>Spotlight and pull-in</h3><p>Cited cards light up in place, and search moments (audio, video frame, PDF page, photo, web clip) are pulled in as a tray.</p></a>
+</div>
+<div class="verdict">
+  <div><h2>Best at</h2><ul>
+    <li><b>Seeing connections across sources.</b> A meeting's decision, the contract clause it rests on and the kickoff promise it breaks sit next to each other, joined by lines.</li>
+    <li><b>Provenance you can see.</b> Excerpt anchors (time + meaning vs meaning only) and answer citations are links to real cards, not footnotes.</li>
+    <li><b>Mixed media.</b> Audio, video frames, photos, PDFs and web clips are the same kind of object as notes, so DigUp's moments fit in naturally.</li>
+    <li><b>Long-running work</b> such as a customer or a release, where the clusters you build up are the value.</li>
+  </ul></div>
+  <div><h2>Worst at</h2><ul>
+    <li><b>Upkeep.</b> Canvases rot. Without discipline (collapse settled regions, a tray for search results) it fills with cards, and auto-layout fights the layout you made by hand.</li>
+    <li><b>Small screens and focus.</b> During a call the canvas is a lot to look at next to Zoom. The pinned and pop-out jot bar carry the meeting; the canvas is secondary until afterwards.</li>
+    <li><b>Linear reading and accessibility.</b> Space-as-meaning is weak for VoiceOver and skimming, so a Document arrange mode (03) and a list fallback are required, not optional.</li>
+    <li><b>Native build cost.</b> A performant infinite canvas in SwiftUI/AppKit with live updates is the hardest of the concepts to build.</li>
+  </ul></div>
+</div>
+<div class="legend-row" aria-label="Card legend">
+  <span><i style="background:color-mix(in srgb,var(--blush) 70%,var(--surface-raised))"></i>what you typed</span>
+  <span><i style="background:var(--surface-raised);box-shadow:var(--shadow-cutout)"></i>model writing, files, people</span>
+  <span><i style="background:color-mix(in srgb,var(--indigo-wash) 42%,var(--surface-raised))"></i>what was said (evidence)</span>
+  <span><i style="box-shadow:inset 0 0 0 1px var(--indigo)"></i>proposed, not yet yours</span>
+</div>
+
+
+</main>
+</body>
+</html>

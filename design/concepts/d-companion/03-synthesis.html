@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Companion · After the call</title>
+<meta name="description" content="Concept D: post-meeting synthesis as blocks in the conversation, with the notes open in the side sheet.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700&family=Kalam&display=swap">
+<link rel="stylesheet" href="companion.css">
+<script src="companion.js"></script>
+<style>
+.collapsed { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: center; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--surface); font-size: 13px; max-width: 720px; }
+.collapsed b { font-weight: 700; }
+.dec { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: var(--space-2); font-size: 14px; line-height: 21px; }
+.missed li { grid-template-columns: minmax(0,1fr) auto; }
+.missed .sub { grid-column: 1 / -1; }
+.anno { font-family: var(--font-hand); color: var(--indigo); font-size: 17px; line-height: 20px; }
+.draft { background: var(--surface); border-radius: var(--radius-sm); padding: var(--space-3); font-size: 14px; line-height: 22px; display: flex; flex-direction: column; gap: var(--space-2); }
+.doc h3 { font-size: 22px; line-height: 28px; }
+.doc .fm { font-size: 12px; line-height: 18px; color: var(--ink-muted); background: var(--chip); box-shadow: var(--emb); border-radius: var(--radius-sm); padding: 6px 10px; overflow-wrap: anywhere; }
+.doc h4 { font-size: 16px; line-height: 22px; font-weight: 600; margin-top: var(--space-2); }
+.doc ul { margin: 0; padding-left: 18px; font-size: 13.5px; line-height: 21px; display: flex; flex-direction: column; gap: 6px; }
+.doc .wl { color: var(--indigo); font-weight: 600; text-decoration: none; background: color-mix(in srgb, var(--indigo-wash) 25%, transparent); border-radius: 2px; padding: 0 2px; }
+.doc .yours { display: inline-flex; gap: 4px; align-items: center; }
+</style>
+</head>
+<body>
+<main class="stage">
+<header class="stage-head">
+  <div><div class="kicker">Concept D · Companion · 03</div><h1>After Stop, the block folds and the synthesis lands</h1><p>The live block collapses to one line. WorkScribe answers with a few structured blocks — decisions, action items with owner <b>and</b> asker, topics you didn't note — and saves the notes into your Obsidian vault as Markdown. Open any block in the sheet to work on it; reply to any block to change it.</p></div>
+  <nav class="stage-nav" aria-label="Concept D screens"><a href="index.html">Overview</a><a href="01-morning.html">Morning</a><a href="02-live.html">Live call</a><a href="03-synthesis.html" aria-current="page">After the call</a><a href="04-moments.html">Ask · moments</a><button class="theme-toggle" type="button">Theme: auto</button></nav>
+</header>
+<section class="app" aria-label="WorkScribe window after the call">
+<div class="titlebar"><div class="lights" aria-hidden="true"><i></i><i></i><i></i></div><span class="title">WorkScribe</span><span class="where">Fieldbook v2.4</span><span class="sp"></span><button class="iconbtn" aria-label="Search everything"><svg class="ico" aria-hidden="true"><use href="#i-search"/></svg></button></div>
+<div class="body with-sheet">
+<nav class="rail" aria-label="Threads"><div class="label">Threads</div><a href="#"><span class="dot" style="--c:var(--indigo-wash)"></span><span class="t">Everything</span><span class="n"></span></a><a href="#"><span class="dot" style="--c:var(--ochre)"></span><span class="t">Halvorsen Construction</span><span class="n">3</span></a><a href="#" aria-current="page"><span class="dot" style="--c:var(--sage)"></span><span class="t">Fieldbook v2.4</span><span class="n"></span></a><a href="#"><span class="dot" style="--c:var(--sky)"></span><span class="t">1:1 · Priya Raman</span><span class="n"></span></a><div class="label">Pinned</div><div class="pinned"><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg><span class="t">Offline sync decisions</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg><span class="t">MSA amendment §7.2</span></a><a href="#"><svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg><span class="t">Photo size answer</span></a></div><div class="label">Reads from</div><a href="#" class="hide-narrow"><svg class="ico" aria-hidden="true"><use href="#i-vault"/></svg><span class="t">Vault · Fieldbook</span></a><a href="#" class="hide-narrow"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg><span class="t">Field recordings</span></a><a href="#" class="hide-narrow"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg><span class="t">Site walkthroughs</span></a><a href="#" class="hide-narrow"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg><span class="t">Contracts</span></a></nav>
+<div class="convo">
+<div class="scroll">
+  <div class="collapsed"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><b>Offline sync — v2.4 scope</b><span class="caption num">14:00 · 32 min</span><span class="spk you">You</span><span class="spk priya">Priya</span><span class="spk marcus">Marcus</span><span style="flex:1"></span><span class="caption">6 jots · 1 clip · 2 answers</span><button class="btn text">Expand</button></div>
+
+  <div class="msg ws soak"><div class="who"><svg class="mark" viewBox="0 0 22 22" aria-hidden="true"><g filter="url(#iw-gouache)"><circle cx="11" cy="11" r="9.5" style="fill:var(--indigo-wash)"/><path d="M6 13.5c2-4.5 7.5-6.5 10-5.5-1 3.5-5 6.5-10 5.5z" style="fill:var(--sage-deep)"/></g></svg><span class="meta">14:33</span></div>
+    <p class="lead">LWW per field for v2.4, CRDTs later, and the 90-day rule is now the constraint.</p>
+    <p>Here’s where it landed. Notes are saved to <a href="#">Meetings/2026-10-13 Offline sync — v2.4 scope.md</a> and open on the right.</p></div>
+
+  <article class="block soak d1" aria-label="Decisions">
+    <div class="bhead"><span class="kind">Decisions</span><span class="bt">3</span><span class="sp"></span><button class="iconbtn" aria-label="Pin decisions" aria-pressed="true" data-toggle="self"><svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg></button><button class="iconbtn" aria-label="Open in sheet"><svg class="ico" aria-hidden="true"><use href="#i-open"/></svg></button></div>
+    <div class="bbody"><ol class="dec">
+      <li>Last-writer-wins per field for v2.4; shared checklists stay single-owner. <span class="etag">E1</span></li>
+      <li>CRDTs for checklists move to v2.5. <span class="etag">E2</span></li>
+      <li>Photos are never evicted inside 90 days; the queue pauses uploads instead. <span class="etag">E6</span></li>
+    </ol></div>
+  </article>
+
+  <article class="block soak d2" aria-label="Action items">
+    <div class="bhead"><span class="kind">Action items</span><span class="bt">owner · asked by</span><span class="sp"></span><button class="iconbtn" aria-label="Pin action items" aria-pressed="false" data-toggle="self"><svg class="ico" aria-hidden="true"><use href="#i-pin"/></svg></button></div>
+    <div class="bbody"><ul class="items">
+      <li><span class="seal" aria-label="Yours">!</span><div><span class="spk you">You</span> send Halvorsen the revised timeline today</div><span class="caption num">21:04</span>
+        <div class="sub">Asked by <span class="spk priya">Priya</span> · <q>Can you send Ingrid the dates today? You promised her Tuesday.</q></div></li>
+      <li><span class="box"></span><div><span class="spk marcus">Marcus</span> sync-queue spike, sized for 16 GB per device</div><span class="caption num">24:40</span>
+        <div class="sub">Asked by <span class="spk you">You</span> · due Fri</div></li>
+      <li><span class="box"></span><div><span class="spk priya">Priya</span> confirm §7.2 covers thumbnails too</div><span class="caption num">27:15</span>
+        <div class="sub">Asked by <span class="spk marcus">Marcus</span></div></li>
+    </ul></div>
+  </article>
+
+  <article class="block soak d3" aria-label="Topics not in your notes">
+    <div class="bhead"><span class="kind">Not in your notes</span><span class="bt">2 topics</span><span class="sp"></span><span class="anno">return to this</span></div>
+    <div class="bbody"><ul class="items missed">
+      <li><div><b>Battery drain from background sync.</b> Marcus worries the queue will drain older iPads on long site days.</div><button class="btn text">Add to notes</button>
+        <div class="sub"><span class="spk marcus">Marcus</span> · 17:20 – 18:05 <span class="etag">U1</span></div></li>
+      <li><div><b>Beta feedback channel.</b> Priya suggests a shared Slack channel with the Halvorsen crew leads.</div><button class="btn text">Add to notes</button>
+        <div class="sub"><span class="spk priya">Priya</span> · 29:30 <span class="etag">U2</span></div></li>
+    </ul></div>
+  </article>
+
+  <div class="msg me soak d3"><div class="say">draft the timeline for ingrid, short</div><span class="meta">14:36</span></div>
+  <article class="block soak d4" aria-label="Draft email">
+    <div class="bhead"><span class="kind">Draft</span><span class="bt">To Ingrid Solberg</span><span class="sp"></span><button class="btn text">Copy</button><button class="btn">Open in Mail</button></div>
+    <div class="bbody"><div class="draft">
+      <p>Hi Ingrid — dates as promised:</p>
+      <p>• Beta to your crew leads: <b>14 Nov</b> <a class="cite" href="#">1</a><br>• Photos stay on device for the full 90 days (§7.2) <a class="cite" href="#">2</a><br>• Shared checklists sync in v2.5, early next year <a class="cite" href="#">1</a></p>
+      <p>We’ll size storage for ~16 GB per iPad. More Friday.</p>
+    </div><p class="caption">Nothing is sent from WorkScribe. Open in Mail to send it yourself.</p></div>
+  </article>
+</div>
+<div class="composer"><div class="mode" role="group" aria-label="Composer mode"><button aria-pressed="true" data-toggle="mode3">Ask</button><button aria-pressed="false" data-toggle="mode3">Jot</button></div><span class="field">Reply to a block, or ask anything…</span><button class="iconbtn" aria-label="Send"><svg class="ico" aria-hidden="true"><use href="#i-up"/></svg></button></div>
+</div>
+<aside class="sheet" aria-label="Side sheet: meeting notes">
+  <div class="shead"><svg class="ico" aria-hidden="true"><use href="#i-vault"/></svg><b style="min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Meetings/2026-10-13 Offline sync…md</b><span style="flex:1"></span><button class="iconbtn" aria-label="Reveal in Obsidian"><svg class="ico" aria-hidden="true"><use href="#i-link"/></svg></button><button class="iconbtn" aria-label="Close sheet"><svg class="ico" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+  <div class="sbody doc">
+    <div class="fm">people: [[Priya Raman]], [[Marcus Chen]] · project: [[Fieldbook v2.4]] · customer: [[Halvorsen Construction]] · recording: workscribe://m/8f2c</div>
+    <h3>Offline sync — v2.4 scope</h3>
+    <h4>Notes</h4>
+    <ul>
+      <li><b>Conflict resolution.</b> LWW per field for v2.4; CRDTs for shared checklists in v2.5. <span class="etag">E1</span></li>
+      <li><b>Supporting source.</b> <a class="wl" href="#">[[Last-writer-wins vs. CRDTs for field apps]]</a></li>
+      <li><b>Retention.</b> <a class="wl" href="#">[[Halvorsen MSA amendment]]</a> §7.2: 90 days on device. <span class="etag">E3</span></li>
+      <li><b>Owner.</b> Marcus owns the sync queue; beta 14 Nov. <span class="etag">E5</span></li>
+      <li><b>Photo size.</b> ~3.8 MB each, ~140 per visit, ~16 GB per 90 days. <span class="etag">E7</span></li>
+    </ul>
+    <h4>Action items</h4>
+    <ul>
+      <li>[ ] You → revised timeline to Ingrid (asked by Priya)</li>
+      <li>[ ] Marcus → sync-queue spike (asked by You)</li>
+      <li>[ ] Priya → §7.2 thumbnails (asked by Marcus)</li>
+    </ul>
+    <p class="caption">Plain Markdown in your vault. Edit it in Obsidian or here; the conversation updates either way.</p>
+  </div>
+</aside>
+</div>
+</section>
+<section class="notes" aria-label="Design notes">
+  <div><b>Blocks, not paragraphs</b>A synthesis is a few typed blocks. Each can be pinned (it joins the rail and the thread’s top), opened in the sheet, or replied to (“make Marcus’s due date Thursday”).</div>
+  <div><b>Reply to edit</b>The conversation is also the edit log: changing a block by reply leaves a dated line, so you can see why an action item moved.</div>
+  <div><b>The vault is the store</b>The notes file is ordinary Markdown with [[links]] for people, project and customer, so Obsidian’s graph and backlinks work without WorkScribe.</div>
+</section>
+</main>
+</body>
+</html>

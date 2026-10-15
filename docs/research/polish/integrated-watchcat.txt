@@ -1,0 +1,15 @@
+phase=upload bytes=146909
+phase=processing state=ACTIVE waited=4s
+0:00 Initial note "Offline sync — v2.4 scope" is displayed with placeholders "Before" and "After"; the right sidebar shows the transcript panel in "Listening..." state, and recording is active at top right.
+0:01 An image showing an "iPhone 12 mini — launch trace" bar chart is inserted under "Before", and "PREFIX" is typed above it. The bottom status bar shows "Reading image on this Mac".
+0:04 The document updates with generated text under "PREFIX Before", an AI summary line below the chart ending with a blue "Why?" button ("The iPhone 12 mini stalls for 2,900 ms during image decoding. Move image decode off the main thread."), and another entry under "After". Transcript panel shows Marcus Chen and Priya Raman dialogue.
+0:05 Hovering over the image displays a zoom overlay button.
+0:06 Cursor rests at the end of the image caption text.
+0:06.5 Recording ends: a dark banner appears at top right ("Recording stopped. Review your note, then Finalize when you're ready."), and a floating card appears at the bottom of the editor offering "Finished listening" with a purple "Finalize" button.
+0:07 The note is finalized: the view jumps to the top, adding a brief line ("The team-reviewed scope, timing and next steps.") above the title heading, and the bottom floating card disappears as word count increases from 29 to 64 words.
+0:08 An undo action is executed: the view abruptly jumps back down, the top brief line disappears, word count drops back to 29 words, and the bottom "Finished listening / Finalize" floating card reappears.
+
+Moments worth a closer rewatch:
+- 0:06.5 to 0:07.0: Sudden layout shift and jump to note top when finalization triggers.
+- 0:07.5 to 0:08.0: Abrupt view jump and card reappearance upon undo.
+tokens=4082 cost_usd=0.0026 prompt=v2

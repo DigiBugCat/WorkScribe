@@ -1,0 +1,9 @@
+{
+  "id": "workscribe",
+  "name": "WorkScribe",
+  "version": "0.1.0",
+  "minAppVersion": "1.8.0",
+  "description": "Use Obsidian as WorkScribe's workspace: jot shorthand during a call and watch enhanced notes appear beside it, ask cited questions over meetings and files, and search moments.",
+  "author": "WorkScribe",
+  "isDesktopOnly": true
+}

@@ -1,0 +1,87 @@
+{
+  "initial": {
+    "text": "---\nworkscribe_id: \"m-live-mv918s0d\"\ntype: meeting\n---\n\n# Offline sync \u2014 v2.4 scope\n\n\n- ship date nov 4 not oct 28\n\n- beta 40 accts, halvorsen first",
+    "notes": [
+      "- ship date nov 4 not oct 28",
+      "- beta 40 accts, halvorsen first"
+    ],
+    "widgets": 2,
+    "selection": {
+      "ranges": [
+        {
+          "anchor": 148,
+          "head": 148
+        }
+      ],
+      "main": 0
+    },
+    "focused": true
+  },
+  "rewrite": {
+    "before": {
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 148,
+            "head": 148
+          }
+        ],
+        "main": 0
+      },
+      "text": "---\nworkscribe_id: \"m-live-mv918s0d\"\ntype: meeting\n---\n\n# Offline sync \u2014 v2.4 scope\n\n\n- ship date nov 4 not oct 28\n\n- beta 40 accts, halvorsen first",
+      "scroll": 72,
+      "caretTop": 224.5
+    },
+    "after": {
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 148,
+            "head": 148
+          }
+        ],
+        "main": 0
+      },
+      "text": "---\nworkscribe_id: \"m-live-mv918s0d\"\ntype: meeting\n---\n\n# Offline sync \u2014 v2.4 scope\n\n\n- ship date nov 4 not oct 28\n\n- beta 40 accts, halvorsen first",
+      "scroll": 576,
+      "caretTop": 224.5
+    },
+    "focused": true,
+    "wrap": {
+      "height": 600,
+      "scrollHeight": 600,
+      "clientWidth": 285,
+      "scrollWidth": 285,
+      "whiteSpace": "pre-wrap"
+    }
+  },
+  "owned": {
+    "source": "---\nworkscribe_id: \"m-live-mv918s0d\"\ntype: meeting\n---\n\n# Offline sync \u2014 v2.4 scope\n\n\n- ship date nov 4 not oct 28\n\n> **Ship date.** An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. \n\n\n- beta 40 accts, halvorsen first",
+    "owned": 1
+  },
+  "sourceMode": {
+    "widgets": 2,
+    "font": "Georgia"
+  },
+  "reading": "User text and owned quote only",
+  "renamed": "<test-vault>/Meetings/m-live-mv918s0d Renamed native test.md",
+  "composition": {
+    "composing": true,
+    "source": "---\nworkscribe_id: \"m-live-mv918s0d\"\ntype: meeting\n---\n\n# Offline sync \u2014 v2.4 scope\n\n\n- ship date nov 4 not oct 28\n\n> **Ship date.** An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. \n\n\n- beta 40 accts, halvorsen first\u306b\u307b\u3093",
+    "committed": "---\nworkscribe_id: \"m-live-mv918s0d\"\ntype: meeting\n---\n\n# Offline sync \u2014 v2.4 scope\n\n\n- ship date nov 4 not oct 28\n\n> **Ship date.** An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. An updated sentence that wraps across many lines without clipping. \n\n\n- beta 40 accts, halvorsen first\u65e5\u672c"
+  },
+  "native200": {
+    "blocks": 200,
+    "stable": true,
+    "p50": 1.100000023841858,
+    "p95": 1.600000023841858
+  },
+  "finalization": {
+    "path": "Meetings/m-live-mv918s0d Renamed native test.md",
+    "finalized": true,
+    "blocksPreserved": true,
+    "clean": true,
+    "decorations": 0
+  },
+  "errors": []
+}

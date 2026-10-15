@@ -38,28 +38,36 @@ enum Notifier {
     }
 }
 
-/// System-wide ⌥⌘R. Carbon hot keys need no Accessibility permission.
+/// A system-wide hot key: ⌥⌘R (record) by default, ⌥⌘K for quick ask. Carbon hot keys need no Accessibility
+/// permission. Each instance checks the pressed key's ID, so several can be registered at once.
 final class GlobalHotKey {
     private var reference: EventHotKeyRef?
     private var handler: EventHandlerRef?
     private let action: () -> Void
+    private let id: UInt32
 
-    init?(action: @escaping () -> Void) {
-        self.action = action
+    init?(keyCode: Int = kVK_ANSI_R, modifiers: Int = cmdKey | optionKey, id: UInt32 = 1, action: @escaping () -> Void) {
+        self.action = action; self.id = id
         var spec = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        let installed = InstallEventHandler(GetApplicationEventTarget(), { _, _, context in
-            guard let context else { return noErr }
-            Unmanaged<GlobalHotKey>.fromOpaque(context).takeUnretainedValue().action()
+        let installed = InstallEventHandler(GetApplicationEventTarget(), { _, event, context in
+            guard let context, let event else { return OSStatus(eventNotHandledErr) }
+            var pressed = EventHotKeyID()
+            GetEventParameter(event, EventParamName(kEventParamDirectObject), EventParamType(typeEventHotKeyID), nil,
+                              MemoryLayout<EventHotKeyID>.size, nil, &pressed)
+            let hotKey = Unmanaged<GlobalHotKey>.fromOpaque(context).takeUnretainedValue()
+            guard pressed.signature == GlobalHotKey.signature, pressed.id == hotKey.id else { return OSStatus(eventNotHandledErr) }
+            hotKey.action()
             return noErr
         }, 1, &spec, Unmanaged.passUnretained(self).toOpaque(), &handler)
-        let identifier = EventHotKeyID(signature: OSType(0x5753_4352), id: 1) // "WSCR"
-        let registered = RegisterEventHotKey(UInt32(kVK_ANSI_R), UInt32(cmdKey | optionKey), identifier,
+        let identifier = EventHotKeyID(signature: Self.signature, id: id)
+        let registered = RegisterEventHotKey(UInt32(keyCode), UInt32(modifiers), identifier,
                                              GetApplicationEventTarget(), 0, &reference)
         guard installed == noErr, registered == noErr else {
             if let handler { RemoveEventHandler(handler) }
             return nil
         }
     }
+    static let signature = OSType(0x5753_4352) // "WSCR"
     deinit {
         if let reference { UnregisterEventHotKey(reference) }
         if let handler { RemoveEventHandler(handler) }

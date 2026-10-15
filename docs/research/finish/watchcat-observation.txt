@@ -1,0 +1,21 @@
+phase=upload bytes=654276
+phase=processing state=ACTIVE waited=2s
+0:00 Empty Obsidian workspace with the file explorer open on the left and a blank tab in the main editor.
+0:00.2 A new note titled "2026-10-14 Offline sync - v2.4 scope" opens with property fields; a companion sidebar opens on the right showing tabs for Ask, Live Q&A, and Transcript in a listening state.
+0:01 The operator rapidly types three bullet points outlining ship date, beta accounts, and pricing questions.
+0:03 Live transcription begins appearing in the right sidebar for Marcus Chen discussing the sync engine.
+0:06 Generated contextual expansions populate beneath the first two note bullets regarding SQLite migration timeline and Halvorsen Construction requirements.
+0:13 A "Listening for this" indicator appears under the pricing bullet; the companion pane switches to a "What informed this line" inspection panel detailing transcripts and source evidence.
+0:20 The operator switches to the Ask tab and queries Halvorsen contract offline terms; a streamed response cites offline inspection terms and sync requirements.
+0:21 The audio recording stops; metadata updates with duration and attendees, and a purple "Finished listening" composer prompt bar docks at the bottom of the editor offering to finalize.
+0:23 The operator switches tabs to an "Unrelated" note, clicks a link to "A link", and switches back to the meeting note tab.
+0:24 The operator clicks "Finalize ✦+"; the note body synthesizes into a summary block, and a top banner indicates transcript fade timing.
+0:25 The operator triggers an undo command; the note reverts to the pre-finalized draft state and the bottom finalization prompt bar re-appears.
+0:26 The operator clicks "Finalize ✦+" again, cleanly reapplying the finalized summary and structure.
+0:27 The application window expands horizontally into wide mode, revealing full-width note layout with headings for "Also discussed" and "Action Items".
+0:28 The interface switches to dark mode; a nested hierarchical list test with deep indentation and checklist tasks renders, with the composer dock resting cleanly above the status bar.
+
+Moments worth a closer rewatch:
+- 0:24–0:26: The finalize, undo, and re-finalize sequence to verify that reading scroll position and text state remain stable.
+- 0:28: The nested indentation and task alignment in dark mode alongside the docked bottom composer bar.
+tokens=12225 cost_usd=0.0090 prompt=v2

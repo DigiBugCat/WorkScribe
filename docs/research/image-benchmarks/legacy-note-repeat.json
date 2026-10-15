@@ -1,0 +1,9 @@
+{
+  "ai_line" : "**iPhone 12 mini launch:** Marcus walked through the chart, noting the high spike is the 12 mini stall during image decoding. A fix is needed to move image decode off the main thread.",
+  "caption" : "The image displays information about the iPhone 12 mini launch trace, including warm launch time of 420 ms and cold launch time of 2,900 ms. It also notes that the main thread is blocked on image decode and suggests a fix to decode off the main thread.",
+  "caption_ready_seconds" : 5.5436699390411377,
+  "ocr" : "iPhone 12 mini — launch trace\nWarm launch: 420 ms\nCold launch: 2,900 ms\nMain thread blocked on image decode\nFix: decode off the main thread\n١٠1.-",
+  "ocr_ready_seconds" : 0.37523901462554932,
+  "raw_output" : "* **iPhone 12 mini launch:** Marcus walked through the chart, noting the high spike is the 12 mini stall during image decoding. A fix is needed to move image decode off the main thread.\n\n<\/output>",
+  "useful_line_seconds_without_scheduler" : 22.728762984275818
+}

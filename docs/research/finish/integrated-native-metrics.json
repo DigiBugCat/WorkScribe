@@ -1,0 +1,45 @@
+{
+  "didExecute": true,
+  "text": "---\ndate: 2026-10-14 22:28\ntags:\n  - meeting\nworkscribe: \"m-live-mv93l6km\"\n---\n\n- \n\nPREFIX\nBefore\n\n![[Meeting screen mock.png]]\n\n\n\nAfter",
+  "paths": [
+    "Meetings/images/Meeting screen mock.png"
+  ],
+  "png": [
+    137,
+    80,
+    78,
+    71,
+    13,
+    10,
+    26,
+    10
+  ],
+  "imageBlock": {
+    "id": "c9dfbb8f-7652-47fa-b20d-5be82c13894a",
+    "shorthand": "",
+    "images": [
+      {
+        "target": "Meeting screen mock.png"
+      }
+    ]
+  },
+  "commandHotkeys": [],
+  "trace": "What informed this line\nScripted fixture · Test server · 0.4 s\nMatched transcript\nWhat else it read\nMeeting screen mock.png\n\nMain-thread image decoding delays the iPhone 12 mini launch.\niPhone 12 mini: 2,900 ms; iPhone 15 Pro: 420 ms\nRead on this Mac · Gemma + OCR\n3.6 s\n\nRevision history · v1\n\nThe transcript, evidence and revision history fade with this meeting. Only your note remains.",
+  "undoText": "---\ndate: 2026-10-14 22:28\ntags:\n  - meeting\nworkscribe: \"m-live-mv93l6km\"\n---\n\n- \n\nPREFIX\nBefore\n\nAfter",
+  "attachmentsAfterUndo": 1,
+  "owned": {
+    "source": "---\ndate: 2026-10-14 22:28\ntags:\n  - meeting\nworkscribe: \"m-live-mv93l6km\"\n---\n\n- \n\nPREFIX\nBefore\n\n![[Meeting screen mock.png]]\nThe iPhone 12 mini stalls for 2,900 ms during image decoding. Move image decode off the main thread.!\n\n\n\nAfter",
+    "notes": [
+      {
+        "owned": true,
+        "enhanced": {
+          "topic": "",
+          "text": "The iPhone 12 mini stalls for 2,900 ms during image decoding. Move image decode off the main thread.!"
+        }
+      }
+    ]
+  },
+  "finalizeUndo": true,
+  "purgeClearedTrace": true,
+  "errors": []
+}

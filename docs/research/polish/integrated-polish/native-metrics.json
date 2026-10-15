@@ -1,0 +1,54 @@
+{
+  "activeLine": {
+    "widgets": 2,
+    "source": "---\nworkscribe_id: \"m-live-mv92i09j\"\ntype: meeting\n---\n\n# Offline sync — v2.4 scope\n\n\n- ship date nov 4 not oct 28\n- beta 40 accts, halvorsen first\n- pricing for the beta?"
+  },
+  "rewrite": {
+    "before": {
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 171,
+            "head": 171
+          }
+        ],
+        "main": 0
+      },
+      "source": "---\nworkscribe_id: \"m-live-mv92i09j\"\ntype: meeting\n---\n\n# Offline sync — v2.4 scope\n\n\n- ship date nov 4 not oct 28\n- beta 40 accts, halvorsen first\n- pricing for the beta?",
+      "caret": 262.375
+    },
+    "after": {
+      "selection": {
+        "ranges": [
+          {
+            "anchor": 171,
+            "head": 171
+          }
+        ],
+        "main": 0
+      },
+      "source": "---\nworkscribe_id: \"m-live-mv92i09j\"\ntype: meeting\n---\n\n# Offline sync — v2.4 scope\n\n\n- ship date nov 4 not oct 28\n- beta 40 accts, halvorsen first\n- pricing for the beta?",
+      "caret": 261.875
+    },
+    "wet": 8,
+    "focused": true
+  },
+  "owned": {
+    "source": "---\nworkscribe_id: \"m-live-mv92i09j\"\ntype: meeting\n---\n\n# Offline sync — v2.4 scope\n\n\n- ship date nov 4 not oct 28\n  v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday. The rollout follows the migration review.!\n- beta 40 accts, halvorsen first\n- pricing for the beta?",
+    "owned": 1
+  },
+  "question": {
+    "tab": "ask",
+    "focused": true
+  },
+  "final": {
+    "source": "---\nworkscribe_id: \"m-live-mv92i09j\"\ntype: meeting\n---\n\n*The team reviewed scope, timing and next steps.*\n\n\n# Offline sync — v2.4 scope\n\n\n- ship date nov 4 not oct 28\n  v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday. The rollout follows the migration review.!\n- beta 40 accts, halvorsen first\n  *40 accounts, Halvorsen Construction first because their contract names offline capture by year end.*\n- pricing for the beta?",
+    "finalized": true,
+    "widgets": 0
+  },
+  "undo": {
+    "source": "---\nworkscribe_id: \"m-live-mv92i09j\"\ntype: meeting\n---\n\n# Offline sync — v2.4 scope\n\n\n- ship date nov 4 not oct 28\n  v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday. The rollout follows the migration review.!\n- beta 40 accts, halvorsen first\n- pricing for the beta?",
+    "finalized": false
+  },
+  "errors": []
+}

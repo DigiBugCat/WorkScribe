@@ -1,0 +1,29 @@
+{
+  "didExecute": true,
+  "text": "---\nworkscribe_id: \"m-live-mv92az5m\"\ntype: meeting\n---\n\n# Offline sync — v2.4 scope\n\n\n\nPREFIX\nBefore\n\n![[Meeting screen mock.png]]\n\n\n\nAfter",
+  "paths": [
+    "Meetings/images/Meeting screen mock.png"
+  ],
+  "png": [
+    137,
+    80,
+    78,
+    71,
+    13,
+    10,
+    26,
+    10
+  ],
+  "imageBlock": {
+    "id": "62ec8808-0455-41f8-80c4-dafaa7f7f0c9",
+    "shorthand": "",
+    "images": [
+      {
+        "target": "Meeting screen mock.png"
+      }
+    ]
+  },
+  "commandHotkeys": [],
+  "undoText": "---\nworkscribe_id: \"m-live-mv92az5m\"\ntype: meeting\n---\n\n# Offline sync — v2.4 scope\n\n\n\nPREFIX\nBefore\n\nAfter",
+  "attachmentsAfterUndo": 1
+}

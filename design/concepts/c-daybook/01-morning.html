@@ -1,0 +1,218 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Day Book Morning</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Manrope:wght@400;500;600;700;800&family=Kalam&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="daybook.css">
+<script src="daybook.js"></script>
+<style>
+  .weekband { margin: var(--space-2) 0 var(--space-4); }
+  .carry { display: grid; gap: 6px; margin-top: 4px; }
+  .carry li { list-style: none; display: flex; gap: 8px; align-items: baseline; font-size: 14px; line-height: 21px; }
+  .carry { padding: 0; margin: 4px 0 0; }
+  .carry .sig { font-weight: 800; color: var(--indigo); width: 12px; flex: none; }
+  .prep { display: grid; gap: 6px; }
+  .prep li { list-style: none; }
+  .prep { padding: 0; margin: 0; }
+</style>
+</head>
+<body>
+<main class="stage">
+  <header class="stage-head">
+    <div>
+      <div class="eyebrow">Concept C · Day Book · screen 1 of 4</div>
+      <h1>Morning: the page ahead</h1>
+      <p>Tuesday, 08:52. The day is one page. Everything above the <b>now line</b> already happened (a file you opened, a clip you saved, a jot). Everything below is pencilled in: the calls ahead, with the assistant's prep in the margin. You type on the now line, so a jot before coffee and a jot during a call are the same gesture.</p>
+    </div>
+    <nav aria-label="Concept pages">
+      <a href="index.html">Index</a>
+      <a href="02-live-call.html">Next: live call</a>
+      <button class="theme-toggle" type="button">Theme: auto</button>
+    </nav>
+  </header>
+
+  <div class="window soak" role="group" aria-label="WorkScribe window, today's day page in the morning">
+    <div class="titlebar">
+      <div class="lights" aria-hidden="true"><i></i><i></i><i></i></div>
+      <span class="where">Day Book</span>
+      <span class="vault">Vault · Daily/2026-10-13.md</span>
+      <span class="spacer"></span>
+      <div class="seg" role="group" aria-label="Zoom">
+        <button type="button" aria-pressed="true">Day</button><button type="button" aria-pressed="false">Week</button><button type="button" aria-pressed="false">Month</button>
+      </div>
+      <div class="search"><svg class="ico" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.2"/><path d="M10.2 10.2 13.5 13.5"/></svg><span>Find a moment, or ask…</span><span class="kbd">⌘K</span></div>
+    </div>
+    <div class="book">
+      <nav class="rail" aria-label="Calendar and page index">
+        <div>
+          <div class="label" style="margin-bottom:6px">October 2026</div>
+          <div class="cal" aria-hidden="true">
+            <span class="h">M</span><span class="h">T</span><span class="h">W</span><span class="h">T</span><span class="h">F</span><span class="h">S</span><span class="h">S</span>
+            <span class="has">5</span><span class="has">6</span><span>7</span><span class="has">8</span><span class="has">9</span><span>10</span><span>11</span>
+            <span class="has">12</span><span class="today">13</span><span class="fut">14</span><span class="fut">15</span><span class="fut">16</span><span class="fut">17</span><span class="fut">18</span>
+          </div>
+        </div>
+        <div>
+          <div class="label" style="margin-bottom:4px">On this page</div>
+          <ul>
+            <li><a href="#carried"><span class="num">—</span>Carried over · 2</a></li>
+            <li><a href="#early" aria-current="true"><span class="num">08:31</span>Early</a></li>
+            <li><a href="#c1"><span class="num">10:02</span>Offline sync</a></li>
+            <li><a href="#c2"><span class="num">13:30</span>Design crit</a></li>
+            <li><a href="#c3"><span class="num">16:00</span>Halvorsen IT call</a></li>
+          </ul>
+        </div>
+        <p class="foot">Pages are Markdown in your Obsidian vault. Everything is read and written on this Mac.</p>
+      </nav>
+
+      <div class="page">
+        <div class="dayhead">
+          <div>
+            <h2>Tuesday, 13 October</h2>
+            <div class="sub">3 calls ahead · 2 carried over · 1 promise due today</div>
+          </div>
+        </div>
+
+        <!-- Week zoom glance: the week as a band -->
+        <svg class="band weekband" viewBox="0 0 760 64" role="img" aria-label="This week: Monday had 2 calls, today has 3 calls ahead, Wednesday to Friday are light.">
+          <g>
+            <rect class="iw-wash" x="0" y="18" width="140" height="22" rx="3" opacity=".55"/>
+            <rect class="iw-wash" x="152" y="18" width="140" height="22" rx="3"/>
+            <rect class="iw-sky" x="304" y="18" width="140" height="22" rx="3"/>
+            <rect class="iw-sky" x="456" y="18" width="140" height="22" rx="3"/>
+            <rect class="iw-sky" x="608" y="18" width="140" height="22" rx="3"/>
+            <rect class="iw-indigo" x="20" y="24" width="18" height="10" rx="2"/><rect class="iw-indigo" x="80" y="24" width="26" height="10" rx="2"/>
+            <rect class="iw-indigo" x="188" y="24" width="20" height="10" rx="2"/><rect class="iw-indigo" x="232" y="24" width="24" height="10" rx="2"/><rect class="iw-indigo" x="262" y="24" width="10" height="10" rx="2"/>
+            <rect class="iw-indigo" x="350" y="24" width="20" height="10" rx="2" opacity=".5"/>
+            <rect class="iw-indigo" x="520" y="24" width="30" height="10" rx="2" opacity=".5"/>
+          </g>
+          <path class="iw-line" d="M174 12 V46"/>
+          <text class="iw-t-muted" x="0" y="58" font-size="11" font-weight="700">MON 12</text>
+          <text class="iw-t" x="152" y="58" font-size="11" font-weight="700">TUE 13 · TODAY</text>
+          <text class="iw-t-muted" x="304" y="58" font-size="11" font-weight="700">WED 14</text>
+          <text class="iw-t-muted" x="456" y="58" font-size="11" font-weight="700">THU 15</text>
+          <text class="iw-t-muted" x="608" y="58" font-size="11" font-weight="700">FRI 16</text>
+          <text class="iw-t-muted" x="180" y="11" font-size="10.5" font-weight="700">now</text>
+        </svg>
+
+        <div class="rows">
+          <!-- Carried over -->
+          <div class="row k-action" id="carried">
+            <div class="t">from<small>Mon</small></div>
+            <div class="e">
+              <span class="kind">Carried over</span>
+              <ul class="carry">
+                <li><span class="sig" aria-label="open action">!</span><span>Send Lena the photo-grid notes from the design crit <span class="caption">· asked by Lena · Mon 15:12</span></span></li>
+                <li><span class="sig" aria-label="open action">!</span><span><b>Get the checklist merge rule into PRD v3</b> <span class="caption">· you said “by Tuesday” · 8 Oct 31:40</span></span></li>
+              </ul>
+            </div>
+            <aside class="m"><div class="mnote"><span class="who">Margin</span><span><span class="seal" aria-label="Needs you"></span> <b>The PRD one is due today</b> and it's on the 10:02 agenda. Marcus starts the prototype Monday.</span></div></aside>
+          </div>
+
+          <div class="row k-file" id="early">
+            <div class="t">08:31</div>
+            <div class="e">
+              <span class="kind">File</span>
+              <div class="title">Opened Offline PRD v3.md</div>
+              <div class="meta">Product docs · read 4 min · stopped at “Sync model”</div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <div class="row k-clip">
+            <div class="t">08:44</div>
+            <div class="e">
+              <span class="kind">Clipped</span>
+              <div class="title">Field-level merge for offline forms</div>
+              <div class="meta">engineering blog · via Obsidian Web Clipper · 1 highlight</div>
+              <div class="clipq">“Merge booleans per field; for free text, keep both versions and ask a human.”</div>
+            </div>
+            <aside class="m"><div class="mnote"><span class="who">Margin</span><span>Same approach Marcus floated on the <a href="#">6 Oct walk-and-talk</a> at 04:15. Linked both.</span></div></aside>
+          </div>
+
+          <div class="row k-note">
+            <div class="t">08:47</div>
+            <div class="e">
+              <span class="kind">Jotted</span>
+              <div class="body"><span class="typed">? what does halvorsen MSA actually say re offline</span></div>
+              <div class="meta">a “?” jot is a question for the margin</div>
+            </div>
+            <aside class="m"><div class="mnote mcard"><span class="who">Answer</span><span>Offline capture of inspections and photos by <b>Dec 31</b>, sync within 24 h of reconnecting <span class="cite">1</span>. Nothing on conflict handling.</span><span class="caption"><span class="cite">1</span> Halvorsen MSA 2026.pdf · p.14 §7.2</span></div></aside>
+          </div>
+
+          <!-- NOW -->
+          <div class="row now">
+            <div class="t">08:52</div>
+            <div class="e nowline">
+              <label class="vh" for="jot1">Jot on the now line</label>
+              <div class="jot"><span class="ph" id="jot1">Jot, ask with ?, or press ⌥⌘R to start a call…</span><span class="kbd">↩</span></div>
+              <div class="sigils" aria-label="Jot signifiers"><span><b>•</b>note</span><span><b>!</b>action</span><span><b>?</b>ask the margin</span><span><b>→</b>for later</span><span><b>@</b>person</span></div>
+            </div>
+            <aside class="m"></aside>
+          </div>
+
+          <!-- AHEAD -->
+          <div class="row gap ahead"><div class="t"></div><div class="e"></div><aside class="m"></aside></div>
+
+          <div class="row ahead k-call" id="c1">
+            <div class="t">10:02</div>
+            <div class="e">
+              <span class="kind">Call · ahead</span>
+              <div class="title">Offline sync — v2.4 scope</div>
+              <div class="meta"><span class="spk priya">Priya Raman</span><span class="spk marcus">Marcus Chen</span><span>Zoom · 30 min · records when the call starts</span></div>
+              <div class="acts"><button class="btn primary" type="button">Open as the now line at 10:02</button><button class="btn text" type="button">Last time we met</button></div>
+            </div>
+            <aside class="m">
+              <div class="mnote"><span class="who">Prep</span>
+                <ul class="prep">
+                  <li>Marcus raised merge conflicts twice already (30 Sep, 6 Oct). Expect pushback on last-write-wins.</li>
+                  <li>Your 6 Oct note: “12 mini stalls past ~1 GB queued.”</li>
+                  <li>Ship date is still <b>Oct 28</b> in PRD v3.</li>
+                </ul>
+              </div>
+              <div class="mnote"><span class="hand">bring the clip from 08:44 ↑</span></div>
+            </aside>
+          </div>
+
+          <div class="row ahead k-call" id="c2">
+            <div class="t">13:30</div>
+            <div class="e">
+              <span class="kind">Call · ahead</span>
+              <div class="title">Design crit — inspection checklist</div>
+              <div class="meta"><span class="spk lena">Lena Ortiz</span><span>Room 3 · in person · mic only</span></div>
+            </div>
+            <aside class="m"><div class="mnote"><span>You owe Lena the photo-grid notes (carried over). Worth sending before 13:30.</span></div></aside>
+          </div>
+
+          <div class="row ahead k-call" id="c3">
+            <div class="t">16:00</div>
+            <div class="e">
+              <span class="kind">Call · ahead</span>
+              <div class="title">Halvorsen IT — managed devices</div>
+              <div class="meta">2 unnamed voices last time · 25 min</div>
+            </div>
+            <aside class="m"><div class="mnote"><span>Last call they said background refresh is blocked on their iPhones. That bears on the 24 h sync clause.</span></div></aside>
+          </div>
+
+          <div class="row ahead quiet">
+            <div class="t">18:00</div>
+            <div class="e"><span class="kind">Evening</span><div class="body caption">The margin writes the day's digest here and offers to carry open items to Wednesday.</div></div>
+            <aside class="m"></aside>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="callouts" aria-label="Notes on this screen">
+    <div><b>The now line is the text field</b>Not a chat box and not a note editor: one line, always at the present moment. What you type becomes an entry at that time. Signifiers from bullet journaling (• ! ? →) decide what it becomes.</div>
+    <div><b>Ahead is pencilled, not a dashboard</b>Calls ahead use a dashed spine. The margin preps each one from past calls, your notes and clips. Needs calendar read access (opt-in EventKit) to work.</div>
+    <div><b>Every page is a file</b>The page is <code>Daily/2026-10-13.md</code> in your Obsidian vault, with [[links]] to call notes. Web clips land as timed entries and become citable sources.</div>
+  </section>
+</main>
+</body>
+</html>

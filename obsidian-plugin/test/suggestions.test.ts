@@ -1,0 +1,31 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { NO_MATCH, friendlyHint, lineState } from "../src/lib/suggestions";
+import { parseNote, parseMeetingSummary, parseLiveEvent } from "../src/lib/parse";
+import { applyEvent, emptyLive } from "../src/lib/live";
+import type { Note } from "../src/lib/types";
+const note = (extra: Partial<Note> = {}): Note => ({ id: "n1", at: 10, text: "ship nov 4", state: "done", excerpts: [], ...extra });
+const ship = { topic: "Ship date.", text: "v2.4 moves to Nov 4." };
+test("AI updates never change typed text or require approval", () => {
+  const n = note({ enhanced: ship });
+  assert.equal(lineState(n).kind, "ai");
+  n.enhanced = { ...ship, text: "Release moved to November 4 for testing." };
+  assert.equal(lineState(n).kind, "ai");
+  assert.equal(n.text, "ship nov 4");
+  n.userEdited = true;
+  assert.equal(lineState(n).kind, "owned");
+  assert.equal(lineState(note({ state: "pending" })).kind, "waiting");
+  assert.deepEqual(lineState(note({ state: "plain" })), { kind: "none", hint: NO_MATCH });
+  assert.equal(friendlyHint("Kept as typed."), NO_MATCH);
+});
+test("ownership and retention survive wire parsing; purge removes cached raw content", () => {
+  assert.equal(parseNote({ ...note(), userEdited: true }).userEdited, true);
+  const summary = parseMeetingSummary({ id: "m", retention: "finalized", purgeAt: "2026-10-15T00:00:00Z" });
+  assert.equal(summary.retention, "finalized");
+  assert.equal(summary.purgeAt, "2026-10-15T00:00:00Z");
+  const ev = parseLiveEvent("meeting.purged", '{"meetingId":"m"}')!;
+  const state = emptyLive(); state.meetingId = "m"; state.notes.set("n1", note());
+  state.segments.push({ id: "s", speaker: "A", start: 0, text: "secret", final: true });
+  applyEvent(state, ev);
+  assert.equal(state.notes.size, 0); assert.equal(state.segments.length, 0);
+});

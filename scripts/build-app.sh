@@ -1,44 +1,61 @@
 #!/bin/bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+runtime_home="${WORKSCRIBE_RUNTIME_HOME:-$HOME/Library/Application Support/WorkScribe/Runtime}"
+export WORKSCRIBE_RUNTIME_HOME="$runtime_home"
 plaud_frameworks="${WORKSCRIBE_PLAUD_FRAMEWORKS:-$HOME/Library/Caches/WorkScribe/PlaudNativeLab/Frameworks}"
-if [ ! -d "$plaud_frameworks/PlaudBleSDK.framework" ]; then
+if [ "${WORKSCRIBE_PLAUD:-0}" = 1 ] && { [ ! -d "$plaud_frameworks/PlaudBleSDK.framework" ] || [ ! -d "$plaud_frameworks/PlaudDeviceBasicSDK.framework" ]; }; then
   echo 'Build the native Plaud frameworks first; see experiments/plaud-macos/README.md.' >&2
   exit 1
 fi
-swift build -c release
+python3 scripts/runtime-doctor.py
+swift_flags=()
+[ "${WORKSCRIBE_SWIFT_DISABLE_SANDBOX:-0}" != 1 ] || swift_flags+=(--disable-sandbox)
+swift build "${swift_flags[@]}" -c release
 stage="$(mktemp -d "${TMPDIR:-/tmp}/workscribe-build.XXXXXX")"
+trap 'rm -rf "$stage"' EXIT
 app="$stage/WorkScribe.app"
 output_dir="${WORKSCRIBE_OUTPUT_DIR:-$PWD/dist}"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources/Models" "$app/Contents/Frameworks"
 cp .build/release/WorkScribe "$app/Contents/MacOS/WorkScribe"
-if [ ! -x .runtime/nemo/bin/nemo-speech ]; then
-  echo 'Missing .runtime/nemo. Install the NVIDIA runtime first (see README).' >&2
+# App icon; rebuild both with Resources/AppIcon/tools/build.py. Assets.car is the
+# Liquid Glass icon macOS 26 prefers (CFBundleIconName); AppIcon.icns is the fallback.
+cp Resources/AppIcon/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
+cp Resources/AppIcon/Assets.car "$app/Contents/Resources/Assets.car"
+# Browser clip extension's native-messaging host (extras/chrome-extension/install-native-host.sh registers it).
+mkdir -p "$app/Contents/Helpers"
+cp .build/release/WorkScribeNativeHost "$app/Contents/Helpers/WorkScribeNativeHost"
+if [ ! -x "$runtime_home/nemo"/bin/nemo-speech ]; then
+  echo "Missing $runtime_home/nemo. Run python3 scripts/runtime-doctor.py." >&2
   exit 1
 fi
-ditto .runtime/nemo/lib "$app/Contents/Frameworks"
+ditto "$runtime_home/nemo"/lib "$app/Contents/Frameworks"
+if [ "${WORKSCRIBE_PLAUD:-0}" = 1 ]; then
 ditto "$plaud_frameworks/PlaudBleSDK.framework" "$app/Contents/Frameworks/PlaudBleSDK.framework"
 ditto "$plaud_frameworks/PlaudDeviceBasicSDK.framework" "$app/Contents/Frameworks/PlaudDeviceBasicSDK.framework"
 install_name_tool -delete_rpath "$plaud_frameworks" "$app/Contents/MacOS/WorkScribe"
-ditto .runtime/nemo/share/licenses "$app/Contents/Resources/licenses"
-install_name_tool -delete_rpath "$PWD/.runtime/nemo/lib" "$app/Contents/MacOS/WorkScribe"
-asr_cache="$HOME/Library/Caches/NeMoSpeech/models/nvidia/nemotron-3.5-asr-streaming-0.6b/1c8deaecc64b91f034d73e08dd8b64625eb3395d"
-diar_cache="$HOME/Library/Caches/NeMoSpeech/models/nvidia/Nemotron-3-Diarization/f667ed73aee57d40cc39428eb768b4fd87a0a29e"
-cp -c "$asr_cache/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf" "$app/Contents/Resources/Models/"
-cp -c "$diar_cache/Nemotron-3-Diarization.q8_0.gguf" "$app/Contents/Resources/Models/"
+fi
+ditto "$runtime_home/nemo"/share/licenses "$app/Contents/Resources/licenses"
+install_name_tool -delete_rpath "$runtime_home/nemo/lib" "$app/Contents/MacOS/WorkScribe"
 title_model="${WORKSCRIBE_TITLE_MODEL:-qwen35}"
 case "$title_model" in
   gemma4) title_file=gemma-4-E2B_q4_0-it.gguf ;;
   qwen35) title_file=Qwen3.5-2B-Q4_K_M.gguf ;;
   *) echo 'WORKSCRIBE_TITLE_MODEL must be gemma4 or qwen35' >&2; exit 1 ;;
 esac
-ditto .runtime/models/wespeaker_v2.mlmodelc "$app/Contents/Resources/Models/wespeaker_v2.mlmodelc"
+ditto Resources/licenses "$app/Contents/Resources/licenses"
 ditto Resources/licenses/fluidaudio "$app/Contents/Resources/licenses/fluidaudio"
 cp .build/checkouts/FluidAudio/LICENSE "$app/Contents/Resources/licenses/fluidaudio/FluidAudio-LICENSE"
-for resource_bundle in .build/release/FluidAudio_*.bundle; do
+for resource_bundle in .build/release/FluidAudio_*.bundle .build/release/FluidUse_*.bundle; do
   [ ! -d "$resource_bundle" ] || ditto "$resource_bundle" "$app/Contents/Resources/$(basename "$resource_bundle")"
 done
-cp -c ".runtime/models/$title_file" "$app/Contents/Resources/Models/"
+# Models stay in the non-synced runtime home. The app carries repair metadata/scripts.
+mkdir -p "$app/Contents/Resources/runtime/scripts" "$app/Contents/Resources/runtime/Resources"
+cp scripts/*.py scripts/prepare-image-model.sh scripts/image-caption.cpp scripts/cmake-requirements.txt "$app/Contents/Resources/runtime/scripts/"
+ditto Resources/licenses "$app/Contents/Resources/runtime/Resources/licenses"
+ditto Resources/licenses/image-understanding "$app/Contents/Resources/licenses/image-understanding"
+ditto Resources/licenses/embeddinggemma2 "$app/Contents/Resources/licenses/embeddinggemma2"
+ditto Resources/licenses/digup "$app/Contents/Resources/licenses/digup"
 printf '%s\n' "$title_model" > "$app/Contents/Resources/title-model.txt"
 mkdir -p "$app/Contents/Resources/licenses/title-model"
 cp Sources/CTextGeneration/vendor/LICENSE "$app/Contents/Resources/licenses/title-model/llama.cpp-LICENSE"
@@ -50,20 +67,33 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 <key>CFBundleIdentifier</key><string>local.workscribe.app</string>
 <key>CFBundleName</key><string>WorkScribe</string>
 <key>CFBundleExecutable</key><string>WorkScribe</string>
+<key>CFBundleIconFile</key><string>AppIcon</string>
+<key>CFBundleIconName</key><string>AppIcon</string>
 <key>CFBundlePackageType</key><string>APPL</string>
 <key>CFBundleShortVersionString</key><string>0.1.0</string>
 <key>CFBundleVersion</key><string>1</string>
 <key>LSUIElement</key><true/>
 <key>LSMultipleInstancesProhibited</key><true/>
-<key>LSMinimumSystemVersion</key><string>14.0</string>
+<key>LSMinimumSystemVersion</key><string>26.0</string>
+<key>CFBundleURLTypes</key><array><dict>
+  <key>CFBundleURLName</key><string>local.workscribe.link</string>
+  <key>CFBundleURLSchemes</key><array><string>workscribe</string></array>
+</dict></array>
 <key>NSMicrophoneUsageDescription</key><string>WorkScribe records your microphone for local meeting transcription.</string>
 <key>NSBluetoothAlwaysUsageDescription</key><string>WorkScribe saves your Plaud recordings and releases the recorder when you choose to move it to the Plaud iPhone app.</string>
 <key>NSScreenCaptureUsageDescription</key><string>WorkScribe captures system audio to transcribe meeting participants playing through your Mac.</string>
 </dict></plist>
 PLIST
+if [ "${WORKSCRIBE_PLAUD:-0}" != 1 ]; then
+  /usr/libexec/PlistBuddy -c 'Delete :NSBluetoothAlwaysUsageDescription' "$app/Contents/Info.plist"
+fi
 chmod -R u+w "$app"
 xattr -cr "$app"
-codesign --force --deep --sign - "$app"
+# A stable identity keeps macOS privacy grants (microphone, system audio) across rebuilds;
+# ad-hoc signatures change every build and silently invalidate them.
+sign_identity="${WORKSCRIBE_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development/ {print $2; exit}')}"
+codesign --force --deep --sign "${sign_identity:--}" "$app"
+printf 'Signed with %s\n' "${sign_identity:-ad hoc (privacy grants reset on every build)}"
 codesign --verify --deep --strict "$app"
 mkdir -p "$output_dir"
 if [ -e "$output_dir/WorkScribe.app" ]; then

@@ -1,14 +1,25 @@
 import SwiftUI
 import WorkScribeCore
 
+/// A moment to show in a transcript: a citation or `workscribe://` link. `token` makes a repeat request distinct.
+struct TranscriptFocus: Equatable {
+    var meetingID: String
+    var seconds: Double?
+    var segmentID: String?
+    var token = UUID()
+}
+
 struct TranscriptView: View {
     let meeting: Meeting
     let live: Bool
     @Binding var followLive: Bool
     /// Builds the naming popover for a turn's first segment; the closure dismisses it.
     var editor: ((Segment, @escaping () -> Void) -> AnyView)?
+    /// Scrolls to and briefly highlights this moment when it belongs to `meeting`.
+    var focus: TranscriptFocus? = nil
     @State private var editingTurn: String?
     @State private var hoveredTurn: String?
+    @State private var highlighted: String?
 
     /// Consecutive segments from the same person read as one turn.
     private struct Turn: Identifiable {
@@ -29,17 +40,9 @@ struct TranscriptView: View {
     private var bothSources: Bool { Set(meeting.segments.map(\.source)).count > 1 }
 
     private var turns: [Turn] {
-        var result: [Turn] = []
-        let solo = microphoneIsSolo
-        for segment in meeting.orderedSegments {
-            let name = displayName(segment, solo: solo)
-            if let last = result.last, last.first.source == segment.source, last.name == name {
-                result[result.count - 1].segments.append(segment)
-            } else {
-                result.append(Turn(segments: [segment], name: name))
-            }
+        TranscriptTurns.group(meeting).map { turn in
+            Turn(segments: turn.segments, name: displayName(turn.first, solo: microphoneIsSolo))
         }
-        return result
     }
 
     var body: some View {
@@ -78,6 +81,23 @@ struct TranscriptView: View {
             .onChange(of: revision) { _, _ in if live && followLive { proxy.scrollTo("transcript-bottom", anchor: .bottom) } }
             .onChange(of: followLive) { _, following in if following { withAnimation { proxy.scrollTo("transcript-bottom", anchor: .bottom) } } }
             .onChange(of: meeting.id) { _, _ in if live && followLive { proxy.scrollTo("transcript-bottom", anchor: .bottom) } }
+            .onChange(of: focus) { _, _ in show(focus, proxy) }
+            .onAppear { show(focus, proxy) }
+        }
+    }
+
+    /// The turn holding the focused segment, else the last turn starting at or before the time.
+    private func show(_ focus: TranscriptFocus?, _ proxy: ScrollViewProxy) {
+        guard let focus, focus.meetingID == meeting.id else { return }
+        let all = turns
+        let target = focus.segmentID.flatMap { id in all.first { $0.segments.contains { $0.id == id } } }
+            ?? focus.seconds.flatMap { seconds in all.last { $0.first.start <= seconds + 0.5 } ?? all.first }
+        guard let target else { return }
+        followLive = false
+        DispatchQueue.main.async {
+            withAnimation { proxy.scrollTo(target.id, anchor: .center) }
+            highlighted = target.id
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2.5) { if highlighted == target.id { withAnimation { highlighted = nil } } }
         }
     }
 
@@ -112,6 +132,9 @@ struct TranscriptView: View {
                 .font(.system(size: 14)).lineSpacing(3)
                 .textSelection(.enabled).fixedSize(horizontal: false, vertical: true)
         }.frame(maxWidth: .infinity, alignment: .leading)
+        .padding(highlighted == turn.id ? 6 : 0)
+        .background(highlighted == turn.id ? Theme.indigoWash.opacity(0.35) : .clear, in: RoundedRectangle(cornerRadius: 6))
+        .id(turn.id)
     }
 
     private func partialView(source: String, text: String) -> some View {
