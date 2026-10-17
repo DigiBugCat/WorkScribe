@@ -11,7 +11,7 @@ fi
 python3 scripts/runtime-doctor.py
 swift_flags=()
 [ "${WORKSCRIBE_SWIFT_DISABLE_SANDBOX:-0}" != 1 ] || swift_flags+=(--disable-sandbox)
-swift build "${swift_flags[@]}" -c release
+swift build ${swift_flags[@]+"${swift_flags[@]}"} -c release
 stage="$(mktemp -d "${TMPDIR:-/tmp}/workscribe-build.XXXXXX")"
 trap 'rm -rf "$stage"' EXIT
 app="$stage/WorkScribe.app"
