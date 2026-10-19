@@ -91,7 +91,16 @@ xattr -cr "$app"
 # A stable identity keeps macOS privacy grants (microphone, system audio) across rebuilds;
 # ad-hoc signatures change every build and silently invalidate them.
 sign_identity="${WORKSCRIBE_SIGN_IDENTITY:-$(security find-identity -v -p codesigning 2>/dev/null | awk -F'"' '/Apple Development/ {print $2; exit}')}"
-codesign --force --deep --sign "${sign_identity:--}" "$app"
+# Inside out: every library and helper first, then the app. A real identity gets the hardened runtime
+# (required for notarization, and keeps local builds behaving like releases); Developer ID builds also
+# get a secure timestamp. Ad-hoc builds can't pass library validation, so they stay unhardened.
+sign_flags=(--force --sign "${sign_identity:--}")
+if [ -n "$sign_identity" ] && [ "$sign_identity" != - ]; then sign_flags+=(--options runtime); fi
+case "$sign_identity" in "Developer ID Application"*) sign_flags+=(--timestamp) ;; esac
+find "$app/Contents/Frameworks" -name '*.dylib' -type f -print0 | xargs -0 -n 16 codesign "${sign_flags[@]}"
+for framework in "$app/Contents/Frameworks"/*.framework; do [ -e "$framework" ] && codesign "${sign_flags[@]}" "$framework"; done
+codesign "${sign_flags[@]}" "$app/Contents/Helpers/WorkScribeNativeHost"
+codesign "${sign_flags[@]}" --entitlements Resources/WorkScribe.entitlements "$app"
 printf 'Signed with %s\n' "${sign_identity:-ad hoc (privacy grants reset on every build)}"
 codesign --verify --deep --strict "$app"
 mkdir -p "$output_dir"
