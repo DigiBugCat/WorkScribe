@@ -78,7 +78,7 @@ WorkScribe asks for:
 
 - **Microphone** to record your voice.
 - **Screen & System Audio Recording** to capture the other side of calls, screen context and browser call titles. Without it, microphone-only recording remains available.
-- **Accessibility**, only if you choose **Zoom captions** as the transcript source (Settings › Transcript from). WorkScribe then reads Zoom's live captions instead of recording audio; while you share your screen it reads Zoom's floating caption box with on-device text recognition, which also uses Screen Recording. Turn captions on in Zoom (More › Show captions).
+- **Accessibility**, only if you choose **Zoom captions** as the transcript source (Settings › Transcript from). Turn captions on in Zoom (More › Show captions).
 - **Notifications**, optionally, for recording status.
 - Access to folders you select for vault notes or indexing. Pick only folders you want searchable.
 - **Bluetooth / Keychain** only in a build with the optional Plaud integration.
