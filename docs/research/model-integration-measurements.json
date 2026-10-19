@@ -1,0 +1,323 @@
+{
+  "final_prompts" : [
+    "final lww?",
+    "final ship date",
+    "final beta accts",
+    "final photo cap",
+    "final android",
+    "final pricing?"
+  ],
+  "fixture" : "\/private\/tmp\/claude-501\/fixtures\/tts-offline-sync\/transcript.json",
+  "live_prompts" : [
+    "live lww?",
+    "live ship date",
+    "live beta accts",
+    "live photo cap",
+    "live android",
+    "live pricing?"
+  ],
+  "llama" : {
+    "cached_outputs_identical" : true,
+    "final" : {
+      "decode_tokens_per_s_median" : 159.27829523857815,
+      "generated_tokens_median" : 30.5,
+      "prefill_ms_median" : 49.932603999999998,
+      "prompt_tokens_median" : 386,
+      "prompts" : [
+        {
+          "id" : "final lww?",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 565,
+          "reused_tokens" : 279,
+          "text" : "* **Short topic:** The team will merge at the field level for checklists while maintaining last right wins for other items, with a prototype prototype by Monday.\n<\/output>",
+          "ttft_ms" : 105.996292,
+          "uncached_ttft_ms" : 195.94612499999999
+        },
+        {
+          "id" : "final ship date",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 387,
+          "reused_tokens" : 279,
+          "text" : "* The ship date is November fourth, but the SQL live migration requires a full week, so the date will not work.",
+          "ttft_ms" : 51.790624999999999,
+          "uncached_ttft_ms" : 142.15254100000001
+        },
+        {
+          "id" : "final beta accts",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 343,
+          "reused_tokens" : 279,
+          "text" : "* Beta accounts are scheduled to be the first of forty total accounts, with offline capture required by the end of the year.",
+          "ttft_ms" : 32.522792000000003,
+          "uncached_ttft_ms" : 124.19854100000001
+        },
+        {
+          "id" : "final photo cap",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 385,
+          "reused_tokens" : 279,
+          "text" : "* The photo upload queue requires a limit of 200 photos or 1.5 gigabytes per device, processed oldest first, with a banner displayed at the cap.",
+          "ttft_ms" : 51.625540999999998,
+          "uncached_ttft_ms" : 141.863416
+        },
+        {
+          "id" : "final android",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 323,
+          "reused_tokens" : 279,
+          "text" : "* The Android parody landed in two point five, not two point four.",
+          "ttft_ms" : 31.026333999999999,
+          "uncached_ttft_ms" : 122.946375
+        },
+        {
+          "id" : "final pricing?",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 402,
+          "reused_tokens" : 279,
+          "text" : "* The photo upload queue requires a cap of 200 photos or 1.5 gigabytes per device, with the oldest entries processed first, and the Android parody feature is scheduled for launch at 2:50 PM.",
+          "ttft_ms" : 52.404792,
+          "uncached_ttft_ms" : 142.24166700000001
+        }
+      ],
+      "reused_tokens_median" : 279,
+      "samples" : 30,
+      "total_ms_median" : 238.195729,
+      "uncached_ttft_ms_median" : 142.21506249999999,
+      "warm_ttft_ms_max" : 108.008375,
+      "warm_ttft_ms_median" : 51.7309585,
+      "warm_ttft_ms_min" : 31.026333999999999
+    },
+    "first_call" : {
+      "load_ms" : 301.23712499999999,
+      "prompt_tokens" : 460,
+      "total_ms" : 455.36512499999998,
+      "ttft_ms" : 193.81325000000001
+    },
+    "footprint_mb" : {
+      "after" : 486.17404937744141,
+      "before" : 8.1881637573242188
+    },
+    "live" : {
+      "decode_tokens_per_s_median" : 160.1786553407066,
+      "generated_tokens_median" : 27.5,
+      "prefill_ms_median" : 61.458375500000002,
+      "prompt_tokens_median" : 421,
+      "prompts" : [
+        {
+          "id" : "live lww?",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 460,
+          "reused_tokens" : 279,
+          "text" : "* **Short topic:** The team decided to merge at the field level for checklists while keeping last right wins for all other items, with a deadline of November fourth due to a SQL live migration. Then <\/output>",
+          "ttft_ms" : 74.860167000000004,
+          "uncached_ttft_ms" : 163.27354199999999
+        },
+        {
+          "id" : "live ship date",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 469,
+          "reused_tokens" : 279,
+          "text" : "* The ship date is November fourth, but the SQL live migration requires a full week, so the deadline is November fourth.",
+          "ttft_ms" : 75.056250000000006,
+          "uncached_ttft_ms" : 164.531542
+        },
+        {
+          "id" : "live beta accts",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 343,
+          "reused_tokens" : 279,
+          "text" : "* Beta accounts are scheduled to be the first of forty total accounts, with offline capture required by the end of the year.",
+          "ttft_ms" : 31.922416999999999,
+          "uncached_ttft_ms" : 123.56075
+        },
+        {
+          "id" : "live photo cap",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 385,
+          "reused_tokens" : 279,
+          "text" : "* The photo upload queue requires a limit of 200 photos or 1.5 gigabytes per device, processed oldest first, with a banner displayed at the cap.",
+          "ttft_ms" : 52.515166999999998,
+          "uncached_ttft_ms" : 142.89254199999999
+        },
+        {
+          "id" : "live android",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 323,
+          "reused_tokens" : 279,
+          "text" : "* The Android parody landed in two point five, not two point four.",
+          "ttft_ms" : 36.477583000000003,
+          "uncached_ttft_ms" : 122.979792
+        },
+        {
+          "id" : "live pricing?",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 457,
+          "reused_tokens" : 279,
+          "text" : "* The SQL live migration requires a full week, meaning the October twenty eighth date is not feasible and the November fourth date is the earliest possible option.",
+          "ttft_ms" : 74.893625,
+          "uncached_ttft_ms" : 162.726125
+        }
+      ],
+      "reused_tokens_median" : 279,
+      "samples" : 30,
+      "total_ms_median" : 244.6099375,
+      "uncached_ttft_ms_median" : 153.8475205,
+      "warm_ttft_ms_max" : 75.922124999999994,
+      "warm_ttft_ms_median" : 63.516062500000004,
+      "warm_ttft_ms_min" : 31.150041999999999
+    },
+    "model" : "Qwen 3.5 · llama.cpp"
+  },
+  "mlx" : {
+    "final" : {
+      "decode_tokens_per_s_median" : 84.625318311192331,
+      "generated_tokens_median" : 52,
+      "prefill_ms_median" : 126.8911875,
+      "prompt_tokens_median" : 370,
+      "prompts" : [
+        {
+          "id" : "final lww?",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 549,
+          "reused_tokens" : 269,
+          "text" : "- The team agrees to merge checklists at the field level and retain the \"last right wins\" rule for all other cases. A prototype is to be completed by Monday, but due to a SQL live migration requiring a full week of QA testing, the original proposed date of October 28 is invalid, and November 4 is the new recommended date. Halverson will be informed on Friday that the contract requires offline capture by the end of the year, and they will be the first of forty beta accounts.",
+          "ttft_ms" : 258.42970800000001,
+          "uncached_ttft_ms" : 479.60595899999998
+        },
+        {
+          "id" : "final ship date",
+          "identical_to_uncached" : false,
+          "prompt_tokens" : 371,
+          "reused_tokens" : 269,
+          "text" : "- The ship date is set for November fourth, as the SQL live migration requires QA to complete a full week of testing, making October twenty-eighth unsuitable. Halverson will be informed on Friday that their contract requires offline capture by the end of the year, and they will be the first of forty beta accounts.",
+          "ttft_ms" : 128.32945799999999,
+          "uncached_ttft_ms" : 326.23316599999998
+        },
+        {
+          "id" : "final beta accts",
+          "identical_to_uncached" : false,
+          "prompt_tokens" : 328,
+          "reused_tokens" : 269,
+          "text" : "- On November 4, it was decided that Halverson would be informed that their contract includes offline capture by the end of the year, and they will be among the first of forty beta accounts.",
+          "ttft_ms" : 75.245582999999996,
+          "uncached_ttft_ms" : 298.95412499999998
+        },
+        {
+          "id" : "final photo cap",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 369,
+          "reused_tokens" : 269,
+          "text" : "* The photo upload queue needs a cap at 200 photos or 1.5 gigabytes per device, with the oldest photos being processed first, and a banner displayed at the cap. <\/output>",
+          "ttft_ms" : 127.558042,
+          "uncached_ttft_ms" : 326.41345799999999
+        },
+        {
+          "id" : "final android",
+          "identical_to_uncached" : false,
+          "prompt_tokens" : 308,
+          "reused_tokens" : 269,
+          "text" : "* Android parody achieved a version update to 2.5, not 2.4.",
+          "ttft_ms" : 74.447125,
+          "uncached_ttft_ms" : 274.35745800000001
+        },
+        {
+          "id" : "final pricing?",
+          "identical_to_uncached" : false,
+          "prompt_tokens" : 386,
+          "reused_tokens" : 269,
+          "text" : "* The photo upload queue will have a cap of either 200 photos or 1.5 gigabytes per device, with older photos displayed first, and a banner will appear at the cap. Android parody was released at version 2.5, not 2.4. <\/output>",
+          "ttft_ms" : 127.788083,
+          "uncached_ttft_ms" : 356.95800000000003
+        }
+      ],
+      "reused_tokens_median" : 269,
+      "samples" : 30,
+      "total_ms_median" : 721.85531250000008,
+      "uncached_ttft_ms_median" : 326.40558299999998,
+      "warm_ttft_ms_max" : 259.95237500000002,
+      "warm_ttft_ms_median" : 127.52362500000001,
+      "warm_ttft_ms_min" : 74.079250000000002
+    },
+    "first_call" : {
+      "load_ms" : 672.74324999999999,
+      "prompt_tokens" : 442,
+      "total_ms" : 1456.774459,
+      "ttft_ms" : 409.33637499999998
+    },
+    "footprint_mb" : {
+      "after" : 2958.1591110229492,
+      "before" : 253.11038208007812
+    },
+    "live" : {
+      "decode_tokens_per_s_median" : 85.476877138651162,
+      "generated_tokens_median" : 61.5,
+      "prefill_ms_median" : 151.1630625,
+      "prompt_tokens_median" : 404,
+      "prompts" : [
+        {
+          "id" : "live lww?",
+          "identical_to_uncached" : false,
+          "prompt_tokens" : 442,
+          "reused_tokens" : 269,
+          "text" : "* The offline sync strategy for version two point four is being reconsidered, with a proposal to merge at the field level for checklists to prevent edits from vanishing when the office and inspector work on the same job simultaneously, and to keep \"last right wins\" for all other cases. A prototype is required by Monday, but due to SQL live migration, QA testing will take a full week, pushing the final deadline to November fourth.",
+          "ttft_ms" : 176.80170799999999,
+          "uncached_ttft_ms" : 377.57970799999998
+        },
+        {
+          "id" : "live ship date",
+          "identical_to_uncached" : false,
+          "prompt_tokens" : 451,
+          "reused_tokens" : 269,
+          "text" : "- The ship date for the update is November 4, as confirmed by the QA lead who noted that the SQL live migration requires a full week and that October 28 is not feasible, with November 4 being the proposed date. Halverson will be informed on Friday that the contract requires offline capture by the end of the year, and they will be the first of forty beta accounts.",
+          "ttft_ms" : 180.26470900000001,
+          "uncached_ttft_ms" : 404.14887499999998
+        },
+        {
+          "id" : "live beta accts",
+          "identical_to_uncached" : false,
+          "prompt_tokens" : 328,
+          "reused_tokens" : 269,
+          "text" : "- On November 4, it was decided that Halverson would be informed that their contract includes offline capture by the end of the year, and they will be among the first of forty beta accounts.",
+          "ttft_ms" : 75.755042000000003,
+          "uncached_ttft_ms" : 299.64541700000001
+        },
+        {
+          "id" : "live photo cap",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 369,
+          "reused_tokens" : 269,
+          "text" : "* The photo upload queue needs a cap at 200 photos or 1.5 gigabytes per device, with the oldest photos being processed first, and a banner displayed at the cap. <\/output>",
+          "ttft_ms" : 126.65733299999999,
+          "uncached_ttft_ms" : 325.65583400000003
+        },
+        {
+          "id" : "live android",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 308,
+          "reused_tokens" : 269,
+          "text" : "Android parody landed in two point five, not two point four. <\/output>",
+          "ttft_ms" : 75.272833000000006,
+          "uncached_ttft_ms" : 273.60404199999999
+        },
+        {
+          "id" : "live pricing?",
+          "identical_to_uncached" : true,
+          "prompt_tokens" : 439,
+          "reused_tokens" : 269,
+          "text" : "* Pricing is not discussed in the evidence. The evidence mentions dates (November fourth) and contract terms (offline capture by the end of the year) related to beta accounts, but does not provide any information about pricing. What is known is that a contract requires offline capture by the end of the year, and that the first of forty beta accounts will be on that date. What remains uncertain is whether pricing is involved in any of these decisions or what the pricing structure might be. <\/output>",
+          "ttft_ms" : 176.809,
+          "uncached_ttft_ms" : 379.57400000000001
+        }
+      ],
+      "reused_tokens_median" : 269,
+      "samples" : 30,
+      "total_ms_median" : 858.00118750000001,
+      "uncached_ttft_ms_median" : 353.59189600000002,
+      "warm_ttft_ms_max" : 180.26470900000001,
+      "warm_ttft_ms_median" : 151.87983300000002,
+      "warm_ttft_ms_min" : 74.112250000000003
+    },
+    "model" : "Qwen3 4B · MLX"
+  },
+  "runs" : 5
+}

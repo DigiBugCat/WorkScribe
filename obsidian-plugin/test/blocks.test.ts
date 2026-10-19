@@ -22,7 +22,7 @@ The team kept offline for v2.4 ^not-a-note
 `;
 
 const note = (id: string, text: string, enhanced?: [string, string], blockId?: string): Note => {
-  const n: Note = { id, at: 0, text, state: enhanced ? "done" : "plain", excerpts: [], enhanced: enhanced ? { topic: enhanced[0], text: enhanced[1] } : null };
+  const n: Note = { id, at: 0, text, state: enhanced ? "answered" : "quiet", excerpts: [], enhanced: enhanced ? { topic: enhanced[0], text: enhanced[1] } : null };
   if (blockId) n.blockId = blockId;
   return n;
 };

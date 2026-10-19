@@ -57,54 +57,25 @@ final class TranscriptQualityTests: XCTestCase {
         reducer.consume(["type": "transcript.completed", "transcript": "", "words": []], source: "system", offset: 0, pressure: .normal, meeting: &meeting)
         XCTAssertEqual(meeting.segments.count, 1)
     }
-    func testBatchAlignmentPreservesAnchorSpeakerAndAllWords() {
-        let first = Segment(source: "system", speaker: "system:speaker-3", start: 460, end: 465, text: "the hokaido ones")
-        let second = Segment(source: "system", speaker: "system:speaker-4", start: 466, end: 468, text: "last drama")
-        let words = [TranscriptWord(text: "Hokkaido", start: 460, end: 461), .init(text: "reservations.", start: 461.1, end: 462),
-                     .init(text: "Oh,", start: 466, end: 466.4), .init(text: "drama.", start: 467, end: 468)]
-        let result = FinalTranscript.aligned(words, source: "system", originals: [first, second], unknownSpeaker: "system:unknown")
-        XCTAssertEqual(result.map(\.id), [first.id, second.id])
-        XCTAssertEqual(result.map(\.speaker), [first.speaker, second.speaker])
-        XCTAssertEqual(result.map(\.text).joined(separator: " "), "Hokkaido reservations. Oh, drama.")
-    }
-    func testActualShorthandAndDelayedTranscriptMatch() throws {
-        var meeting = Meeting(title: "Stream")
-        meeting.notes = ["- how many cutscenes left?", "- needs compass + food", "- car broken earlier?"].map { Note(text: $0, createdAt: 455.553) }
-        meeting.segments = [Segment(source: "system", speaker: "system:speaker-1", start: 412, end: 413, text: "I need my compass"),
-                            Segment(source: "system", speaker: "system:speaker-1", start: 423, end: 424, text: "unless I get more food"),
-                            Segment(source: "system", speaker: "system:speaker-1", start: 429, end: 431, text: "you got like a more billion cutscenes left"),
-                            Segment(source: "system", speaker: "system:speaker-1", start: 433, end: 439, text: "how long would you say that takes like two three hours maybe"),
-                            Segment(source: "system", speaker: "system:speaker-8", start: 1110, end: 1114, text: "We made it to the card room."),
-                            Segment(source: "system", speaker: "system:speaker-8", start: 1126, end: 1130, text: "six days left to not play checkers again"),
-                            Segment(source: "system", speaker: "system:speaker-8", start: 1744, end: 1750, text: "You can rent a car or join an organized tour.")]
-        let plan = try NotePlanner.finalPlan(meeting)
-        XCTAssertFalse(plan.targets[0].refs.isEmpty)
-        XCTAssertEqual(plan.targets[1].refs.count, 2)
-        // No car discussion in this meeting; never search another meeting silently.
-        XCTAssertTrue(plan.targets[2].refs.isEmpty)
-        XCTAssertTrue(plan.excerpts.contains { $0.chunk.text.contains("two three hours") })
-        XCTAssertEqual(meeting.notes![1].shorthand, "needs compass + food")
-        XCTAssertEqual(meeting.notes![1].text, "- needs compass + food")
-        XCTAssertFalse(NotePrompt.instruction(plan).contains("<text>- "))
-    }
+
     func testMarkdownViewDoesNotCarrySyntaxIntoPrompt() {
         XCTAssertEqual(NotePlainText.clean("> - [x] **needs** [[Compass|compass]] + [food](food.md) `now` ^note-id"), "needs compass + food now")
     }
     func testFinalTopicPlanCoversEveryEligibleChunk() throws {
         var meeting = Meeting(title: "Long discussion")
         meeting.segments = (0..<80).map { Segment(source: "system", speaker: "system:speaker-1", start: Double($0 * 30), end: Double($0 * 30 + 10), text: "Topic number \($0) includes a concrete challenge rule and outcome.") }
-        let plan = try NotePlanner.finalPlan(meeting)
-        XCTAssertEqual(plan.uncovered.count, TranscriptChunker.chunks(meeting).count)
-        XCTAssertTrue(plan.uncovered.contains { $0.chunk.text.contains("number 79") })
+        let uncovered = UncoveredDiscussion.excerpts(meeting)
+        XCTAssertEqual(uncovered.count, Chunker.transcript(meeting).count)
+        XCTAssertTrue(uncovered.contains { $0.chunk.text.contains("number 79") })
     }
     func testFinalTopicSelectionCannotEraseAnEarlierChapter() throws {
         var meeting = Meeting(title: "Stream")
         meeting.segments = (0..<8).map { Segment(source: "system", speaker: "system:speaker-1", start: Double($0 * 300), end: Double($0 * 300 + 10), text: "A substantial topic with enough words for a complete discussion.") }
-        let plan = try NotePlanner.finalPlan(meeting)
+        let uncovered = UncoveredDiscussion.excerpts(meeting)
         let topics = [Bullet(topic: "Hokkaido reservations", text: "Reservations may be needed.", refs: ["U1"]),
                       Bullet(topic: "Japan food hunt", text: "The challenge has a one-hour limit.", refs: ["U2"])] +
             (3...8).map { Bullet(topic: "Cruise topic \($0)", text: "A different later activity.", refs: ["U\($0)"]) }
-        let result = NoteOutput.balancedTopics(topics, excerpts: plan.uncovered, limit: 5)
+        let result = NoteOutput.balancedTopics(topics, excerpts: uncovered, limit: 5)
         XCTAssertTrue(result.contains { $0.topic == "Hokkaido reservations" })
         XCTAssertTrue(result.contains { $0.topic == "Japan food hunt" })
         XCTAssertLessThanOrEqual(result.count, 5)

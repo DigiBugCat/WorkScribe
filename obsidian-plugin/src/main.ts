@@ -1,4 +1,5 @@
-import { fadeCountdown } from './lib/care';
+import { SurfaceStore } from './lib/surface-store';
+import { surfaceStatus } from './ui/surfaces/status';
 import { imageInsertion } from './lib/image-insert';
 import { NoteEditor } from "./ui/note-editor";
 import type { NoteDocument } from "./lib/anchors";
@@ -27,10 +28,13 @@ export type LiveListener = (changes: Set<LiveChange>) => void;
 export default class WorkScribePlugin extends Plugin {
   override settings: WorkScribeSettings = { ...DEFAULT_SETTINGS };
   client!: WorkScribeClient;
+  readonly surfaces = new SurfaceStore();
   live: LiveState = emptyLive();
   connState: ConnState = { kind: "connecting" };
   noteEditor!: NoteEditor;
   documentLedgers: Record<string, NoteDocument> = {};
+  /** The name WorkScribe last gave each meeting note, so a better title can replace it but never yours. */
+  meetingNames: Record<string, string> = {};
   lastPurgedMeetingId: string | null = null;
   clockText = "00:00";
   private statusReceivedAt = Date.now();
@@ -219,12 +223,14 @@ export default class WorkScribePlugin extends Plugin {
     delete old.liveViewPlacement; delete old.livePanelOpen; delete old.liveEnhance;
     this.documentLedgers = (old.documentLedgers ?? {}) as Record<string, NoteDocument>;
     delete old.documentLedgers;
+    this.meetingNames = (old.meetingNames ?? {}) as Record<string, string>;
+    delete old.meetingNames;
     this.settings = { ...DEFAULT_SETTINGS, ...old };
     await this.saveSettings();
   }
 
   async saveSettings(): Promise<void> {
-    await this.saveData({ ...this.settings, documentLedgers: this.documentLedgers });
+    await this.saveData({ ...this.settings, documentLedgers: this.documentLedgers, meetingNames: this.meetingNames });
   }
 
   apiJsonPath(): string {
@@ -243,6 +249,7 @@ export default class WorkScribePlugin extends Plugin {
   }
 
   notify(changes: Set<LiveChange>): void {
+    if(changes.has("status"))this.renderStatusBar();
     for (const fn of this.listeners) {
       try {
         fn(changes);
@@ -262,9 +269,16 @@ export default class WorkScribePlugin extends Plugin {
   }
 
   private handleEvent(ev: LiveEvent): void {
+    if(ev.type==='line'||ev.type==='pin'||ev.type==='check'||ev.type==='preview'){
+      this.surfaces.apply(ev);this.notify(new Set(['notes']));return;
+    }
+    if(ev.type==='status' && 'model' in ev){this.surfaces.status={model:ev.model,paused:ev.paused};this.renderStatusBar();this.notify(new Set(['status']));return;}
+    if(ev.type==='notes'||ev.type==='note')for(const note of ev.type==='notes'?ev.notes:[ev.note])if(note.line)this.surfaces.apply(note.line);
+
     if (ev.type === "notes" && ev.documentFinalized) this.noteEditor.markFinalized(ev.meetingId);
     if (ev.type === "purged") {
       this.lastPurgedMeetingId=ev.meetingId;
+      this.surfaces.purge(ev.meetingId);
       this.noteEditor.purge(ev.meetingId);
       if (this.live.meetingId === ev.meetingId) {
         this.live.retention="purged"; this.live.purgeAt=undefined; this.live.notes.clear(); this.live.segments = []; this.live.answer = null; this.live.screens = []; this.live.pending = [];
@@ -316,6 +330,7 @@ export default class WorkScribePlugin extends Plugin {
       const status = this.live.status;
       const answer = this.live.answer;
       loadMeeting(this.live, m);
+      for(const note of m.notes)if(note.line)this.surfaces.apply(note.line);
       this.live.pending = pending;
       this.live.status = status;
       if (answer && (!this.live.answer || answer.at >= this.live.answer.at)) this.live.answer = answer;
@@ -463,6 +478,8 @@ export default class WorkScribePlugin extends Plugin {
     if (!el) return;
     el.empty();
     const st = this.live.status;
+    el.setAttribute("aria-label",surfaceStatus(this.surfaces.status,!!st?.recording));
+    el.title=surfaceStatus(this.surfaces.status,!!st?.recording);
     if (this.connState.kind === "offline") {
       el.createSpan({ cls: "ws-sb-dot is-off" });
       el.createSpan({ text: "WorkScribe off" });
@@ -472,12 +489,12 @@ export default class WorkScribePlugin extends Plugin {
     }
     if (st?.recording) {
       el.createSpan({ cls: "ws-sb-dot is-rec" });
-      el.createSpan({ cls: "ws-sb-time", text: this.clockText });
+      el.createSpan({ cls: "ws-sb-time", text: this.clockText + " · " + surfaceStatus(this.surfaces.status,true) });
       setTooltip(el, `Recording “${this.live.title || st.title || "meeting"}”. Click to stop.`);
       this.setRibbon(true);
     } else {
       if(st?.warming)el.createSpan({cls:"ws-sb-dot is-warming"});
-      el.createSpan({ text: st?.warming ? "WorkScribe warming up" : this.live.purgeAt?fadeCountdown(this.live.purgeAt):"WorkScribe" });
+      el.createSpan({ text: surfaceStatus(this.surfaces.status,false) });
       setTooltip(el, "Click to start recording");
       this.setRibbon(false);
     }
@@ -491,6 +508,11 @@ export default class WorkScribePlugin extends Plugin {
   }
 
   private addCommands(): void {
+    for(const [id,name,action] of [
+      ['why','Why?','why'],['make-it-mine','Make it mine','own'],['let-ai-rewrite','Let AI rewrite','rewrite'],
+      ['make-diagram','Make diagram from sketch','make'],['jump-to-moment','Jump to moment','jump'],
+    ] as const)this.addCommand({id,name,hotkeys:[],editorCheckCallback:(checking)=>this.noteEditor.command(action,checking)});
+
     this.addCommand({
       id: "start-recording",
       name: "Start recording",

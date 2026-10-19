@@ -26,7 +26,7 @@ public enum AskRetrieval {
     /// When nothing matches ("what did she just say?") the latest stretch of the conversation is returned instead.
     public static func liveMoments(question: String, meeting: Meeting, limit: Int = 4,
                                    matcher: any NoteMatcher = LexicalMatcher()) -> [AskMoment] {
-        let chunks = TranscriptChunker.chunks(meeting, maxWords: 60)
+        let chunks = Chunker.transcript(meeting)
         guard !chunks.isEmpty else { return [] }
         let scores = (try? matcher.similarities(notes: [question], chunks: chunks.map(\.text)).first) ?? []
         var ranked = chunks.indices.filter { $0 < scores.count && scores[$0] > 0.05 }

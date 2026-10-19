@@ -3,7 +3,7 @@ import type { ChangeDesc } from "@codemirror/state";
 
 export interface OwnedText { from: number; to: number; text: string }
 export interface NoteImage { target: string; path?: string }
-export interface Block { kind?: "text" | "image"; shorthand?: string; images?: NoteImage[]; id: string; from: number; to: number; text: string; at?: number; section?: string; owned?: OwnedText }
+export interface Block { nested?: boolean; surface?: "table" | "fence"; kind?: "text" | "image"; shorthand?: string; images?: NoteImage[]; id: string; from: number; to: number; text: string; at?: number; section?: string; owned?: OwnedText }
 export interface NoteDocument {
   insertions?: {at:number;text:string}[]; path: string; source: string; revision: number; blocks: Block[]; finalized?: boolean }
 const markdown = parser.configure(GFM);
@@ -14,7 +14,7 @@ export function parseBlocks(source: string): Omit<Block, "id">[] {
   const tree = markdown.parse(source.slice(0, front).replace(/[^\r\n]/g, " ") + source.slice(front));
   const out: Omit<Block, "id">[] = [];
   let section = "";
-  const list=(node: import('@lezer/common').SyntaxNode)=>{
+  const list=(node: import('@lezer/common').SyntaxNode,depth=0)=>{
     for(let item=node.firstChild;item;item=item.nextSibling)if(item.name==='ListItem'){
       let nested:import('@lezer/common').SyntaxNode|null=null;
       for(let child=item.firstChild;child;child=child.nextSibling)if(child.name==='BulletList'||child.name==='OrderedList'){nested=child;break;}
@@ -22,12 +22,13 @@ export function parseBlocks(source: string): Omit<Block, "id">[] {
       const from=/^\s*$/.test(source.slice(lineStart,item.from))?lineStart:item.from;
       let to=nested?nested.from:item.to;
       while(to>from&&/\s/.test(source[to-1]))to--;
-      if(to>from&&!/^\s*(?:[-+*]|\d+[.)])(?:\s+\[.\])?\s*$/.test(source.slice(from,to)))out.push({from,to,text:source.slice(from,to),section});
-      if(nested)list(nested);
+      if(to>from&&!/^\s*(?:[-+*]|\d+[.)])(?:\s+\[.\])?\s*$/.test(source.slice(from,to)))out.push({from,to,text:source.slice(from,to),section,...(depth?{nested:true}:{})});
+      if(nested)list(nested,depth+1);
     }
   };
   for(let n=tree.topNode.firstChild;n;n=n.nextSibling){
     if(/Heading[1-6]?$/.test(n.name)){section=source.slice(n.from,n.to).replace(/^#+\s*/, '');continue;}
+    if(n.name==='Table'||n.name==='FencedCode')out.push({from:n.from,to:n.to,text:source.slice(n.from,n.to),section,surface:n.name==='Table'?'table':'fence'});
     if(n.name==='Paragraph')out.push({from:n.from,to:n.to,text:source.slice(n.from,n.to),section});
     if(n.name==='BulletList'||n.name==='OrderedList')list(n);
   }

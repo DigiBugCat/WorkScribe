@@ -7,7 +7,6 @@ extension Notification.Name {
     /// `continue` event on /v1/events). userInfo: "conversation_id".
     static let workScribeContinueConversation = Notification.Name("WorkScribeContinueConversation")
     static let workScribeShowQuickAsk = Notification.Name("WorkScribeShowQuickAsk")
-    static let workScribeShowCloudSettings = Notification.Name("WorkScribeShowCloudSettings")
 }
 
 /// A borderless panel that takes keyboard focus above any app without activating WorkScribe (Spotlight-like).

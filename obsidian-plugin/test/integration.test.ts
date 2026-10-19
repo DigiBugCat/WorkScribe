@@ -16,10 +16,11 @@ import type { AskEvent, LiveEvent } from "../src/lib/types";
 let srv: MockServer;
 let dir: string;
 let client: WorkScribeClient;
-const vault = "/tmp/ws-test-vault";
+let vault: string;
 
 before(async () => {
   dir = mkdtempSync(join(tmpdir(), "ws-plugin-test-"));
+  vault=join(dir,"vault");
   srv = await startMockServer({ discovery: join(dir, "api.json"), vault, speed: 20, quiet: true });
   client = new WorkScribeClient(nodeTransport, () => readDiscovery(join(dir, "api.json")));
 });
@@ -69,17 +70,17 @@ test("live meeting over SSE: segments, jot → enhancement, live answer", async 
   await until(() => state.segments.some((s) => s.final));
 
   const n = await client.addNote(state.meetingId!, "offline conflicts → LWW?? marcus pushback", 12.3);
-  assert.equal(n.state, "pending");
+  assert.equal(n.state, "listening");
   const enhanced = await until(() => {
     const x = state.notes.get(n.id);
-    return x?.state === "done" ? x : undefined;
+    return x?.state === "answered" ? x : undefined;
   });
   assert.equal(enhanced.enhanced?.topic, "Conflict resolution.");
   assert.ok(enhanced.excerpts.some((e) => e.match === "meaning"));
   await until(() => state.upToDate);
 
   const plain = await client.addNote(state.meetingId!, "android parity?");
-  await until(() => state.notes.get(plain.id)?.state === "plain");
+  await until(() => state.notes.get(plain.id)?.state === "quiet");
 
   const edited = await client.editNote(state.meetingId!, plain.id, "ship date nov 4 not oct 28");
   assert.equal(edited.text, "ship date nov 4 not oct 28");
@@ -139,7 +140,7 @@ test("past meeting: edit enhanced text, add a missed topic to notes", async () =
   assert.equal(before.notes[0]!.blockId, "e1");
   const n = await client.patchNote(id, "n2", { enhanced: { topic: "Ship date.", text: "Nov 4, confirmed with QA." } });
   assert.equal(n.enhanced?.text, "Nov 4, confirmed with QA.");
-  assert.equal(n.state, "done");
+  assert.equal(n.state, "answered");
   const t = before.missedTopics[0]!;
   const added = await client.addNote(id, `${t.topic} ${t.text}`, t.start, { fromMissedTopic: { topic: t.topic } });
   assert.equal(added.enhanced?.topic, t.topic);
@@ -203,4 +204,18 @@ test("Done clears raw meeting data and emits the purged contract", async () => {
   assert.equal(after.retention, "purged");
   assert.equal(after.notes.length, 0); assert.equal(after.segments.length, 0);
   await client.done(id);
+});
+
+
+test('surface replay and Make preview travel through the real client and SSE decoder',async()=>{
+ const events:LiveEvent[]=[];const ac=new AbortController();const {done}=await client.events(e=>events.push(e),ac.signal);
+ srv.replaySurfaces();
+ await until(()=>events.some(e=>e.type==='check'));
+ assert.ok(events.some(e=>e.type==='line'&&e.state==='answered'));
+ assert.ok(events.some(e=>e.type==='pin'&&e.anchor.kind==='cell'));
+ assert.ok(events.some(e=>e.type==='status'&&'model' in e&&e.model==='ready'));
+ const request=await client.makeDiagram('surface-demo','sketch');
+ const preview=await until(()=>events.find(e=>e.type==='preview'&&e.requestId===request.requestId));
+ assert.ok(preview.type==='preview'&&preview.mermaid.includes('flowchart'));
+ ac.abort();await done.catch(()=>{});
 });

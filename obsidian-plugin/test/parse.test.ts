@@ -59,10 +59,10 @@ test("note: hollow flag, refs alias, inferred state", () => {
   });
   assert.equal(n.at, 492);
   assert.equal(n.text, "offline conflicts → LWW??");
-  assert.equal(n.state, "done");
+  assert.equal(n.state, "answered");
   assert.equal(n.enhanced?.topic, "Conflict resolution.");
   assert.deepEqual(n.excerpts.map((e) => [e.id, e.match, e.start]), [["E1", "time+meaning", 478], ["E3", "meaning", 190]]);
-  assert.equal(parseNote({ id: "n2", text: "x" }).state, "pending");
+  assert.equal(parseNote({ id: "n2", text: "x" }).state, "listening");
 });
 
 test("meeting list: bare array or wrapped; speakers as objects", () => {
@@ -75,7 +75,7 @@ test("meeting list: bare array or wrapped; speakers as objects", () => {
 test("full meeting with segments, notes, actions, answers", () => {
   const m = parseMeeting({
     id: "m1", title: "Offline sync", segments: [{ id: "s1", speaker: "Marcus Chen", start: 1, text: "hi", provisional: true }],
-    notes: [{ id: "n1", text: "x", state: "plain", hint: "No matching speech yet." }],
+    notes: [{ id: "n1", text: "x", state: "quiet", hint: "No matching speech yet." }],
     actionItems: [{ owner: "You", action: "Update PRD", askedBy: "Priya", at: "27:30" }],
     answers: [{ id: "a1", question: "q", answer: "a [1]", citations: [{ kind: "pdf", title: "MSA", page: 14 }] }],
     missedTopics: [{ topic: "Android parity.", text: "2.5" }],
@@ -104,7 +104,7 @@ test("live events: wrapped and bare payloads, type-in-data, unknown ignored", ()
   const c = parseLiveEvent("message", '{"type":"enhancement","meetingId":"m1","upToDate":true}');
   assert.deepEqual(c, { type: "enhancement", meetingId: "m1", upToDate: true });
   const d = parseLiveEvent("status", '{"recording":false}');
-  assert.equal(d?.type === "status" && d.status.recording, false);
+  assert.equal(d?.type === "status" && "status" in d && d.status.recording, false);
   assert.equal(parseLiveEvent("wat", "{}"), null);
   assert.equal(parseLiveEvent("segment", "not json"), null);
   assert.equal(parseLiveEvent("segment", '{"segment":{}}'), null, "missing id is dropped, not thrown");
@@ -129,7 +129,7 @@ test("canonical app payloads retain wrapped meetings, batched notes, and final a
     segments: [], notes: [], missedTopics: [], actionItems: [], answers: [] });
   assert.equal(m.id, "m");
   assert.ok(m.obsidianLink);
-  const batch = parseLiveEvent("notes", JSON.stringify({ meetingId: "m", notes: [{ id: "n", text: "release", state: "enhancing", excerpts: [] }], missedTopics: [], actionItems: [] }));
+  const batch = parseLiveEvent("notes", JSON.stringify({ meetingId: "m", notes: [{ id: "n", text: "release", state: "found", excerpts: [] }], missedTopics: [], actionItems: [] }));
   assert.equal(batch?.type, "notes");
   const answer = parseLiveEvent("answer", JSON.stringify({ id: "a", at: 4, meetingId: "m", conversationId: "c", question: "When?", answer: "Friday [1]", done: true, citations: [] }));
   assert.ok(answer?.type === "answer" && answer.answer.id === "a");

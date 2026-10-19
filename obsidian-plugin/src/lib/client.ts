@@ -108,6 +108,14 @@ export class WorkScribeClient {
   async openDocument(id: string): Promise<import("./anchors").NoteDocument> {
     return wrapShape(() => this.call("POST", `/v1/meetings/${encodeURIComponent(id)}/document`, {}).then(parseDocument));
   }
+  async makeDiagram(documentId: string, blockId: string): Promise<{requestId:string}> {
+    const result=await this.call("POST", `/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(blockId)}/make`, {kind:'diagram'}) as {requestId?:unknown};
+    if(typeof result.requestId!== 'string')throw new Error('Missing diagram request ID');
+    return {requestId:result.requestId};
+  }
+  async rewriteLine(documentId: string, blockId: string): Promise<void> {
+    await this.call('POST', `/v1/documents/${encodeURIComponent(documentId)}/blocks/${encodeURIComponent(blockId)}/rewrite`, {});
+  }
   async syncDocument(id: string, document: import("./anchors").NoteDocument): Promise<import("./anchors").NoteDocument> {
     return wrapShape(() => this.call("PATCH", `/v1/meetings/${encodeURIComponent(id)}/document`, document).then(parseDocument));
   }

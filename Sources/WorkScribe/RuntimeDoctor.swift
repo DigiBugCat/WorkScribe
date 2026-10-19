@@ -21,7 +21,6 @@ enum RuntimeDoctor {
         process.arguments = (python == nil ? ["python3"] : []) + [script.path] + (checkOnly ? ["--check"] : [])
         var childEnvironment = environment
         childEnvironment["PYTHONDONTWRITEBYTECODE"] = "1"
-        if childEnvironment["WORKSCRIBE_TITLE_MODEL"] == nil { childEnvironment["WORKSCRIBE_TITLE_MODEL"] = TitleModel.bundled.rawValue }
         process.environment = childEnvironment
         process.standardOutput = pipe; process.standardError = pipe
         try process.run()

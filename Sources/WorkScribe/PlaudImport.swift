@@ -72,7 +72,6 @@ import WorkScribePlaud
         let folder = try store.directory(entry.id)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         do {
-            try FileManager.default.copyItem(at: recording.audioURL, to: folder.appendingPathComponent(Self.plaudSource + ".wav"))
             entry.segments = try await transcribe(file)
             entry.status = "complete"
             entry.endedAt = started.addingTimeInterval(seconds)

@@ -89,7 +89,7 @@
                 <div class="composer">
                   <div class="ctx"><span class="chip"><span data-ik="file"></span>Offline sync — v2.4 scope</span><span class="chip">Live transcript</span></div>
                   <div class="ph">Ask about this meeting or your notes</div>
-                  <div class="bar"><span data-ik="clip"></span><span class="grow"></span><span>GPT-5 mini · on this Mac if offline</span></div>
+                  <div class="bar"><span data-ik="clip"></span><span class="grow"></span><span>Qwen 3.5 · on this Mac</span></div>
                 </div>
               </section>
 
@@ -297,7 +297,7 @@ Care.ready(function () {
     tl.at(21.0, () => { fin = say("s13", "Priya", 621, "What does the Halvorsen contract actually commit us to on offline?"); });
     tl.at(22.0, () => { fin(); const s = $('[data-id="s13"]'); s.insertAdjacentHTML("beforeend", '<span class="q-mark">Question · answered in Live Q&amp;A</span>'); });
     let a1;
-    tl.at(22.6, () => { a1 = addQuestion({ who: "Priya", at: "10:21", q: "What does the Halvorsen contract commit us to on offline?", where: "GPT-5 mini", srcs: [["file", "Halvorsen MSA 2026.pdf · p. 14"], ["file", "Offline PRD v3"]] }); });
+    tl.at(22.6, () => { a1 = addQuestion({ who: "Priya", at: "10:21", q: "What does the Halvorsen contract commit us to on offline?", where: "Qwen 3.5 · on this Mac", srcs: [["file", "Halvorsen MSA 2026.pdf · p. 14"], ["file", "Offline PRD v3"]] }); });
     const ans1 = 'Offline capture of inspections and photos by Dec 31, with sync within 24 hours of reconnecting<span class="cite">1</span>. Nothing on conflict handling<span class="cite">1</span>; PRD v3 still says last-write-wins<span class="cite">2</span>.';
     ans1.split(/ (?![^<]*>)/).forEach((p, i, arr) => tl.at(22.9 + i * 0.07, () => { a1.innerHTML = arr.slice(0, i + 1).join(" "); }));
     tl.at(24.6, () => { fin = say("s15", "Marcus", 625, "If we cap it, we need to tell them what happens at the cap. Not just silently stop."); });

@@ -54,8 +54,8 @@ actor NoteImageUnderstanding {
         let env = ProcessInfo.processInfo.environment
         let base = RuntimeAssets.model("")
         let helper = env["WORKSCRIBE_IMAGE_HELPER"] ?? base.appendingPathComponent("vision/bin/image-caption").path
-        let projector = env["WORKSCRIBE_IMAGE_PROJECTOR"] ?? base.appendingPathComponent("vision/mmproj-gemma-4-E2B-it-Q8_0.gguf").path
-        let model = env["WORKSCRIBE_IMAGE_MODEL"] ?? base.appendingPathComponent("vision/gemma-4-E2B-it-Q4_0.gguf").path
+        let projector = env["WORKSCRIBE_IMAGE_PROJECTOR"] ?? base.appendingPathComponent("vision/mmproj-gemma-4-E4B-it-Q8_0.gguf").path
+        let model = env["WORKSCRIBE_IMAGE_MODEL"] ?? base.appendingPathComponent("gemma-4-E4B-it-Q4_0.gguf").path
         guard FileManager.default.isExecutableFile(atPath: helper), [helper, model, projector].allSatisfy({ RuntimeAssets.inspect(URL(fileURLWithPath: $0)) == .present }) else { return reference }
         guard RuntimeAssets.inspect(URL(fileURLWithPath: helper).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("lib")) == .present else { return reference }
         let value: NoteImage = await withCheckedContinuation { continuation in
@@ -84,36 +84,6 @@ actor NoteImageUnderstanding {
         if epoch == generation { cached[key] = value }
         return value
     }
-    /// Reuse the matched, fast llama runtime for batches containing image evidence. Older speech
-    /// SDK builds otherwise compile slow text kernels on every pass. Transcript stays on stdin.
-    func enhance(_ plan: NotePlan) async -> String? {
-        guard plan.targets.contains(where: { !$0.note.imageEvidence.isEmpty }) else { return nil }
-        let env = ProcessInfo.processInfo.environment
-        let base = RuntimeAssets.model("vision")
-        let helper = env["WORKSCRIBE_IMAGE_HELPER"] ?? base.appendingPathComponent("bin/image-caption").path
-        let model = env["WORKSCRIBE_IMAGE_MODEL"] ?? base.appendingPathComponent("gemma-4-E2B-it-Q4_0.gguf").path
-        guard FileManager.default.isExecutableFile(atPath:helper), [helper, model].allSatisfy({ RuntimeAssets.inspect(URL(fileURLWithPath: $0)) == .present }) else { return nil }
-        guard RuntimeAssets.inspect(URL(fileURLWithPath: helper).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("lib")) == .present else { return nil }
-        let prompt = NotePrompt.gemma(NotePrompt.instruction(plan))
-        return await withCheckedContinuation { continuation in
-            queue.async {
-                let process=Process(), input=Pipe(), output=Pipe(), done=DispatchSemaphore(value:0)
-                process.executableURL=URL(fileURLWithPath:helper);process.arguments=["--text",model]
-                process.standardInput=input;process.standardOutput=output;process.standardError=FileHandle.nullDevice
-                process.terminationHandler={ _ in done.signal() }
-                do {
-                    try process.run()
-                    try input.fileHandleForWriting.write(contentsOf:Data(prompt.utf8));try input.fileHandleForWriting.close()
-                    if done.wait(timeout:.now()+30) == .timedOut {
-                        process.terminate()
-                        if done.wait(timeout:.now()+1) == .timedOut && process.isRunning { kill(process.processIdentifier,SIGKILL);done.wait() }
-                    }
-                    let data=output.fileHandleForReading.readDataToEndOfFile()
-                    continuation.resume(returning:process.terminationStatus == 0 ? String(decoding:data,as:UTF8.self) : nil)
-                } catch { continuation.resume(returning:nil) }
-            }
-        }
-    }
     func clear() { epoch += 1; cached.removeAll(); captionAttempts.removeAll() }
 }
 
@@ -136,11 +106,11 @@ extension AppModel {
                                   let j = meeting.notes![i].images?.firstIndex(where: { $0.target == reference.target && $0.path == reference.path }),
                                   meeting.notes![i].images![j] != result else { return }
                             meeting.notes![i].images![j] = result
-                            meeting.notes![i].revision = (meeting.notes![i].revision ?? 0) + 1
-                            if meeting.notes![i].isImage && meeting.notes![i].imageEvidence.isEmpty && meeting.notes![i].userEdited != true { meeting.notes![i].enhanced = nil }
-                            if meeting.notes![i].userEdited != true {
-                                meeting.notes![i].enhancedFrom = nil
-                                meeting.notes![i].enhancementState = "pending"
+                            meeting.notes![i].line.revision = (meeting.notes![i].line.revision ?? 0) + 1
+                            if meeting.notes![i].isImage && meeting.notes![i].imageEvidence.isEmpty && meeting.notes![i].line.owned != true { meeting.notes![i].line.text = nil }
+                            if meeting.notes![i].line.owned != true {
+                                meeting.notes![i].line.queryText = nil
+                                meeting.notes![i].line.state = .listening
                             }
                             changed = true
                         }

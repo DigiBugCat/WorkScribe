@@ -138,6 +138,7 @@ actor CoreMLEmbedder: Embedder {
             let manager = try await loading!.value
             if text == nil { lastLoadSeconds = Date().timeIntervalSince(started) }
             text = manager
+            loading = nil // The completed task must not retain a second ownership path past release.
             return manager
         } catch {
             loading = nil

@@ -17,18 +17,21 @@ public struct NoteImage: Codable, Equatable, Sendable {
 
 public enum NoteImageContent {
     public static let extensions: Set<String> = ["png", "jpg", "jpeg", "gif", "webp", "heic", "bmp", "tif", "tiff"]
+    // Shorthand is read throughout Find; recompiling these ICU patterns per read accumulates large temporaries.
+    private static let codePattern = try! NSRegularExpression(pattern: #"(?s)```.*?```|`[^`]*`"#)
+    private static let imagePattern = try! NSRegularExpression(pattern: #"!\[\[([^\]\n]+)\]\]|!\[[^\]\n]*\]\(\s*(<[^>\n]+>|(?:[^()\s]|\([^()]*\))+)\s*(?:["'][^\n]*?["']\s*)?\)"#)
+    private static let definitionPattern = try! NSRegularExpression(pattern: #"(?m)^ {0,3}\[([^\]\n]+)\]:\s*(<[^>]+>|\S+)"#)
+    private static let referencePattern = try! NSRegularExpression(pattern: #"!\[([^\]\n]*)\]\[([^\]\n]*)\]"#)
     public static func parse(_ text: String, source document: String? = nil) -> (shorthand: String, targets: [String]) {
         // Code spans/fences are data, not embeds. Mask them without changing UTF-16 positions.
         let source = text as NSString
-        let code = try! NSRegularExpression(pattern: #"(?s)```.*?```|`[^`]*`"#)
         let masked = NSMutableString(string: text)
-        for match in code.matches(in: text, range: NSRange(location: 0, length: source.length)).reversed() {
+        for match in codePattern.matches(in: text, range: NSRange(location: 0, length: source.length)).reversed() {
             masked.replaceCharacters(in: match.range, with: String(repeating: " ", count: match.range.length))
         }
-        let regex = try! NSRegularExpression(pattern: #"!\[\[([^\]\n]+)\]\]|!\[[^\]\n]*\]\(\s*(<[^>\n]+>|(?:[^()\s]|\([^()]*\))+)\s*(?:["'][^\n]*?["']\s*)?\)"#)
         let result = NSMutableString(string: text)
         var targets: [String] = []
-        for match in regex.matches(in: masked as String, range: NSRange(location: 0, length: masked.length)).reversed() {
+        for match in imagePattern.matches(in: masked as String, range: NSRange(location: 0, length: masked.length)).reversed() {
             let wiki = match.range(at: 1).location != NSNotFound
             var target = source.substring(with: match.range(at: wiki ? 1 : 2))
             target = wiki ? String(target.split(separator: "|", maxSplits: 1)[0]) : target.trimmingCharacters(in: CharacterSet(charactersIn: "<>"))
@@ -38,16 +41,14 @@ public enum NoteImageContent {
             result.replaceCharacters(in: match.range, with: "")
         }
         let definitions = document ?? text
-        let refPattern = try! NSRegularExpression(pattern: #"(?m)^ {0,3}\[([^\]\n]+)\]:\s*(<[^>]+>|\S+)"#)
         let defs = definitions as NSString
         var refs: [String: String] = [:]
-        for hit in refPattern.matches(in: definitions, range: NSRange(location:0,length:defs.length)) {
+        for hit in definitionPattern.matches(in: definitions, range: NSRange(location:0,length:defs.length)) {
             refs[defs.substring(with:hit.range(at:1)).lowercased()] = defs.substring(with:hit.range(at:2)).trimmingCharacters(in:CharacterSet(charactersIn:"<>"))
         }
-        let ref = try! NSRegularExpression(pattern: #"!\[([^\]\n]*)\]\[([^\]\n]*)\]"#)
         // Resolve after direct-image removal, so offsets still refer to this intermediate string.
         let intermediate = result as String
-        for hit in ref.matches(in: intermediate, range:NSRange(location:0,length:result.length)).reversed() {
+        for hit in referencePattern.matches(in: intermediate, range:NSRange(location:0,length:result.length)).reversed() {
             let value = result.substring(with:hit.range)
             if text.contains("`" + value + "`") { continue }
             let label = result.substring(with:hit.range(at:2))
@@ -92,15 +93,21 @@ public enum NoteImageContent {
 
 /// Matching/prompt view only. The user's Markdown and document offsets remain untouched.
 public enum NotePlainText {
+    private static let rules: [(NSRegularExpression, String)] = [
+        (#"(?m)^\s*(?:(?:>\s*)+|#{1,6}\s+)?(?:[-*+]\s+|\d+[.)]\s+)?(?:\[[ xX-]\]\s*)?"#, ""),
+        (#"\[\[([^\]|]+)\|([^\]]+)\]\]"#, "$2"),
+        (#"\[\[([^\]]+)\]\]"#, "$1"),
+        (#"\[([^\]]+)\]\([^)]*\)"#, "$1"),
+        (#"<!--.*?-->|<[^>]+>"#, ""),
+        (#"(\*\*|__|~~|`)(.+?)\1"#, "$2"),
+        (#"(?<!\w)([*_])(.+?)\1(?!\w)"#, "$2"),
+        (#"\s+\^[\w-]+\s*$"#, "")
+    ].map { (try! NSRegularExpression(pattern: $0.0), $0.1) }
     public static func clean(_ text: String) -> String {
-        var value = text.replacingOccurrences(of: #"(?m)^\s*(?:(?:>\s*)+|#{1,6}\s+)?(?:[-*+]\s+|\d+[.)]\s+)?(?:\[[ xX-]\]\s*)?"#, with: "", options: .regularExpression)
-        value = value.replacingOccurrences(of: #"\[\[([^\]|]+)\|([^\]]+)\]\]"#, with: "$2", options: .regularExpression)
-            .replacingOccurrences(of: #"\[\[([^\]]+)\]\]"#, with: "$1", options: .regularExpression)
-            .replacingOccurrences(of: #"\[([^\]]+)\]\([^)]*\)"#, with: "$1", options: .regularExpression)
-            .replacingOccurrences(of: #"<!--.*?-->|<[^>]+>"#, with: "", options: .regularExpression)
-            .replacingOccurrences(of: #"(\*\*|__|~~|`)(.+?)\1"#, with: "$2", options: .regularExpression)
-            .replacingOccurrences(of: #"(?<!\w)([*_])(.+?)\1(?!\w)"#, with: "$2", options: .regularExpression)
-            .replacingOccurrences(of: #"\s+\^[\w-]+\s*$"#, with: "", options: .regularExpression)
+        var value = text
+        for (pattern, replacement) in rules {
+            value = pattern.stringByReplacingMatches(in: value, range: NSRange(location: 0, length: (value as NSString).length), withTemplate: replacement)
+        }
         return value.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 }

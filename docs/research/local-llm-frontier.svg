@@ -1,0 +1,86 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 780 470" width="780" height="470" font-family="-apple-system, Helvetica, Arial, sans-serif">
+<rect width="780" height="470" fill="#fcfcfb"/>
+<text x="70" y="24" font-size="15" font-weight="600" fill="#0b0b0b">Note quality vs warm live-line TTFT (M4 Max, tts-offline-sync fixture)</text>
+<text x="70" y="42" font-size="12" fill="#52514e">Up and left is better. Ringed points are Pareto-optimal (quality ties within 2 points count as ties); dashed step = frontier.</text>
+<line x1="70" x2="750" y1="406.0" y2="406.0" stroke="#e8e7e2" stroke-width="1"/>
+<text x="62" y="410.0" font-size="11" fill="#52514e" text-anchor="end">0</text>
+<line x1="70" x2="750" y1="336.0" y2="336.0" stroke="#e8e7e2" stroke-width="1"/>
+<text x="62" y="340.0" font-size="11" fill="#52514e" text-anchor="end">20</text>
+<line x1="70" x2="750" y1="266.0" y2="266.0" stroke="#e8e7e2" stroke-width="1"/>
+<text x="62" y="270.0" font-size="11" fill="#52514e" text-anchor="end">40</text>
+<line x1="70" x2="750" y1="196.0" y2="196.0" stroke="#e8e7e2" stroke-width="1"/>
+<text x="62" y="200.0" font-size="11" fill="#52514e" text-anchor="end">60</text>
+<line x1="70" x2="750" y1="126.0" y2="126.0" stroke="#e8e7e2" stroke-width="1"/>
+<text x="62" y="130.0" font-size="11" fill="#52514e" text-anchor="end">80</text>
+<line x1="70" x2="750" y1="56.0" y2="56.0" stroke="#e8e7e2" stroke-width="1"/>
+<text x="62" y="60.0" font-size="11" fill="#52514e" text-anchor="end">100</text>
+<text x="70.0" y="424" font-size="11" fill="#52514e" text-anchor="middle">0</text>
+<text x="167.1" y="424" font-size="11" fill="#52514e" text-anchor="middle">100</text>
+<text x="264.3" y="424" font-size="11" fill="#52514e" text-anchor="middle">200</text>
+<text x="361.4" y="424" font-size="11" fill="#52514e" text-anchor="middle">300</text>
+<text x="458.6" y="424" font-size="11" fill="#52514e" text-anchor="middle">400</text>
+<text x="555.7" y="424" font-size="11" fill="#52514e" text-anchor="middle">500</text>
+<text x="652.9" y="424" font-size="11" fill="#52514e" text-anchor="middle">600</text>
+<text x="750.0" y="424" font-size="11" fill="#52514e" text-anchor="middle">700</text>
+<line x1="70" x2="750" y1="406" y2="406" stroke="#a9a8a2"/>
+<text x="410.0" y="446" font-size="12" fill="#52514e" text-anchor="middle">warm TTFT, median of six live-line prompts (ms)</text>
+<text x="18" y="231.0" font-size="12" fill="#52514e" text-anchor="middle" transform="rotate(-90 18 231.0)">fixture quality (0-100)</text>
+<polyline points="112.7,229.9 148.7,229.9 148.7,205.1 246.8,205.1 246.8,139.3" fill="none" stroke="#0b0b0b" stroke-width="1.5" stroke-dasharray="4 3"/>
+<g><title>mlx-qwen35-2b-4bit-prefix: quality 52.3, live-line TTFT 71 ms, 2k TTFT 474.4 ms</title><circle cx="139.0" cy="222.9" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>mlx-gemma4-e2b-4bit: quality 50.3, live-line TTFT 76 ms, 2k TTFT 305.7 ms</title><circle cx="143.8" cy="229.9" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-gemma4-e2b-prefix: quality 56.8, live-line TTFT 104 ms, 2k TTFT 803.5 ms</title><circle cx="171.0" cy="207.2" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>mlx-qwen35-2b-4bit: quality 52.3, live-line TTFT 149 ms, 2k TTFT 582.5 ms</title><circle cx="214.7" cy="222.9" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-qwen35-2b-ub2048: quality 57.4, live-line TTFT 166 ms, 2k TTFT 683.9 ms</title><circle cx="231.3" cy="205.1" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-qwen35-2b-ub4096: quality 57.4, live-line TTFT 166 ms, 2k TTFT 807.9 ms</title><circle cx="231.3" cy="205.1" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-qwen35-2b-q4_0: quality 47.9, live-line TTFT 168 ms, 2k TTFT 699.3 ms</title><circle cx="233.2" cy="238.3" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-qwen35-2b-ub1024: quality 57.4, live-line TTFT 169 ms, 2k TTFT 720.6 ms</title><circle cx="234.2" cy="205.1" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-qwen35-2b-resident: quality 57.4, live-line TTFT 170 ms, 2k TTFT 688.0 ms</title><circle cx="235.1" cy="205.1" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-qwen35-2b-fa0: quality 57.4, live-line TTFT 171 ms, 2k TTFT 691.5 ms</title><circle cx="236.1" cy="205.1" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-qwen35-2b-fa1: quality 57.4, live-line TTFT 176 ms, 2k TTFT 710.0 ms</title><circle cx="241.0" cy="205.1" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-gemma4-e2b-ub2048: quality 56.8, live-line TTFT 207 ms, 2k TTFT 911.0 ms</title><circle cx="271.1" cy="207.2" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-gemma4-e2b-fa0: quality 56.8, live-line TTFT 219 ms, 2k TTFT 1127.6 ms</title><circle cx="282.7" cy="207.2" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-gemma4-e2b-resident: quality 56.8, live-line TTFT 219 ms, 2k TTFT 1005.3 ms</title><circle cx="282.7" cy="207.2" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>mlx-llama32-3b-4bit: quality 46.5, live-line TTFT 294 ms, 2k TTFT 1198.7 ms</title><circle cx="355.6" cy="243.2" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>mlx-qwen3-4b-2507-dwq: quality 76.6, live-line TTFT 378 ms, 2k TTFT 1644.0 ms</title><circle cx="437.2" cy="137.9" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>mlx-qwen35-4b-4bit: quality 53.8, live-line TTFT 380 ms, 2k TTFT 1543.0 ms</title><circle cx="439.1" cy="217.7" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-qwen35-2b-asis: quality 57.4, live-line TTFT 395 ms, 2k TTFT 932.7 ms</title><circle cx="453.7" cy="205.1" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>afm-system-prewarm: quality 28.7, live-line TTFT 493 ms, 2k TTFT 1921.7 ms</title><circle cx="548.9" cy="305.6" r="5" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>afm-system: quality 28.7, live-line TTFT 535 ms, 2k TTFT 2005.5 ms</title><circle cx="589.7" cy="305.6" r="5" fill="#1baf7a" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>gguf-gemma4-e2b-asis: quality 56.8, live-line TTFT 640 ms, 2k TTFT 1357.1 ms</title><circle cx="691.7" cy="207.2" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+</g>
+<g><title>mlx-gemma4-e2b-4bit-prefix: quality 50.3, live-line TTFT 44 ms, 2k TTFT 251.1 ms</title><circle cx="112.7" cy="229.9" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="112.7" cy="229.9" r="9" fill="none" stroke="#0b0b0b" stroke-width="1.5"/>
+<text x="124.7" y="251.9" font-size="11" fill="#0b0b0b">mlx-gemma4-e2b-4bit-prefix (50.3, 44 ms)</text>
+</g>
+<g><title>gguf-qwen35-2b-prefix: quality 57.4, live-line TTFT 81 ms, 2k TTFT 583.3 ms</title><circle cx="148.7" cy="205.1" r="5" fill="#2a78d6" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="148.7" cy="205.1" r="9" fill="none" stroke="#0b0b0b" stroke-width="1.5"/>
+<text x="160.7" y="187.1" font-size="11" fill="#0b0b0b">gguf-qwen35-2b-prefix (57.4, 81 ms)</text>
+</g>
+<g><title>mlx-qwen3-4b-2507-dwq-prefix: quality 76.2, live-line TTFT 182 ms, 2k TTFT 1363.3 ms</title><circle cx="246.8" cy="139.3" r="5" fill="#eb6834" stroke="#fcfcfb" stroke-width="2"/>
+<circle cx="246.8" cy="139.3" r="9" fill="none" stroke="#0b0b0b" stroke-width="1.5"/>
+<text x="258.8" y="161.3" font-size="11" fill="#0b0b0b">mlx-qwen3-4b-2507-dwq-prefix (76.2, 182 ms)</text>
+</g>
+<circle cx="550" cy="342" r="5" fill="#2a78d6"/><text x="562" y="346" font-size="11" fill="#0b0b0b">llama.cpp (app's libllama)</text>
+<circle cx="550" cy="360" r="5" fill="#eb6834"/><text x="562" y="364" font-size="11" fill="#0b0b0b">MLX (mlx-lm)</text>
+<circle cx="550" cy="378" r="5" fill="#1baf7a"/><text x="562" y="382" font-size="11" fill="#0b0b0b">Apple Foundation Models</text>
+</svg>

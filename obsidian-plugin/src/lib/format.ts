@@ -181,3 +181,10 @@ export function relativeToTyping(excerptStart: number, typedAt: number): string 
   const amount = abs < 90 ? `${abs} s` : `${Math.round(abs / 60)} min`;
   return d <= 0 ? `${amount} before you typed` : `${amount} after`;
 }
+
+/** A note name Obsidian and the filesystem both accept; matches VaultPaths.fileName in the app. */
+export function noteName(title: string): string {
+  let name = title.replace(/[/\\:*?"<>|#^[\]\n\r\t]/g, ' ').replace(/\s+/g, ' ').replace(/^[\s.]+|[\s.]+$/g, '');
+  if (name.length > 120) name = name.slice(0, 120).trim();
+  return name || 'Untitled';
+}

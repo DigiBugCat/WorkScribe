@@ -1,4 +1,6 @@
 """Resumable, checksum-verified runtime downloads shared by setup tools."""
+import shutil
+import subprocess
 import time
 import urllib.request
 import urllib.error
@@ -42,3 +44,17 @@ def download(url, expected, target):
             time.sleep(2 ** attempt)
 
 
+
+
+def copy_verified(source, expected, target):
+    """Installs a pinned file from a local copy (no network): published only when its SHA-256 matches."""
+    target.parent.mkdir(parents=True, exist_ok=True)
+    partial = target.with_name(target.name + '.partial')
+    partial.unlink(missing_ok=True)
+    # An APFS clone costs no space until either copy changes; other volumes get a plain copy.
+    if subprocess.run(['/bin/cp', '-c', str(source), str(partial)], stderr=subprocess.DEVNULL).returncode != 0:
+        shutil.copyfile(source, partial)
+    if state(partial, expected) != 'present':
+        partial.unlink(missing_ok=True)
+        raise RuntimeError(f'Checksum mismatch: {target.name} from {source}')
+    partial.replace(target)

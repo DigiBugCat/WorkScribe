@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { alignRows, applyEvent, confirmJot, emptyLive, failJot, liveElapsed, loadMeeting } from "../src/lib/live";
 import type { LiveAnswer, Note, Status } from "../src/lib/types";
 
-const note = (id: string, at: number, text: string, extra: Partial<Note> = {}): Note => ({ id, at, text, state: "pending", excerpts: [], ...extra });
+const note = (id: string, at: number, text: string, extra: Partial<Note> = {}): Note => ({ id, at, text, state: "listening", excerpts: [], ...extra });
 const status = (over: Partial<Status> = {}): Status => ({
   recording: true, meetingId: "m1", title: "Offline sync", elapsed: 10,
   sources: { mic: true, system: true, screen: false }, permissions: { microphone: true, screenRecording: true }, warming: false, ...over,
@@ -56,10 +56,10 @@ test("provisional segment replaced by final; late segment inserted in order; oth
 test("note updates keep a prior enhancement when an echo arrives without one", () => {
   const s = emptyLive();
   s.meetingId = "m1";
-  applyEvent(s, { type: "note", meetingId: "m1", note: note("n1", 1, "x", { state: "done", enhanced: { topic: "T.", text: "body" } }) });
-  applyEvent(s, { type: "note", meetingId: "m1", note: note("n1", 1, "x", { state: "enhancing" }) });
+  applyEvent(s, { type: "note", meetingId: "m1", note: note("n1", 1, "x", { state: "answered", enhanced: { topic: "T.", text: "body" } }) });
+  applyEvent(s, { type: "note", meetingId: "m1", note: note("n1", 1, "x", { state: "found" }) });
   assert.equal(s.notes.get("n1")!.enhanced?.text, "body");
-  applyEvent(s, { type: "note", meetingId: "m1", note: note("n1", 1, "x", { state: "plain" }) });
+  applyEvent(s, { type: "note", meetingId: "m1", note: note("n1", 1, "x", { state: "quiet" }) });
   assert.ok(!s.notes.get("n1")!.enhanced, "a plain result clears the enhancement");
 });
 
@@ -91,7 +91,7 @@ test("confirm and fail optimistic jots", () => {
   const s = emptyLive();
   s.pending.push({ clientId: "j1", text: "x", at: 1 }, { clientId: "j2", text: "y", at: 2 });
   // SSE delivered the enhanced version first; the POST response must not clobber it.
-  s.notes.set("n1", note("n1", 1, "x", { state: "done", enhanced: { topic: "X.", text: "x!" } }));
+  s.notes.set("n1", note("n1", 1, "x", { state: "answered", enhanced: { topic: "X.", text: "x!" } }));
   confirmJot(s, "j1", note("n1", 1, "x"));
   assert.equal(s.notes.get("n1")!.enhanced?.text, "x!");
   assert.deepEqual(s.pending.map((p) => p.clientId), ["j2"]);
@@ -104,7 +104,7 @@ test("loadMeeting fills state and computes up-to-date", () => {
   loadMeeting(s, {
     id: "m1", title: "T", startedAt: "", duration: 0, speakers: [], status: "recording",
     segments: [{ id: "b", speaker: "P", start: 9, text: "", final: true }, { id: "a", speaker: "P", start: 1, text: "", final: true }],
-    notes: [note("n1", 1, "x", { state: "enhancing" })], missedTopics: [], actionItems: [], answers: [answer("a1", 5)],
+    notes: [note("n1", 1, "x", { state: "found" })], missedTopics: [], actionItems: [], answers: [answer("a1", 5)],
   });
   assert.deepEqual(s.segments.map((x) => x.id), ["a", "b"]);
   assert.equal(s.upToDate, false);

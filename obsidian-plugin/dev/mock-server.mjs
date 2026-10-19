@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { surfaceFixture, surfaceFrames, diagramPreview } from './surface-replay.mjs';
 import { realpathSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import {finalizeFormat} from './finalize-format.mjs';
@@ -52,22 +53,22 @@ function sampleMeeting(vault) {
   };
   const notes = [
     {
-      id: "n1", blockId: "e1", at: 492, text: "offline conflicts → LWW?? marcus pushback", state: "done",
+      id: "n1", blockId: "e1", at: 492, text: "offline conflicts → LWW?? marcus pushback", state: "answered",
       enhanced: { topic: "Conflict resolution.", text: "Marcus warned last-write-wins would silently drop inspectors' checklist edits when the office edits the same job; the team agreed on a field-level merge for checklist items and last-write-wins for everything else." },
       excerpts: [ex("E1", "s4", "time+meaning"), ex("E2", "s6", "time+meaning"), ex("E3", "s2", "meaning")],
     },
     {
-      id: "n2", blockId: "e2", at: 545, text: "ship date nov 4 not oct 28", state: "done",
+      id: "n2", blockId: "e2", at: 545, text: "ship date nov 4 not oct 28", state: "answered",
       enhanced: { topic: "Ship date.", text: "v2.4 moves from Oct 28 to Nov 4 so QA gets a full week on the SQLite migration. Priya tells Halvorsen on Friday." },
       excerpts: [ex("E4", "s9", "time+meaning"), ex("E5", "s10", "time+meaning")],
     },
     {
-      id: "n3", blockId: "e3", at: 640, text: "beta 40 accts, halvorsen first", state: "done",
+      id: "n3", blockId: "e3", at: 640, text: "beta 40 accts, halvorsen first", state: "answered",
       enhanced: { topic: "Beta cohort.", text: "40 accounts, Halvorsen Construction first because their contract names offline capture by year end." },
       excerpts: [ex("E6", "s11", "time+meaning")],
     },
     {
-      id: "n4", blockId: "e4", at: 771, text: "photo uploads queue — cap?", state: "done",
+      id: "n4", blockId: "e4", at: 771, text: "photo uploads queue — cap?", state: "answered",
       enhanced: { topic: "Photo queue.", text: "Cap at 200 photos or 1.5 GB per device, upload oldest first on reconnect, and show inspectors a banner at the cap." },
       excerpts: [ex("E7", "s12", "time+meaning"), ex("E8", "s14", "time+meaning"), ex("E9", "s15", "time+meaning")],
     },
@@ -241,6 +242,11 @@ export async function startMockServer(opts = {}) {
     for (const res of clients) res.write(frame);
   };
 
+  function replaySurfaces() {
+    for(const frame of surfaceFrames) {
+      const timer=setTimeout(()=>{broadcast(frame.event.type,frame.event);timers.delete(timer);},frame.at*1000/speed);timers.add(timer);
+    }
+  }
   function startRecording(title) {
     if (live) return;
     const id = `m-live-${Date.now().toString(36)}`;
@@ -269,8 +275,8 @@ export async function startMockServer(opts = {}) {
     const m = live.meeting;
     for (const n of m.notes) if (!n.edited) {
       const c=CANNED.find(c=>c.re.test(n.text));
-      if(c && !c.plain) { n.enhanced={topic:c.topic,text:c.text}; n.state="done"; }
-      else if(n.state!=="done") n.state="plain";
+      if(c && !c.plain) { n.enhanced={topic:c.topic,text:c.text}; n.state="answered"; }
+      else if(n.state!=="answered") n.state="quiet";
     }
     m.brief="The team kept offline for v2.4 and moved the date to Nov 4.";
     m.missedTopics=[{topic:"Android parity.",text:"Android offline follows in 2.5."}];
@@ -336,13 +342,13 @@ export async function startMockServer(opts = {}) {
 
   function enhance(meeting, note) {
     if (note.images?.length && !opts.imageEvidence && !note.text.replace(/!\[\[[^\]]+\]\]|!\[[^\]]*\]\([^)]*\)/g, '').replace(/^\s*(?:[-*+]|\d+[.)])\s+(?:\[[ xX]\]\s*)?/, '').trim()) {
-      note.state = "plain"; delete note.enhanced; return;
+      note.state = "quiet"; delete note.enhanced; return;
     }
     meeting.enhancing = (meeting.enhancing ?? 0) + 1;
     broadcast("enhancement", { meetingId: meeting.id, upToDate: false });
     later(400, () => {
       if (note.edited || !meeting.notes.includes(note)) return;
-      note.state = "enhancing";
+      note.state = "found";
       broadcast("note", { meetingId: meeting.id, note });
     });
     later(1600, () => {
@@ -351,10 +357,10 @@ export async function startMockServer(opts = {}) {
         ? { topic: "Launch trace.", text: "The iPhone 12 mini stalls for 2,900 ms during image decoding. Move image decode off the main thread.", segs: [] }
         : CANNED.find((x) => x.re.test(note.text));
       if (c?.plain) {
-        note.state = "plain";
+        note.state = "quiet";
         note.hint = c.plain;
       } else if (c) {
-        note.state = "done";
+        note.state = "answered";
         note.enhanced = { topic: c.topic, text: c.text };
         note.excerpts = c.segs.map(([sid, match]) => {
           const s = meeting.segments.find((x) => x.id === sid) ?? past.segments.find((x) => x.id === sid);
@@ -363,7 +369,7 @@ export async function startMockServer(opts = {}) {
       } else {
         const last = meeting.segments.at(-1);
         const words = note.text.replace(/[?!.]+$/, "").split(/\s+/);
-        note.state = last ? "done" : "plain";
+        note.state = last ? "answered" : "quiet";
         if (last) {
           note.enhanced = {
             topic: words.slice(0, 2).join(" ").replace(/^./, (x) => x.toUpperCase()) + ".",
@@ -465,6 +471,14 @@ export async function startMockServer(opts = {}) {
       res.flushHeaders?.();
     };
     try {
+      if(req.method==='GET'&&p==='/v1/dev/surfaces')return json(200,{...surfaceFixture,frames:surfaceFrames});
+      if(req.method==='POST'&&p==='/v1/dev/replay'){replaySurfaces();return json(200,{ok:true});}
+      const makeMatch=/^\/v1\/documents\/([^/]+)\/blocks\/([^/]+)\/make$/.exec(p);
+      if(req.method==='POST'&&makeMatch){
+        const b=await readBody(req);if(b.kind!=='diagram')return json(400,{error:'Unknown make kind'});
+        const requestId='diagram-'+randomBytes(8).toString('hex');json(202,{requestId});
+        const timer=setTimeout(()=>{broadcast('preview',diagramPreview(requestId));timers.delete(timer);},300/speed);timers.add(timer);return;
+      }
       if (req.method === "GET" && p === "/v1/status") return json(200, status());
       if (req.method === "POST" && p === "/v1/recording/start") {
         const b = await readBody(req);
@@ -545,15 +559,15 @@ export async function startMockServer(opts = {}) {
         }
         const old=new Map(mt.notes.map(n=>[n.id,n]));
         mt.notes=b.blocks.map(block=> {
-          const n=old.get(block.id) ?? {id:block.id,at:block.at,text:block.text,excerpts:[],state:"pending"};
+          const n=old.get(block.id) ?? {id:block.id,at:block.at,text:block.text,excerpts:[],state:"listening"};
           n.images = block.images?.map(i => ({ target: i.target, method: "unavailable", ...(opts.imageEvidence ?? {}) }));
           const changed=n.text!==block.text; n.text=block.text; block.at=n.at;
-          if (block.owned) { n.edited=true; n.enhanced={topic:"",text:block.owned.text.split("\n").map(s=>s.replace(/^> ?/,"")).join("\n")}; n.state="done"; }
-          else { if(n.edited){const previous=n.trace?.revisions.at(-1)?.text;if(previous)n.enhanced={topic:"",text:previous};} if(n.edited || changed) n.state="pending"; n.edited=false; }
+          if (block.owned) { n.edited=true; n.enhanced={topic:"",text:block.owned.text.split("\n").map(s=>s.replace(/^> ?/,"")).join("\n")}; n.state="answered"; }
+          else { if(n.edited){const previous=n.trace?.revisions.at(-1)?.text;if(previous)n.enhanced={topic:"",text:previous};} if(n.edited || changed) n.state="listening"; n.edited=false; }
           return n;
         });
         mt.document={...b,revision:b.revision+1};
-        for (const n of mt.notes) if(n.state==="pending") enhance(mt,n);
+        for (const n of mt.notes) if(n.state==="listening") enhance(mt,n);
         broadcast("notes",notesPayload(mt));
         return json(200,mt.document);
       }
@@ -566,12 +580,12 @@ export async function startMockServer(opts = {}) {
         if (typeof b.text !== "string") return json(400, { error: "text required" });
         if (!b.text.trim()) return json(422, { error: "Note text is empty" });
         mt.excerptSeq ??= 9;
-        const note = { id: `n-${Date.now().toString(36)}-${mt.notes.length}`, at: typeof b.at === "number" ? b.at : live?.meeting === mt ? elapsed() : undefined, text: b.text, state: "pending", enhanced: null, excerpts: [] };
+        const note = { id: `n-${Date.now().toString(36)}-${mt.notes.length}`, at: typeof b.at === "number" ? b.at : live?.meeting === mt ? elapsed() : undefined, text: b.text, state: "listening", enhanced: null, excerpts: [] };
         if (b.fromAnswer) note.fromAnswer = b.fromAnswer;
         const missed = b.fromMissedTopic ? mt.missedTopics.find((t) => t.topic === b.fromMissedTopic.topic) : null;
         if (missed) {
           // A missed topic added back: it becomes an enhanced note with that span as evidence.
-          note.state = "done";
+          note.state = "answered";
           note.enhanced = { topic: missed.topic, text: missed.text };
           note.edited = true;
           mt.missedTopics = mt.missedTopics.filter((t) => t !== missed);
@@ -579,7 +593,7 @@ export async function startMockServer(opts = {}) {
         mt.notes.push(note);
         broadcast("note", { meetingId: mt.id, note });
         if (b.fromAnswer) {
-          note.state = "plain";
+          note.state = "quiet";
           broadcast("note", { meetingId: mt.id, note });
         } else if (!missed) enhance(mt, note);
         return json(201, wireNote(note));
@@ -603,20 +617,20 @@ export async function startMockServer(opts = {}) {
         const b = await readBody(req);
         if ([typeof b.text === "string", b.enhanced != null, b.rewrite === true].filter(Boolean).length !== 1) return json(400, { error: "Give exactly one of text or enhanced" });
         if (b.rewrite === true) {
-          note.edited = false; note.state = "pending"; enhance(mt, note);
+          note.edited = false; note.state = "listening"; enhance(mt, note);
           return json(200, wireNote(note));
         }
         if (b.enhanced && typeof b.enhanced === "object") {
           // Your edit of the enhanced line: saved as-is, never re-enhanced over.
           note.enhanced = { topic: String(b.enhanced.topic ?? ""), text: String(b.enhanced.text ?? "") };
-          note.state = "done";
+          note.state = "answered";
           note.edited = true;
           broadcast("note", { meetingId: mt.id, note });
           return json(200, wireNote(note));
         }
         if (typeof b.text !== "string" || !b.text) return json(400, { error: "text or enhanced required" });
         note.text = b.text;
-        note.state = note.edited ? "done" : "pending";
+        note.state = note.edited ? "answered" : "listening";
         broadcast("note", { meetingId: mt.id, note });
         if (!note.edited) enhance(mt, note);
         return json(200, wireNote(note));
@@ -624,6 +638,7 @@ export async function startMockServer(opts = {}) {
       if (req.method === "GET" && p === "/v1/events") {
         sse();
         clients.add(res);
+        if(opts.surfaces)replaySurfaces();
         res.write(`id: ${++eventSeq}\nevent: status\ndata: ${JSON.stringify(status())}\n\n`);
         const ka = setInterval(() => res.write(": keep-alive\n\n"), 15000);
         req.on("close", () => {
@@ -686,6 +701,7 @@ export async function startMockServer(opts = {}) {
     token,
     discoveryPath,
     startRecording,
+    replaySurfaces,
     stopRecording,
     close: () =>
       new Promise((r) => {
@@ -710,6 +726,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     return i >= 0 ? args[i + 1] : d;
   };
   const srv = await startMockServer({
+    surfaces: args.includes("--surfaces"),
     port: Number(opt("port", 47615)),
     discovery: opt("discovery", join(HERE, "api.json")),
     vault: opt("vault", undefined),

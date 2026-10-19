@@ -1,5 +1,7 @@
 #!/bin/bash
 # One-time public-source setup. Safe to rerun after interruption.
+# Models already on this Mac (e.g. an earlier Hugging Face download of a pinned model) can be named
+# in WORKSCRIBE_MODEL_SOURCES (colon-separated folders); each file is used only if its SHA-256 matches.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 fail() { printf '\nSetup needs attention: %s\n' "$*" >&2; exit 1; }
@@ -56,6 +58,6 @@ printf 'macOS %s · %s · Python %s · Node %s\n' "$macos" "$swift_version" "$(p
 printf 'Runtime: %s\nCache: %s\n' "$WORKSCRIBE_RUNTIME_HOME" "$WORKSCRIBE_RUNTIME_CACHE"
 [ "${1:-}" != --check ] || exit 0
 [ "$#" = 0 ] || fail 'Usage: scripts/bootstrap.sh [--check]'
-python3 scripts/runtime-doctor.py --all-models
+python3 scripts/runtime-doctor.py
 npm --prefix obsidian-plugin ci --no-audit --no-fund
 printf '\nSetup complete. Next: swift build && scripts/build-app.sh\n'

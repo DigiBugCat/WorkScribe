@@ -48,7 +48,7 @@ Wall-clock dates are ISO 8601 UTC. Numeric times are seconds from meeting start.
 Status contains `recording`, `phase`, `meetingId?`, `title?`, `startedAt?`, `elapsed`,
 `sources:{mic,system,screen}`, `permissions:{screenRecording,microphone}`, `warming`, `message?`,
 and `model:{provider,name}`, plus optional `finalizationProgress` (0–1, completed lifecycle stages rather than elapsed time). Phase is ready, starting, recording, finalizing, error or preview.
-Provider is openai, local or none. Warming means the speech engine is loading.
+Provider is local or none: every model runs on this Mac. Warming means the speech engine is loading.
 
 Summary contains `id,title,startedAt,duration?,speakers,status,vaultPath?,obsidianLink?`.
 Duration is absent while recording. Status is recording, finalizing, complete, interrupted or failed.
@@ -82,7 +82,7 @@ note pending again. `{enhanced:{topic,text}}` saves an explicit user edit; later
 in flight, cannot overwrite that enhancement. This protection survives save/reload and subsequent shorthand edits.
 
 Missed topics contain `topic,text,excerpts`. Action items contain `text,quote,noteId,at?,owner?,askedBy?`;
-owners and requesters are currently unknown. Saved answers contain `id,conversationId,question,answer,state,
+owners use an assigned speaker name, or an unambiguous name explicitly addressed in a question immediately answered by that numbered voice; unidentified voices and requesters remain unknown. Saved answers contain `id,conversationId,question,answer,state,
 citations,at,createdAt,done:true`; `at` is a meeting offset and `createdAt` is a wall-clock date.
 Attachments include their indexing state. Clips are SavedClip objects described below.
 
@@ -170,7 +170,9 @@ There is no accept/dismiss state for AI lines.
 Summaries include `retention: live|finalized|purging|purged` and optional `purgeAt` (ISO UTC).
 For legacy meetings, after Stop and final enhancement the vault receives title, date, attendees, original and AI lines,
 a brief, action items and missed topics. The finalized write-up has no transcript URLs, evidence links or
-`^eN` anchors. The brief is a short extract from the enhanced notes (or first transcript turns when no notes exist).
+`^eN` anchors. The brief is one or two plain sentences written on this Mac from the finished AI lines,
+"Also discussed" topics and action items, and checked before use (`BriefPolicy`): no markup, no glued note
+lines, no number the notes do not state. When no brief passes, the note has none.
 An edited vault region remains protected; a conflicting finalized version is saved alongside it.
 
 `POST /v1/meetings/:id/done` returns the updated Summary and deletes raw meeting material immediately.
@@ -182,7 +184,7 @@ screen, evidence and answers, and load the vault note. Purged detail contains me
 with empty raw collections. A minimal metadata receipt remains solely to resolve old meeting IDs and
 record deletion completion.
 
-Cleanup removes the whole meeting folder (including audio, screen video, OCR, thumbnails, attachments and
+Cleanup removes the whole meeting folder (including transcript, OCR, attachments, legacy media and
 unknown leftover files), transcript/screen/attachment index rows and vectors, and saved meeting Q&A.
 Cross-meeting answers citing the deleted source are scrubbed as well. Answer text already inserted into
 notes remains there. Shared speaker profiles and other meetings are preserved. Search and scoped Ask use
@@ -281,6 +283,14 @@ in force after undo.
 Native Markdown writes continuation text inside the bullet in italic, escaping backslashes,
 asterisks and underscores. Owned continuation text remains roman. Topic labels are dropped;
 a one-paragraph italic brief follows properties, `## Also discussed` precedes action items.
+Action items are commitments found in what was said ("I'll …", or "Can you …?" answered "Yes"), never
+inferred from needs or estimates; dates are kept as spoken ("by Monday"), never computed.
+
+The microphone's copy of call audio heard through the speakers (`EchoFilter`) is not part of the transcript:
+it is moved to the raw meeting's `echoSegments` for audit, and evidence that cited it resolves to the system
+segment it repeated (`transcriptAliases`). `segments` in every response is the echo-free transcript.
+Live fragments of three words or fewer, in which the Stop-time recognizer heard no speech at all (noise on
+an echo-cancelled mic), are likewise moved to `unheardSegments`.
 ### Images in meeting documents
 
 A block may carry `images: [{target, path?}]`. `target` is the destination from an Obsidian
@@ -307,7 +317,7 @@ Returns 409 when unavailable/private. It does not start capture or read an unrel
 The plugin's **Grab this moment** command has no default hotkey. It uses Obsidian's
 `getAvailablePathForAttachment` and `createBinary`, then inserts a generated embed at a mapped
 cursor position as one undoable transaction. The attachment is durable user content, independent
-of the screen movie and thumbnails. Undoing insertion does not delete the attachment file.
+of transient screen capture. Undoing insertion does not delete the attachment file.
 
 
 Finalize responses may include `document.insertions:[{at,text}]`: additions at pre-finalize
@@ -320,9 +330,9 @@ the user's own shorthand.
 ### Resuming a stopped note
 
 `POST /v1/meetings/:id/resume` keeps the meeting ID, original start clock, note document,
-transcript segments, screen moments and confirmed speaker assignments. It opens new WAV
-tracks and a new screen movie under `recordings/<session UUID>/`, and records the per-source
-offsets in `recordingSessions`. New recognizer speaker labels get the session namespace;
+transcript segments, screen moments and confirmed speaker assignments. It opens new memory-only
+audio streams and records per-source offsets in `recordingSessions`. Captured audio, screen video
+and automatic screenshots are never written to disk. New recognizer speaker labels get the session namespace;
 they do not inherit a previous session's speaker identity. Existing recordings without a
 session manifest are adopted as the initial session, with their files left untouched.
 
@@ -330,3 +340,16 @@ Meeting detail includes `endedAt` for the Resume deadline. Resume clears this ti
 and the purge deadline while capture runs; the next Stop restarts the 24-hour retention
 clock. An in-flight final pass cannot commit across a resumed session. Resume is available
 while the final pass runs after audio streams have drained, but not after Finalize.
+
+### Capture retention and Stop
+
+The streaming Nemotron transcript is final. Stop drains the existing recognizer streams; there
+is no batch transcription or acoustic re-alignment. Pending jots, actions, additional discussion
+and the brief are completed from that transcript. Completed AI lines are preserved.
+
+Each audio source has at most 30 seconds of unacknowledged PCM plus a 60-second rolling voice
+window. Capture fails explicitly if the recognizer cannot keep up; it never spills audio to disk.
+WeSpeaker reads short live crops and stores only derived vectors for later speaker naming.
+Screen awareness uses transient frames for scene embeddings and OCR; only text and scene
+metadata are persisted. Explicit Grab this moment attachments remain durable user content.
+Legacy media may still be read by import/verification tools and removed by normal retention.

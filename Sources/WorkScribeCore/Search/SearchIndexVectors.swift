@@ -84,7 +84,14 @@ extension SearchIndex {
 
     public func purge(refs: [String]) throws {
         try db.run("PRAGMA secure_delete = ON")
-        for ref in refs { try remove(ref: ref) }
+        try db.transaction {
+            for ref in refs {
+                try setMeta("purged:" + ref, "1")
+                try db.run("DELETE FROM meta WHERE substr(key,1,?)=?", [.int(Int64(("watch:" + ref + ":").count)), .text("watch:" + ref + ":")])
+                try db.run("DELETE FROM lines WHERE source=?", [.text(ref)])
+                try deleteRows(ref: ref)
+            }
+        }
         try db.run("INSERT INTO fts(fts) VALUES('optimize')")
         vectorLock.lock(); defer { vectorLock.unlock() }
         let vectors = try store()

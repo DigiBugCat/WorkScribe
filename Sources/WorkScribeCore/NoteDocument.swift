@@ -10,6 +10,7 @@ public struct NoteDocument: Codable, Equatable, Sendable {
         public var id: String; public var from: Int; public var to: Int; public var text: String
         public var at: Double?; public var section: String?; public var owned: Owned?
         public var images: [NoteImage]?
+        public var surface: String?
         public init(id: String, from: Int, to: Int, text: String, at: Double? = nil, section: String? = nil, owned: Owned? = nil, images: [NoteImage]? = nil) {
             self.id = id; self.from = from; self.to = to; self.text = text; self.at = at; self.section = section; self.owned = owned; self.images = images
         }
@@ -52,27 +53,28 @@ public struct NoteDocument: Codable, Equatable, Sendable {
         }
     }
     /// An authoritative full sync: deletion/reorder are implicit and idempotent; no per-keystroke requests.
-    public func notes(previous: [Note]) -> [Note] {
+    public func notes(previous: [Note], at: Double? = nil) -> [Note] {
         let old = Dictionary(previous.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
         return blocks.map { b in
             var n = old[b.id] ?? Note(text: b.text, createdAt: b.at)
             n.id = b.id
-            if n.text != b.text || n.section != b.section { n.editText(b.text) }
+            if n.text != b.text || n.section != b.section { n.editText(b.text, at: at) }
             n.section = b.section
+            n.surface = b.surface
             let targets = NoteImageContent.parse(b.text, source: source).targets
             let images = targets.prefix(8).map { target -> NoteImage in
                 let path = b.images?.first { $0.target == target }?.path
                 return n.images?.first { $0.target == target && $0.path == path } ?? NoteImage(target: target, path: path)
             }
             if (n.images ?? []) != images {
-                n.images = images; n.enhancedFrom = nil; n.enhancementState = n.userEdited == true ? "done" : "pending"
-                if n.userEdited != true { n.enhanced = nil }
+                n.images = images; n.line.queryText = nil; n.line.state = n.line.owned == true ? .yours : .listening
+                if n.line.owned != true { n.line.text = nil }
             }
-            // First typed time is immutable once the server has seen this ID.
+            // Minor edits keep typing time; a changed subject starts a new moment window.
             if let owned = b.owned {
                 let text = owned.text.components(separatedBy: "\n").map { $0.hasPrefix("> ") ? String($0.dropFirst(2)) : ($0.hasPrefix(">") ? String($0.dropFirst()) : $0) }.joined(separator: "\n")
-                if n.userEdited != true || n.enhanced != text { n.editEnhancement(.init(topic: "", text: text)) }
-            } else if n.userEdited == true { n.letAIRewrite() }
+                if n.line.owned != true || n.line.text != text { n.editEnhancement(.init(topic: "", text: text)) }
+            } else if n.line.owned == true { n.letAIRewrite() }
             return n
         }
     }
@@ -117,7 +119,7 @@ public struct NoteDocument: Codable, Equatable, Sendable {
         if source.contains("\nworkscribe:"), !source.contains("\nduration:"), let ended=meeting.endedAt,
            let tag=source.range(of:"\ntags:") {
             let at=(source as NSString).range(of:String(source[..<tag.upperBound])).length-5
-            var metadata="duration: \(max(1,Int(ended.timeIntervalSince(meeting.startedAt)/60))) min\n"
+            var metadata="duration: \(max(1,Int((ended.timeIntervalSince(meeting.startedAt)/60).rounded()))) min\n"
             if let names=meeting.attendees,!names.isEmpty,!source.contains("\nattendees:") {
                 metadata += "attendees:\n" + names.map { "  - \"[[" + $0.replacingOccurrences(of:"\"",with:"\\\"") + "]]\"" }.joined(separator:"\n") + "\n"
             }
@@ -125,7 +127,7 @@ public struct NoteDocument: Codable, Equatable, Sendable {
         }
 
         for block in blocks {
-            guard block.owned == nil, let enhanced=notes[block.id]?.enhanced, !enhanced.isEmpty else {continue}
+            guard block.owned == nil, let enhanced=notes[block.id]?.line.text, !enhanced.isEmpty else {continue}
             inserts.append(.init(at:block.to,text:"\n" + Self.continuation(NoteEnhancementText(markdown: enhanced).text,block:block.text)))
         }
         if let brief=meeting.brief, !brief.trimmingCharacters(in:.whitespacesAndNewlines).isEmpty {

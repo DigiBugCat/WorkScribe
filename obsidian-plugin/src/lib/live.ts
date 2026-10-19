@@ -85,7 +85,7 @@ export function loadMeeting(state: LiveState, m: Meeting): void {
   const last = m.answers[m.answers.length - 1];
   state.answer = last ?? null;
   state.answers = [...m.answers];
-  state.upToDate = m.notes.every((n) => n.state !== "pending" && n.state !== "enhancing");
+  state.upToDate = m.notes.every((n) => n.state !== "listening" && n.state !== "found");
 }
 
 export type Change = "status" | "meeting" | "segments" | "notes" | "answer" | "enhancement" | "screen";
@@ -93,7 +93,7 @@ export type Change = "status" | "meeting" | "segments" | "notes" | "answer" | "e
 /** Apply one event; returns what changed (empty when the event was for another meeting). */
 export function applyEvent(state: LiveState, ev: LiveEvent): Set<Change> {
   const changed = new Set<Change>();
-  if (ev.type === "status") {
+  if (ev.type === "status" && "status" in ev) {
     const s = ev.status;
     state.status = s;
     changed.add("status");
@@ -134,14 +134,14 @@ export function applyEvent(state: LiveState, ev: LiveEvent): Set<Change> {
       state.notes = new Map(ev.notes.map((n) => [n.id, n]));
       state.missedTopics = ev.missedTopics;
       state.actionItems = ev.actionItems;
-      state.upToDate = ev.notes.every((n) => n.state !== "pending" && n.state !== "enhancing");
+      state.upToDate = ev.notes.every((n) => n.state !== "listening" && n.state !== "found");
       changed.add("notes");
       changed.add("enhancement");
       break;
     case "note": {
       const prev = state.notes.get(ev.note.id);
       // Keep an existing enhancement if an update arrives without one (e.g. text edit echo).
-      const note = prev && !ev.note.enhanced && prev.enhanced && ev.note.state !== "plain"
+      const note = prev && !ev.note.enhanced && prev.enhanced && ev.note.state !== "quiet"
         ? { ...ev.note, enhanced: prev.enhanced }
         : ev.note;
       state.notes.set(note.id, note);

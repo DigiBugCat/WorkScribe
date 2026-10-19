@@ -31,6 +31,7 @@ extension AppModel {
         if var live = meeting, live.id == id {
             guard live.retention != "purged" && live.retention != "purging" else { throw NoteError.noMeeting }
             try change(&live)
+            try lineIndex?.saveLines(live)
             meeting = live
             try save()
             if let index = library.firstIndex(where: { $0.id == id }) { library[index] = live }
@@ -39,6 +40,7 @@ extension AppModel {
         var saved = try store.load(id)
         guard saved.retention != "purged" && saved.retention != "purging" else { throw NoteError.noMeeting }
         try change(&saved)
+        try lineIndex?.saveLines(saved)
         try store.save(saved)
         if let index = library.firstIndex(where: { $0.id == id }) { library[index] = saved }
         return saved
@@ -52,11 +54,11 @@ extension AppModel {
         let when = at ?? (live ? meeting.map { Date().timeIntervalSince($0.startedAt) } : nil)
         var note = Note(text: text, createdAt: when)
         note.fromAnswer = fromAnswer
-        note.enhancementState = fromAnswer == nil ? "pending" : "plain"
+        note.line.state = fromAnswer == nil ? .listening : .quiet
         try mutateMeeting(meetingID) { meeting in
             if let topic = fromMissedTopic, let missed = meeting.missedTopics?.first(where: { $0.topic == topic }) {
                 note.editEnhancement(.init(topic: missed.topic, text: missed.text))
-                note.excerptRefs = missed.excerptRefs
+                note.line.evidence = missed.excerptRefs
                 meeting.missedTopics?.removeAll { $0.topic == topic }
             }
             meeting.notes = (meeting.notes ?? []) + [note]
@@ -72,7 +74,7 @@ extension AppModel {
         var edited: Note?
         try mutateMeeting(meetingID) { meeting in
             guard let index = meeting.notes?.firstIndex(where: { $0.id == noteID }) else { throw NoteError.noNote }
-            meeting.notes![index].editText(text)
+            meeting.notes![index].editText(text, at: meeting.status == "recording" ? Date().timeIntervalSince(meeting.startedAt) : nil)
             edited = meeting.notes![index]
         }
         notesChanged(meetingID)
@@ -107,63 +109,80 @@ extension AppModel {
     }
 }
 
-/// Debounces enhancement per meeting: a few seconds after the last jot, one incremental pass over stale notes.
+/// Coalesces changed inputs per meeting and publishes one completed line at a time.
 /// Without the bundled model (a dev build) the notes simply stay unenhanced.
 @MainActor
 final class NoteEnhancementScheduler {
     static let shared = NoteEnhancementScheduler()
-    var enhancer: any NoteEnhancing = NoteEnhancer()
-    var delay: UInt64 = 4_000_000_000
-    var minimumInterval: TimeInterval = 15
+    var enhancer: any Enriching = Enrich()
+    private var waits: [String: Int] = [:]
+    var delay: UInt64 = UInt64(CurrentNoteEngine.debounceSeconds * 1e9)
+    var minimumInterval: TimeInterval = CurrentNoteEngine.throttleSeconds
     private var pending: [String: Task<Void, Never>] = [:]
     private var running: Set<String> = []
     private var finalizing: Set<String> = []
+    private var draining: Set<String> = []
     private var dirty: Set<String> = []
     private var lastRun: [String: Date] = [:]
-    /// Transcript updates are throttled to one pass per 15 seconds, with a trailing pass.
+    private var inputs: [String: String] = [:]
+    /// The live pass in flight; Stop drains it before settling.
+    private var live: [String: Task<Void, Never>] = [:]
+    /// Ticks on every model call of a final pass: proof of progress for the stall watchdog,
+    /// whichever meeting is on screen.
+    private var synthesis: [String: (id: UUID, task: Task<Void, Never>)] = [:]
+    private var heartbeat: [String: Double] = [:]
+    /// What the last final pass could not do, in plain words (nil when it did everything).
+    private(set) var warnings: [String: String] = [:]
+    /// Finalized speech and jot changes wake selection; unchanged inputs do no work.
     func schedule(_ id: String, model: AppModel) {
+        guard let snapshot = model.meetingSnapshot(id), !model.liveAIPaused else { return }
+        let input = Chunker.hash(snapshot.segments.map { $0.id + $0.text }.joined(separator: "|") + "|" + (snapshot.notes ?? []).map { $0.id + $0.text + String($0.queryRevision) + String($0.line.owned == true) + $0.imageEvidence }.joined(separator: "|"))
+        guard inputs[id] != input else { return }
+        inputs[id] = input
+        synthesis.removeValue(forKey: id)?.task.cancel()
         dirty.insert(id)
-        guard !finalizing.contains(id) else { return }
+        guard !finalizing.contains(id), !draining.contains(id) else { return }
         guard !model.liveAIPaused else { return }
-        guard pending[id] == nil else { return }
-        pending[id] = Task { [weak self, weak model] in
-            guard let self else { return }
-            let remaining = max(0, minimumInterval - Date().timeIntervalSince(lastRun[id] ?? .distantPast))
-            try? await Task.sleep(nanoseconds: max(delay, UInt64(remaining * 1_000_000_000)))
-            pending[id] = nil
-            guard !Task.isCancelled, let model else { return }
+        guard !running.contains(id), pending[id] == nil else { return }
+        let task = Task { [weak self, weak model] in
+            guard let self, let model else { return }
+            live[id] = pending.removeValue(forKey: id)
+            defer { live[id] = nil }
+            guard !Task.isCancelled else { return }
             await run(id, model: model, final: false)
         }
+        pending[id] = task
+    }
+    func cancelSynthesis() {
+        for job in synthesis.values { job.task.cancel() }
+        synthesis.removeAll()
+    }
+    /// Recognition needs the GPU back (the Mac got busy, or Stop is draining the recognizer): cut the
+    /// live pass short. Its finished lines are kept and the rest run when AI lines resume.
+    func yieldLive(_ id: String) {
+        cancelSynthesis()
+        pending.removeValue(forKey: id)?.cancel()
+        if let task = live[id] { task.cancel(); dirty.insert(id) }; inputs[id] = nil
+    }
+    /// Stop admits no new live work while recognition drains, but keeps the current line.
+    func beginStop(_ id: String) {
+        draining.insert(id)
+        cancelSynthesis()
+        pending.removeValue(forKey: id)?.cancel()
     }
     @discardableResult func finish(_ id: String, model: AppModel) async -> Bool {
         guard finalizing.insert(id).inserted else { return false }
+        draining.remove(id)
         defer {
             finalizing.remove(id)
-            if dirty.contains(id) { schedule(id, model: model) }
+            if dirty.contains(id) { inputs[id] = nil; schedule(id, model: model) }
         }
         let endedAt = model.meetingSnapshot(id)?.endedAt
+        warnings[id] = nil
         pending.removeValue(forKey: id)?.cancel()
-        do {
-            try await RecordingDeadline.wait(stall: model.stallTimeout) {
-                while self.running.contains(id) {
-                    try Task.checkCancellation()
-                    try await Task.sleep(nanoseconds: 50_000_000)
-                }
-            }
-        } catch { return false }
+        // Drain the active line instead of cancelling a nearly finished answer and regenerating it.
+        if let task = live[id] { await task.value }
         guard !Task.isCancelled else { return false }
-        do {
-            try await RecordingDeadline.wait(stall: max(model.stallTimeout, 120), progress: { model.finalizationProgress }) {
-                try await model.polishTranscript(id)
-            }
-        }
-        catch {
-            if model.meetingSnapshot(id)?.endedAt == endedAt, model.phase != "starting" {
-                model.message = "Recording saved · transcript polish couldn’t finish"
-            }
-            // Do not present another draft based on the incomplete live transcript as final.
-            return false
-        }
         guard !Task.isCancelled, model.meetingSnapshot(id)?.endedAt == endedAt else { return false }
         if model.meeting?.id == id, model.phase == "finalizing" { model.message = "Finishing your notes…" }
         do {
@@ -172,89 +191,111 @@ final class NoteEnhancementScheduler {
         guard model.meetingSnapshot(id)?.endedAt == endedAt else { return false }
         pending.removeValue(forKey: id)?.cancel()
         var success = false
+        heartbeat[id] = 0
         do {
-            try await RecordingDeadline.wait(stall: model.stallTimeout, progress: { model.finalizationProgress }) {
+            try await RecordingDeadline.wait(stall: model.stallTimeout, progress: { (self.heartbeat[id] ?? 0) + model.finalizationProgress }) {
                 success = await self.run(id, model: model, final: true)
             }
-        } catch { return false }
+        } catch {
+            warnings[id] = "the local model stopped responding while writing the final lines"
+            return false
+        }
+        if !success, warnings[id] == nil { warnings[id] = "the final lines couldn’t be written" }
+        guard success, model.meetingSnapshot(id)?.endedAt == endedAt else { return success }
+        if let native = enhancer as? Enrich, let snapshot = model.meetingSnapshot(id) {
+            synthesis[id]?.task.cancel()
+            let jobID = UUID()
+            let job = Task { [weak self, weak model] in
+                guard let self, let model else { return }
+                defer { if synthesis[id]?.id == jobID { synthesis[id] = nil } }
+                let extra = try? await native.synthesis.afterStop(snapshot)
+                guard !Task.isCancelled, model.meetingSnapshot(id)?.endedAt == endedAt else { return }
+                if let extra {
+                    try? model.mutateMeeting(id) { meeting in
+                        meeting.missedTopics = extra.topics
+                        meeting.actionItems = extra.actions
+                    }
+                }
+                let brief = await native.synthesis.brief(model.meetingSnapshot(id) ?? snapshot)
+                guard !Task.isCancelled, model.meetingSnapshot(id)?.endedAt == endedAt else { return }
+                try? model.mutateMeeting(id) { $0.brief = brief }
+                model.notesChanged(id)
+                if model.meetingSnapshot(id)?.retention == "finalized" { _ = VaultHookup.shared?.write(meetingID: id) }
+            }
+            synthesis[id] = (jobID, job)
+        }
         return success
     }
     @discardableResult private func run(_ id: String, model: AppModel, final: Bool) async -> Bool {
-        guard (final || !model.liveAIPaused), !running.contains(id), let snapshot = model.meetingSnapshot(id),
+        guard (final || !model.liveAIPaused), !running.contains(id), var snapshot = model.meetingSnapshot(id),
               snapshot.retention != "purged", snapshot.retention != "purging" else { return false }
-        let generation = model.recordingGeneration
-        running.insert(id); dirty.remove(id); lastRun[id] = Date()
-        try? model.mutateMeeting(id) { meeting in
-            for i in (meeting.notes ?? []).indices where meeting.notes![i].isStale {
-                meeting.notes![i].enhancementState = "enhancing"
-            }
-        }
-        model.notesChanged(id)
-        defer {
-            try? model.mutateMeeting(id) { meeting in
-                for i in (meeting.notes ?? []).indices where meeting.notes![i].enhancementState == "enhancing" {
-                    meeting.notes![i].enhancementState = meeting.notes![i].isStale ? (final ? "plain" : "pending") : "done"
-                }
-            }
+        if CurrentNoteEngine.revalidate(&snapshot) {
+            try? model.mutateMeeting(id) { $0.notes = snapshot.notes }
             model.notesChanged(id)
+        }
+        let generation = model.recordingGeneration
+        let previousRun = lastRun[id]
+        running.insert(id); dirty.remove(id); lastRun[id] = Date()
+        defer {
             running.remove(id)
-            if dirty.contains(id) { schedule(id, model: model) }
+            if dirty.contains(id) { inputs[id] = nil; schedule(id, model: model) }
         }
         do {
-            let prepared: NoteDraft?
-            if final, let native = enhancer as? NoteEnhancer {
-                prepared = try await native.enhanceFinal(snapshot) { fraction in
-                    await MainActor.run {
-                        if model.recordingGeneration == generation, model.meeting?.id == id, model.meeting?.endedAt == snapshot.endedAt {
-                            model.finalizationProgress = 0.7 + 0.18 * fraction
+            let prepared: Enrichment?
+            // After Stop no more speech will come: answer every waiting jot in one pass and settle the rest.
+            let stopped = snapshot.status != "recording"
+            prepared = try await enhancer.enhance(snapshot, incremental: !final && !stopped) { patch in
+                await MainActor.run {
+                    guard model.recordingGeneration == generation,
+                          model.meetingSnapshot(id)?.recordingSessions?.last?.id == snapshot.recordingSessions?.last?.id else { return }
+                    try? model.mutateMeeting(id) { meeting in
+                        for target in patch.plan.targets where patch.outcomes[target.note.id] == nil {
+                            if let i = meeting.notes?.firstIndex(where: { $0.id == target.note.id && $0.queryRevision == target.note.queryRevision && $0.line.state == .listening }) {
+                                meeting.notes![i].line.state = .found
+                            }
                         }
+                        if CurrentNoteEngine.apply(patch, to: &meeting, final: false) { self.dirty.insert(id) }
+                    }
+                    model.notesChanged(id)
+                }
+            }
+            if let prepared, prepared.plan.targets.contains(where: { prepared.outcomes[$0.note.id] == nil }) { dirty.insert(id) }
+            guard prepared != nil else {
+                // After Stop, finding nothing settles a jot only if the search could see the transcript; an index
+                // still loading after launch is asked again shortly.
+                let searched = await enhancer.searched(id)
+                if final || stopped && searched { try model.mutateMeeting(id) { meeting in
+                    for i in (meeting.notes ?? []).indices { meeting.notes![i].line.settle() }
+                } }
+                if stopped, !final, !searched, (waits[id] ?? 0) < 20 {
+                    waits[id, default: 0] += 1
+                    Task { [weak self, weak model] in
+                        try? await Task.sleep(nanoseconds: 3_000_000_000)
+                        guard let self, let model else { return }
+                        inputs[id] = nil; schedule(id, model: model)
                     }
                 }
-            } else { prepared = try await enhancer.enhance(snapshot, incremental: !final, missedTopics: final) }
-            guard let draft = prepared else { return true }
+                // Searching without a model call must not delay the first answer to later speech.
+                lastRun[id] = previousRun
+                return true
+            }
             guard model.recordingGeneration == generation,
                   model.meetingSnapshot(id)?.recordingSessions?.last?.id == snapshot.recordingSessions?.last?.id,
                   model.meetingSnapshot(id)?.endedAt == snapshot.endedAt else { return false }
-            try Task.checkCancellation()
-            try model.mutateMeeting(id) { meeting in
-                let eligible = Set(draft.plan.targets.compactMap { target -> String? in
-                    guard (meeting.notes ?? []).contains(where: { $0.id == target.note.id && $0.text == target.note.text && $0.revision == target.note.revision && $0.userEdited != true && $0.fromAnswer == nil }) else { return nil }
-                    return target.note.id
-                })
-                let result = NoteEnhancement.apply(draft.output, plan: draft.plan, to: meeting.notes ?? [])
-                meeting.notes = result.notes
-                for i in (meeting.notes ?? []).indices where eligible.contains(meeting.notes![i].id) {
-                    // Matching is independent of whether the model emitted a usable bullet.
-                    meeting.notes![i].excerptRefs = draft.plan.chunkRefs[meeting.notes![i].id] ?? []
-                    var trace = meeting.notes![i].trace ?? AITrace()
-                    trace.sources = draft.sceneSources[meeting.notes![i].id]
-                    trace.model = draft.model; trace.location = draft.location ?? (draft.model == nil ? nil : "On this Mac")
-                    trace.durationMs = draft.durationMs
-                    let kept = trace.steps.filter { $0.title == "Kept: no new facts" }
-                    let wrote = meeting.notes![i].enhancedFrom == meeting.notes![i].text
-                    let quoted = draft.model?.hasPrefix("Transcript excerpts") == true
-                    trace.steps = [TraceStep("Matched transcript", detail: "\(draft.plan.chunkRefs[meeting.notes![i].id]?.count ?? 0) excerpts"),
-                                   TraceStep(wrote ? (quoted ? "Quoted transcript" : "Wrote AI line") : "No usable AI line", detail: draft.model ?? "Model not reported")] + kept
-                    meeting.notes![i].trace = trace
+            // A live pass cut short still applies the lines it finished; they passed every check.
+            if final { try Task.checkCancellation() }
+            if final || stopped {
+                try model.mutateMeeting(id) { meeting in
+                    for i in (meeting.notes ?? []).indices { meeting.notes![i].line.settle() }
                 }
-                if final {
-                    for i in (meeting.notes ?? []).indices where meeting.notes![i].userEdited != true && meeting.notes![i].imageEvidence.isEmpty && (meeting.notes![i].excerptRefs ?? []).isEmpty && draft.sceneSources[meeting.notes![i].id]?.isEmpty != false {
-                        meeting.notes![i].enhanced = nil; meeting.notes![i].enhancementState = "plain"
-                    }
-                }
-                if let missed = result.missed { meeting.missedTopics = missed }
-                if final { meeting.actionItems = NoteOutput.actions(draft.output, plan: draft.plan) }
             }
             model.notesChanged(id)
             if snapshot.retention == "finalized" { _ = VaultHookup.shared?.write(meetingID: id) }
             return true
         } catch {
             guard model.recordingGeneration == generation else { return false }
-            try? model.mutateMeeting(id) { meeting in
-                for i in (meeting.notes ?? []).indices where meeting.notes![i].userEdited != true {
-                    meeting.notes![i].enhancementState = "paused"
-                }
-            }
+            // Superseded by Stop's final pass: not a failure to show.
+            if !final, error is CancellationError || Task.isCancelled { return false }
             model.message = "AI lines paused · your notes are saving"
             return false
         }

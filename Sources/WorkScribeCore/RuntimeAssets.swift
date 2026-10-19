@@ -67,7 +67,11 @@ public enum RuntimeAssets {
         defer { try? handle.close() }
         var hasher = SHA256()
         do {
-            while let chunk = try handle.read(upToCount: 1024 * 1024), !chunk.isEmpty { hasher.update(data: chunk) }
+            // Each read is autoreleased: without a pool per chunk a multi-GB model would sit in
+            // memory until the caller's pool drains (never, on a long-lived queue or task).
+            while let chunk = try autoreleasepool(invoking: { try handle.read(upToCount: 1024 * 1024) }), !chunk.isEmpty {
+                hasher.update(data: chunk)
+            }
         } catch { return .missing }
         guard hasher.finalize().map({ String(format: "%02x", $0) }).joined() == digest else { return .wrongHash }
         cacheLock.lock()
@@ -88,10 +92,8 @@ public enum RuntimeAssets {
     private static let pinned = [
         "nemotron-3.5-asr-streaming-0.6b.q8_0.gguf": "a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae",
         "Nemotron-3-Diarization.q8_0.gguf": "08456d9e22cd9a323c0364d98375f3746d6e68507ebb705cd46438c534c7a3a1",
-        "Qwen3.5-2B-Q4_K_M.gguf": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
-        "gemma-4-E2B_q4_0-it.gguf": "fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634",
-        "mmproj-gemma-4-E2B-it-Q8_0.gguf": "9406f99c16d68cda4f1f0552192dcc99021ea1fc6d2fd50b1dc3ccf30d04b292",
-        "gemma-4-E2B-it-Q4_0.gguf": "8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52"
+        "gemma-4-E4B-it-Q4_0.gguf": "a555b900214b477d8880e7832e0b8925e139b0159640036b09fe472b6f2097f2",
+        "mmproj-gemma-4-E4B-it-Q8_0.gguf": "197f49a93027f9843772bd24a6a9e0be2a32a788de5a3def330e9c585d86edd1"
     ]
     private static func sourceDigest(for url: URL) -> String? {
         // Hashes of downloaded files, separate from receipts for locally compiled graphs.

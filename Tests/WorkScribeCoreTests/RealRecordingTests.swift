@@ -13,16 +13,14 @@ final class RealRecordingTests: XCTestCase {
         XCTAssertEqual(after.count, 5); XCTAssertEqual(after[2], 15)
         XCTAssertEqual(turns.flatMap(\.segments).map(\.id), meeting.orderedSegments.map(\.id))
         XCTAssertEqual(turns.map(\.text).joined(separator: " "), meeting.orderedSegments.map(\.text).joined(separator: " "))
-        let chunks = TranscriptChunker.chunks(meeting)
-        XCTAssertEqual(chunks.count, 5)
-        for (turn, chunk) in zip(turns, chunks) {
-            XCTAssertEqual(chunk.start, turn.first.start); XCTAssertEqual(chunk.end, turn.end)
-            XCTAssertEqual(Set(turn.segments.map(\.speaker)).count, 1)
-        }
+        let chunks = Chunker.transcript(meeting)
+        XCTAssertEqual(chunks.count, 25)
+        XCTAssertEqual(chunks.map(\.segmentID), meeting.orderedSegments.map(\.id))
+        XCTAssertEqual(chunks.map(\.text), meeting.orderedSegments.map(\.text))
         // Citations already attached to one of the original fragments remain resolvable.
-        let legacy = TranscriptChunker.chunks(meeting, grouped: false)
+        let legacy = Chunker.transcript(meeting)
         XCTAssertTrue(legacy.allSatisfy { APIShapes.chunkMap(meeting)[$0.id] != nil })
-        print("realrun fixture: 25 fragments, median 3 words -> 5 turns/excerpts, median \(after[2]) words; all original IDs and times retained")
+        print("realrun fixture: \(meeting.segments.count) finalized segments -> \(chunks.count) passage chunks; all original IDs and times retained")
     }
 
     func testTurnsRespectPausesSourcesSpeakerOverridesAndUnknownVoices() {

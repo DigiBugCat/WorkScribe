@@ -12,14 +12,16 @@ actor ScreenSceneText {
     private var busy = false
     init(reader: @escaping Reader = { await ScreenOCR.read($0) }) { self.reader = reader }
 
-    func read(_ id: String, meetingID: String, store: MeetingStore,
+    func read(_ id: String, meetingID: String, store: MeetingStore, image: CGImage? = nil,
               allowed: @escaping @Sendable () -> Bool = { true }) async -> ScreenMoment? {
         guard !busy, ScreenInferenceAdmission.shared.allowsOCR, allowed(), !Task.isCancelled else { return nil }
         let input: (ScreenMoment, CGImage)? = ScreenFiles.mutationLock.withLock {
             guard let meeting = try? store.load(meetingID), meeting.retention != "purged", meeting.retention != "purging",
                   meeting.screen?.state != "deleted",
-                  let scene = store.loadScreenMoments(meetingID).first(where: { $0.id == id }), scene.ocrState == nil,
-                  let keyframe = scene.keyframe, keyframe == ScreenFiles.keyframe(id),
+                  let scene = store.loadScreenMoments(meetingID).first(where: { $0.id == id }), scene.ocrState == nil else { return nil }
+            // New sessions supply only transient frames. Disk fallback is read-only legacy support.
+            if let image { return (scene, image) }
+            guard let keyframe = scene.keyframe, keyframe == ScreenFiles.keyframe(id),
                   let folder = try? store.directory(meetingID),
                   let source = CGImageSourceCreateWithURL(folder.appendingPathComponent(keyframe) as CFURL, nil),
                   let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else { return nil }

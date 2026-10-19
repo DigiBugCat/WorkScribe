@@ -45,21 +45,17 @@ actor DelayedVoiceEngine: VoiceExtracting {
         XCTAssertTrue(model.voices[0].samples.isEmpty)
         XCTAssertTrue(model.voiceJobs.isEmpty)
     }
-    func testAudioCropUsesSourceOffset() async throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let url = root.appendingPathComponent("system.wav")
-        let format = AVAudioFormat(standardFormatWithSampleRate: 16000, channels: 1)!
-        let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 64000)!
-        buffer.frameLength = 64000
-        for i in 0..<64000 { buffer.floatChannelData![0][i] = i < 16000 ? 0.1 : 0.7 }
-        try autoreleasepool { let file = try AVAudioFile(forWriting: url, settings: format.settings); try file.write(from: buffer) }
+    func testLiveCropUsesSourceOffsetAndExpires() throws {
+        var window = VoiceAudioWindow()
+        let pcm = (0..<64000).map { Int16($0 < 16000 ? 3000 : 22000).littleEndian }
+        window.append(pcm.withUnsafeBytes { Data($0) })
         let meetingTime = 6.0, sourceOffset = 5.0
-        let samples = try await VoiceEngine().readSamples(url: url, start: meetingTime - sourceOffset, duration: 3)
+        let samples = try XCTUnwrap(window.samples(start: meetingTime - sourceOffset, duration: 3))
         XCTAssertEqual(samples.count, 48000)
-        XCTAssertEqual(samples[0], 0.7, accuracy: 0.001)
-        XCTAssertEqual(samples.last!, 0.7, accuracy: 0.001)
+        XCTAssertEqual(samples[0], Float(22000) / 32768, accuracy: 0.001)
+        window.append(Data(repeating: 0, count: 61 * 32000))
+        XCTAssertNil(window.samples(start: 1, duration: 3))
+        XCTAssertNil(window.samples(start: .infinity, duration: 3))
     }
     func testScopeUndoAndRawIdentity() async throws {
         let (model, entry) = try fixture(); defer { try? FileManager.default.removeItem(at: model.store.root) }

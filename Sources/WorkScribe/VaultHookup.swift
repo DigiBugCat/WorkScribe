@@ -164,7 +164,7 @@ final class VaultHookup: ObservableObject {
     }
 
     static func fingerprint(_ meeting: Meeting, clips: Int) -> String {
-        let notes = (meeting.notes ?? []).map { "\($0.id)=\($0.enhanced ?? $0.text)|\(($0.excerptRefs ?? []).joined(separator: ","))" }
+        let notes = (meeting.notes ?? []).map { "\($0.id)=\($0.line.text ?? $0.text)|\(($0.line.evidence ?? []).joined(separator: ","))" }
         let missed = (meeting.missedTopics ?? []).map { "\($0.topic):\($0.text)" }
         let parts = [meeting.retention ?? "", meeting.title, meeting.endedAt?.description ?? "", MeetingWriteUp.namedVoices(meeting).joined(separator: ","),
                      notes.joined(separator: "\n"), missed.joined(separator: "\n"), String(clips)]

@@ -9,6 +9,8 @@ final class SpeechRuntime: @unchecked Sendable {
     private var streams: [UUID: OpaquePointer] = [:]
     private var warmed = false
     private var loadCount = 0
+    private var openedStreams = 0
+    private var finishedStreams = 0
     func start() async throws {
         try await perform {
             if self.recognizer != nil { return }
@@ -47,9 +49,9 @@ final class SpeechRuntime: @unchecked Sendable {
             }
         }
     }
-    struct Diagnostics: Codable { let loaded: Bool; let warmed: Bool; let loadCount: Int; let streamCount: Int }
+    struct Diagnostics: Codable { let loaded: Bool; let warmed: Bool; let loadCount: Int; let streamCount: Int; let openedStreams: Int; let finishedStreams: Int }
     func diagnostics() async throws -> Diagnostics {
-        try await perform { Diagnostics(loaded: self.recognizer != nil, warmed: self.warmed, loadCount: self.loadCount, streamCount: self.streams.count) }
+        try await perform { Diagnostics(loaded: self.recognizer != nil, warmed: self.warmed, loadCount: self.loadCount, streamCount: self.streams.count, openedStreams: self.openedStreams, finishedStreams: self.finishedStreams) }
     }
     func stop() async {
         await withCheckedContinuation { continuation in
@@ -67,7 +69,7 @@ final class SpeechRuntime: @unchecked Sendable {
         try await perform {
             guard let recognizer = self.recognizer else { throw CaptureError.message("Speech model is not loaded") }
             var stream: OpaquePointer?
-            try self.check(ws_stream_create(recognizer, &stream)); self.streams[id] = stream
+            try self.check(ws_stream_create(recognizer, &stream)); self.streams[id] = stream; self.openedStreams += 1
         }
     }
     func push(_ data: Data, id: UUID) async throws -> [[String: Any]] {
@@ -83,23 +85,8 @@ final class SpeechRuntime: @unchecked Sendable {
     func finish(_ id: UUID) async throws -> [[String: Any]] {
         try await perform {
             guard let stream = self.streams[id] else { throw CaptureError.message("Speech stream is closed") }
+            self.finishedStreams += 1
             try self.check(nemo_speech_asr_stream_finish(stream)); return try self.drain(stream)
-        }
-    }
-    /// Whole-utterance offline decoding. No stream endpoints or
-    /// streaming diarizer; the final pass reuses the meeting's speaker timeline.
-    func batch(_ samples: [Float]) async throws -> [String: Any] {
-        try await perform {
-            guard let recognizer = self.recognizer else { throw CaptureError.message("Speech model is not loaded") }
-            var options = nemo_speech_asr_recognition_options_default()
-            options.enable_word_time_offsets = true
-            options.enable_automatic_punctuation = true
-            options.enable_speaker_diarization = false
-            var result: OpaquePointer?
-            try self.check(nemo_speech_asr_recognize_f32(recognizer, &options, samples, samples.count, 16000, &result))
-            guard let result else { throw CaptureError.message("Batch recognition returned no result") }
-            defer { nemo_speech_asr_result_destroy(result) }
-            return self.event(result)
         }
     }
     func close(_ id: UUID) {
@@ -148,7 +135,16 @@ final class SpeechRuntime: @unchecked Sendable {
 }
 
 @MainActor
-final class SpeechConnection {
+protocol SpeechStreaming: AnyObject {
+    var onEvent: (([String: Any]) -> Void)? { get set }
+    func connect() async throws
+    func write(_ data: Data) async throws
+    func finish() async throws
+    func close()
+}
+
+@MainActor
+final class SpeechConnection: SpeechStreaming {
     private let runtime: SpeechRuntime
     private let id = UUID()
     var onEvent: (([String: Any]) -> Void)?

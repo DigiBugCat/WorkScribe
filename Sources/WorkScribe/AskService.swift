@@ -224,8 +224,7 @@ final class AskService: ObservableObject {
             if Task.isCancelled { return }
             trace.steps.removeAll { $0.status == "running" }
             let used = provenance.snapshot()
-            trace.model = used.model; trace.location = used.provider == "local" ? "On this Mac" : "Cloud"
-            if let fallback = used.fallback { trace.steps.append(TraceStep("Cloud unavailable", status: "error", detail: fallback)) }
+            trace.model = used.model; trace.location = "On this Mac"
             trace.steps.append(TraceStep("Wrote answer", detail: used.model))
             let mapped = CitationMapper.map(written, moments: prompt.moments)
             updateMessage(conversationID, messageID) {

@@ -101,7 +101,7 @@ public struct AskMessage: Codable, Equatable, Sendable, Identifiable {
     public var createdAt: Date
     public var state: State
     public var citations: [AskCitation]
-    /// Why there's no answer, or which model wrote it ("Qwen 3.5 · on this Mac").
+    /// Why there's no answer, or which model wrote it ("Gemma 4 E4B · on this Mac").
     public var detail: String?
     public var trace: AITrace?
 

@@ -16,19 +16,16 @@ final class NoteImageTests: XCTestCase {
         var n = d.notes(previous:[])[0]
         XCTAssertTrue(n.isImage); XCTAssertTrue(n.matchingText.isEmpty)
         var m = Meeting(title:"test"); m.notes=[n]
-        XCTAssertTrue(try NotePlanner.plan(m,incremental:true,missedTopics:false).isEmpty)
+        XCTAssertTrue(try SelectionFixture.plan(m,incremental:true).isEmpty)
         n.images?[0].text="Main thread stall 2900 ms"; m.notes=[n]
-        let plan=try NotePlanner.plan(m,incremental:true,missedTopics:false)
-        let prompt=NotePrompt.instruction(plan)
-        let payload = try XCTUnwrap(prompt.components(separatedBy: "Meeting record (JSON):\n").last?.data(using: .utf8))
-        let record = try XCTUnwrap(JSONSerialization.jsonObject(with: payload) as? [String: Any])
-        let notes = try XCTUnwrap(record["notes"] as? [[String: Any]])
-        XCTAssertEqual(notes[0]["image_observation"] as? String, "Main thread stall 2900 ms")
+        let plan=try SelectionFixture.plan(m,incremental:true)
+        let prompt=LinePrompt.build(plan.targets[0], excerpts: plan.evidence(for: plan.targets[0]))
+        XCTAssertTrue(prompt.contains("Main thread stall 2900 ms"))
         XCTAssertFalse(prompt.contains("![[a.png]]"))
-        let result=NoteEnhancement.apply("* **Launch:** Main thread stall is 2900 ms.",plan:plan,to:[n])
-        XCTAssertEqual(result.notes[0].text,source)
-        XCTAssertTrue(result.notes[0].enhanced?.contains("2900 ms") == true)
-        m.notes=result.notes
+        n.line.apply(.line(Bullet(topic: "Launch", text: "Main thread stall is 2900 ms.", refs: []), []), basis: "image", query: n.text, at: .distantPast)
+        XCTAssertEqual(n.text,source)
+        XCTAssertTrue(n.line.text?.contains("2900 ms") == true)
+        m.notes=[n]
         XCTAssertTrue(try d.finalizedText(meeting:m).contains("![[a.png]]\n*Main thread stall is 2900 ms.*"))
     }
     func testVaultBoundaryAndGrabPayload() throws {

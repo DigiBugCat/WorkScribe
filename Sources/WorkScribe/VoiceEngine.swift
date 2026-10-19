@@ -9,10 +9,11 @@ struct ExtractedVoice {
     var vector: [Float]
 }
 protocol VoiceExtracting: Sendable {
+    func embedding(samples: [Float]) async throws -> [Float]
     func extract(meeting: Meeting, folder: URL) async throws -> [ExtractedVoice]
 }
 
-/// Separate actor: model inference and WAV IO never block the UI or speech engine.
+/// Separate actor: live voice inference never blocks the UI or speech engine.
 actor VoiceEngine: VoiceExtracting {
     private var extractor: EmbeddingExtractor?
     private func load() throws -> EmbeddingExtractor {
@@ -58,24 +59,12 @@ actor VoiceEngine: VoiceExtracting {
         return samples
     }
     func extract(meeting: Meeting, folder: URL) async throws -> [ExtractedVoice] {
-        var results: [ExtractedVoice] = []
-        // Bound work per recording and retain coverage for segment-level corrections.
-        let grouped = Dictionary(grouping: meeting.segments.filter { VoiceMatching.eligible($0, in: meeting) }) {
-            $0.speaker + ":" + (meeting.assignment(for: $0)?.profileID ?? "unknown")
-        }
-        for key in grouped.keys.sorted() {
-            for segment in grouped[key]!.sorted(by: { $0.end - $0.start > $1.end - $1.start }).prefix(3) {
-                try Task.checkCancellation()
-                guard ["system", "microphone", AppModel.plaudSource].contains(segment.source), let location = meeting.audioLocation(for: segment) else { continue }
-                let duration = min(10, segment.end - segment.start)
-                let start = segment.start - location.offset + max(0, (segment.end - segment.start - duration) / 2)
-                let samples = try readSamples(url: folder.appendingPathComponent(location.file), start: start, duration: duration)
-                // Quiet clips do not prevent other speakers being processed.
-                guard samples.reduce(Float(0), { $0 + $1 * $1 }) / Float(samples.count) > 0.000001 else { continue }
-                let vector = try embedding(samples: samples)
-                results.append(ExtractedVoice(segmentID: segment.id, vector: vector))
-            }
-        }
-        return results
+        (meeting.voiceEmbeddings ?? [:]).map { ExtractedVoice(segmentID: $0.key, vector: $0.value) }
+    }
+}
+
+extension VoiceExtracting {
+    func embedding(samples: [Float]) async throws -> [Float] {
+        throw CaptureError.message("Live voice extraction unavailable")
     }
 }

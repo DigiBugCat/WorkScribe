@@ -14,6 +14,8 @@ public struct Segment: Codable, Identifiable {
 }
 
 public struct Meeting: Codable, Identifiable {
+    /// Derived live voice vectors only; raw audio is never persisted.
+    public var voiceEmbeddings: [String: [Float]]?
     public var id: String
     public var title: String
     public var startedAt: Date
@@ -24,8 +26,11 @@ public struct Meeting: Codable, Identifiable {
     public var partialSpeakers: [String: String]?
     public var partialIDs: [String: String]?
     /// Preserve the provisional identity when one recognition result becomes final turns.
-    public mutating func setPartial(_ text: String, source: String, speaker: String?) {
+    /// Where the in-progress hypothesis sits on the meeting clock, `[start, end]` per source.
+    public var partialSpans: [String: [Double]]?
+    public mutating func setPartial(_ text: String, source: String, speaker: String?, span: (start: Double, end: Double)? = nil) {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+        if let span { if partialSpans == nil { partialSpans = [:] }; partialSpans?[source] = [span.start, span.end] }
         if partialIDs == nil { partialIDs = [:] }
         if partialIDs?[source] == nil { partialIDs?[source] = UUID().uuidString }
         partials[source] = text
@@ -38,6 +43,7 @@ public struct Meeting: Codable, Identifiable {
         if !final.isEmpty, let id = partialIDs?[source] { final[0].id = id }
         segments.append(contentsOf: final)
         partials.removeValue(forKey: source)
+        partialSpans?.removeValue(forKey: source)
         partialSpeakers?.removeValue(forKey: source)
         partialIDs?.removeValue(forKey: source)
     }
@@ -65,9 +71,17 @@ public struct Meeting: Codable, Identifiable {
     public var brief: String?
     public var actionItems: [ActionItem]?
     public var attendees: [String]?
+    /// Where the transcript came from when it wasn’t this Mac’s audio, e.g. "zoom-captions".
+    public var transcriptSource: String?
+    /// Legacy metadata; new sessions use streaming recognition as the final transcript.
     public var transcriptPolishedForEnd: Date?
     /// Old evidence anchors whose words moved during acoustic re-alignment.
     public var transcriptAliases: [String: String]?
+    /// Microphone segments that were the call's own audio heard through the speakers
+    /// (`EchoFilter`). Kept for audit only; never shown, searched or quoted.
+    public var echoSegments: [Segment]?
+    /// Legacy batch-pass artifacts. New recordings never classify live fragments as unheard.
+    public var unheardSegments: [Segment]?
     public func resolvedSegmentID(_ id: String) -> String {
         var current = id, seen = Set<String>()
         while let next = transcriptAliases?[current], seen.insert(current).inserted { current = next }
@@ -132,18 +146,13 @@ public struct MeetingStore {
         return all.sorted { $0.startedAt > $1.startedAt }
     }
     /// No capture owner survives a process restart. Recover before exposing API/MCP state.
-    /// Idempotent; preserve every segment and audio file, and start the normal retention clock.
+    /// Idempotent; preserve every received segment, and start the normal retention clock.
     public func recoverInterruptedRecordings(now: Date = Date()) throws {
         for var meeting in list() where ["starting", "recording", "finalizing"].contains(meeting.status) {
-            let folder = try directory(meeting.id)
-            for journal in (try? FileManager.default.contentsOfDirectory(at: folder, includingPropertiesForKeys: nil)) ?? [] where journal.lastPathComponent.hasSuffix(".wav.transcribing.pcm") {
-                let name = String(journal.lastPathComponent.dropLast(".transcribing.pcm".count))
-                try AudioBacklog.recoverWAV(journal: journal, destination: folder.appendingPathComponent(name))
-            }
             meeting.status = "interrupted"
             meeting.endedAt = meeting.endedAt ?? now
             meeting.purgeAt = meeting.purgeAt ?? meeting.endedAt!.addingTimeInterval(86_400)
-            meeting.failure = "Recording was interrupted. Your saved audio and transcript are here."
+            meeting.failure = "Recording was interrupted. The transcript received so far is saved."
             try save(meeting)
         }
     }

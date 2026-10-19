@@ -12,6 +12,7 @@ public enum APIRoute: Equatable, Sendable {
     case addNote(meetingID: String)
     case editNote(meetingID: String, noteID: String)
     case events
+    case rewriteLine(documentID: String, blockID: String)
     case ask
     case search
     case attachments
@@ -58,6 +59,8 @@ public enum APIRoute: Equatable, Sendable {
             return only("POST", .addNote(meetingID: rest[1]))
         case 4 where rest[0] == "meetings" && rest[2] == "notes":
             return only("PATCH", .editNote(meetingID: rest[1], noteID: rest[3]))
+        case 5 where rest[0] == "documents" && rest[2] == "blocks" && rest[4] == "rewrite":
+            return only("POST", .rewriteLine(documentID: rest[1], blockID: rest[3]))
         default:
             return .failure(.notFound)
         }
@@ -71,7 +74,11 @@ public enum APIRouteError: Error, Equatable, Sendable {
 
 // MARK: Request bodies
 
-public struct APIStartBody: Codable, Sendable { public var title: String? }
+public struct APIStartBody: Codable, Sendable {
+    public var title: String?
+    /// "recorder" (this Mac's audio) or "zoom-captions"; nil uses the app's setting.
+    public var source: String?
+}
 public struct APINoteBody: Codable, Sendable {
     public var text: String
     /// Seconds into the recording; defaults to now for the live meeting.
@@ -126,7 +133,7 @@ public struct APIStatus: Codable, Equatable, Sendable {
         public var screenRecording: Bool; public var microphone: Bool
         public init(screenRecording: Bool, microphone: Bool) { self.screenRecording = screenRecording; self.microphone = microphone }
     }
-    /// The answer model: provider "openai", "local", or "none" (moments only).
+    /// The answer model: provider "local" or "none" (moments only).
     public struct Model: Codable, Equatable, Sendable {
         public var provider: String; public var name: String
         public init(provider: String, name: String) { self.provider = provider; self.name = name }
@@ -197,6 +204,15 @@ public struct APIExcerpt: Codable, Equatable, Sendable {
     public var link: String
 }
 
+public struct APILineSource: Codable, Equatable, Sendable {
+    public var kind: String; public var title: String
+    public var at: Double?; public var quote: String?; public var speaker: String?
+    public var segmentId: String?; public var meetingId: String?; public var path: String?; public var link: String?
+}
+public struct APILine: Codable, Equatable, Sendable {
+    public var documentId: String; public var blockId: String; public var state: Line.State
+    public var text: String?; public var revision: Int; public var sources: [APILineSource]; public var reason: String?
+}
 public struct APINote: Codable, Equatable, Sendable {
     public var id: String
     public var text: String
@@ -209,6 +225,7 @@ public struct APINote: Codable, Equatable, Sendable {
     public var excerpts: [APIExcerpt]
     public var trace: AITrace? = nil
     public var images: [NoteImage]? = nil
+    public var line: APILine? = nil
 }
 
 public struct APIMissedTopic: Codable, Equatable, Sendable {
@@ -334,31 +351,58 @@ public enum APIShapes {
     }
 
     /// Excerpts labelled E1, E2… per note in reference order.
-    public static func excerpts(_ refs: [String], note at: Double?, meeting: Meeting, chunks: [String: TranscriptChunk],
-                                policy: ExcerptPolicy = ExcerptPolicy()) -> [APIExcerpt] {
+    public static func excerpts(_ refs: [String], note at: Double?, meeting: Meeting, chunks: [String: TranscriptChunk]) -> [APIExcerpt] {
         refs.enumerated().compactMap { number, ref in
             let segmentID = ref.components(separatedBy: "#")[0]
             guard let chunk = chunks[ref] ?? chunks[meeting.resolvedSegmentID(segmentID) + "#0"] else { return nil }
-            return APIExcerpt(id: "E\(number + 1)", match: at == nil || policy.timeScore(chunk, note: at) <= 0 ? "meaning" : "time+meaning", chunkId: ref, segmentId: chunk.segmentID, speaker: chunk.speaker,
+            return APIExcerpt(id: "E\(number + 1)", match: at == nil || !(at.map { chunk.start <= $0 + 30 && chunk.end >= $0 - 90 } ?? false) ? "meaning" : "time+meaning", chunkId: ref, segmentId: chunk.segmentID, speaker: chunk.speaker,
                               start: chunk.start, end: chunk.end, text: chunk.text,
-                              hollow: at == nil || policy.timeScore(chunk, note: at) <= 0,
+                              hollow: at == nil || !(at.map { chunk.start <= $0 + 30 && chunk.end >= $0 - 90 } ?? false),
                               link: WorkScribeLink.meeting(id: meeting.id, seconds: chunk.start, segment: chunk.segmentID).url.absoluteString)
         }
     }
 
     public static func note(_ note: Note, meeting: Meeting, chunks: [String: TranscriptChunk], blockId: String? = nil) -> APINote {
-        APINote(id: note.id, text: note.text, at: note.createdAt,
-                enhanced: note.enhanced.map(NoteEnhancementText.init(markdown:)),
-                state: note.userEdited == true ? "done" : (note.enhancementState ?? (note.isStale ? "pending" : "done")),
-                fromAnswer: note.fromAnswer, userEdited: note.userEdited, blockId: meeting.retention == "finalized" || meeting.retention == "purged" ? nil : blockId,
-                excerpts: excerpts(note.excerptRefs ?? [], note: note.createdAt, meeting: meeting, chunks: chunks), trace: note.trace, images: note.images)
+        var trace = note.trace
+        if trace != nil { trace?.revisions = note.line.history.map { TraceRevision(version: $0.version, text: $0.text, reason: $0.reason, at: $0.at) } }
+        return APINote(id: note.id, text: note.text, at: note.createdAt,
+                enhanced: note.line.text.map(NoteEnhancementText.init(markdown:)),
+                state: note.line.state.rawValue,
+                fromAnswer: note.fromAnswer, userEdited: note.line.owned, blockId: meeting.retention == "finalized" || meeting.retention == "purged" ? nil : blockId,
+                excerpts: excerpts(note.line.evidence ?? [], note: note.createdAt, meeting: meeting, chunks: chunks), trace: trace, images: note.images, line: line(note, meeting: meeting, chunks: chunks, blockId: blockId))
+    }
+
+    public static func line(_ note: Note, meeting: Meeting, chunks: [String: TranscriptChunk], blockId: String? = nil) -> APILine {
+        var sources = excerpts(note.line.evidence ?? [], note: note.createdAt, meeting: meeting, chunks: chunks).map {
+            APILineSource(kind: "meeting", title: $0.speaker, at: $0.start, quote: $0.text, speaker: $0.speaker,
+                          segmentId: $0.segmentId, meetingId: meeting.id, link: $0.link)
+        }
+        sources += (note.trace?.sources ?? []).map {
+            APILineSource(kind: $0.kind == "background" ? "note" : $0.kind, title: $0.title, quote: $0.text, link: $0.link)
+        }
+        sources += (note.images ?? []).filter { !$0.evidence.isEmpty }.map {
+            APILineSource(kind: "image", title: $0.target, quote: $0.evidence, path: $0.path,
+                          link: WorkScribeLink.file(path: $0.path ?? $0.target, page: nil, seconds: nil).url.absoluteString)
+        }
+        if meeting.retention == "purged" || meeting.retention == "purging" { sources = [] }
+        let text = note.line.text.map { value in
+            let parsed = NoteEnhancementText(markdown: value)
+            return [parsed.topic, parsed.text].filter { !$0.isEmpty }.joined(separator: " ")
+        }
+        return APILine(documentId: meeting.id, blockId: blockId ?? note.id, state: note.line.state, text: text,
+                       revision: note.line.revision ?? 0, sources: sources,
+                       reason: meeting.retention == "purged" ? "Sources faded with the transcript" : nil)
     }
 
     public static func chunkMap(_ meeting: Meeting) -> [String: TranscriptChunk] {
-        // Old note references remain valid when a later segment extends a readable turn.
-        let legacy = TranscriptChunker.chunks(meeting, grouped: false)
-        let grouped = TranscriptChunker.chunks(meeting)
-        var map = Dictionary((grouped + legacy).map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a })
+        let chunks = Chunker.transcript(meeting)
+        var map = Dictionary(chunks.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        // Persisted pre-rebuild citations still point to segment#piece. New citations use content IDs.
+        var pieces: [String: Int] = [:]
+        for chunk in chunks {
+            let piece = pieces[chunk.segmentID, default: 0]; pieces[chunk.segmentID] = piece + 1
+            map[chunk.segmentID + "#\(piece)"] = chunk
+        }
         for (old, current) in meeting.transcriptAliases ?? [:] {
             if let replacement = map[current + "#0"] { map[old + "#0"] = replacement }
         }

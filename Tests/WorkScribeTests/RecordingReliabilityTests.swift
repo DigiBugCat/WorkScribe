@@ -3,12 +3,12 @@ import XCTest
 import WorkScribeCore
 @testable import WorkScribe
 
-private struct QuietEnhancer: NoteEnhancing {
-    func enhance(_ meeting: Meeting, incremental: Bool, missedTopics: Bool) async throws -> NoteDraft? { nil }
+private struct QuietEnhancer: Enriching {
+    func enhance(_ meeting: Meeting, incremental: Bool) async throws -> Enrichment? { nil }
 }
-private struct DelayedEnhancer: NoteEnhancing {
+private struct DelayedEnhancer: Enriching {
     let nanoseconds: UInt64
-    func enhance(_ meeting: Meeting, incremental: Bool, missedTopics: Bool) async throws -> NoteDraft? {
+    func enhance(_ meeting: Meeting, incremental: Bool) async throws -> Enrichment? {
         try await Task.sleep(nanoseconds: nanoseconds)
         return nil
     }
@@ -56,22 +56,22 @@ private actor SlowRecognizer {
         await model.stop()
         XCTAssertFalse(model.busy)
         XCTAssertEqual(model.meeting?.status, "complete")
-        XCTAssertTrue(model.message.contains("final AI pass could not finish"))
+        // Stop says plainly why there are no final notes.
+        XCTAssertEqual(model.message, "Recording saved · no final notes: the local model stopped responding while writing the final lines")
     }
 
-    func testCancelQuitKeepsServicesAndRepeatedQuitSavesOnce() async throws {
+    func testQuitWhileRecordingSavesOnceWithoutAsking() async throws {
         let quit = RecordingQuit()
         var saves = 0, teardowns = 0
-        let denied = quit.request(phase: "recording", blocked: false, confirm: { false },
-                                  save: { saves += 1 }, complete: { teardowns += 1 })
-        XCTAssertEqual(denied, .terminateCancel); XCTAssertFalse(quit.pending)
+        let blocked = quit.request(phase: "recording", blocked: true, save: { saves += 1 }, complete: { teardowns += 1 })
+        XCTAssertEqual(blocked, .terminateCancel); XCTAssertFalse(quit.pending)
         await Task.yield()
         XCTAssertEqual(saves, 0); XCTAssertEqual(teardowns, 0)
-        let accepted = quit.request(phase: "recording", blocked: false, confirm: { true }, save: {
+        let accepted = quit.request(phase: "recording", blocked: false, save: {
             saves += 1
             try? await Task.sleep(nanoseconds: 20_000_000)
         }, complete: { teardowns += 1 })
-        let repeated = quit.request(phase: "finalizing", blocked: false, confirm: { XCTFail("second dialog"); return false },
+        let repeated = quit.request(phase: "finalizing", blocked: false,
                                     save: { XCTFail("second save") }, complete: { XCTFail("second teardown") })
         XCTAssertEqual(accepted, .terminateLater); XCTAssertEqual(repeated, .terminateLater)
         XCTAssertEqual(teardowns, 0)
@@ -79,24 +79,16 @@ private actor SlowRecognizer {
         XCTAssertEqual(saves, 1); XCTAssertEqual(teardowns, 1)
     }
 
-    func testSlowRecognizerNeverStopsOrDropsAudioAndDrainsAfterStop() async throws {
-        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: root) }
-        let url = root.appendingPathComponent("system.wav")
-        let track = try AudioTrack(url: url)
+    func testSlowRecognizerDrainsMemoryQueueWithoutFiles() async throws {
+        let track = AudioTrack()
         var captureFailed = false
         track.onFailure = { _ in captureFailed = true }
         let buffer = AVAudioPCMBuffer(pcmFormat: track.format, frameCapacity: 1600)!
         buffer.frameLength = 1600
         for i in 0..<1600 { buffer.int16ChannelData![0][i] = 1234 }
-        // Far beyond the previous 128-buffer limit, while recognition makes no progress.
-        for _ in 0..<500 { track.accept(buffer) }
+        for _ in 0..<200 { track.accept(buffer) }
         XCTAssertFalse(captureFailed)
-        XCTAssertEqual(track.backlog.pendingSeconds, 50, accuracy: 0.01)
-        XCTAssertEqual(RecordingPressure(lag: 2), .screenPaused)
-        XCTAssertEqual(RecordingPressure(lag: 6), .aiPaused)
-        XCTAssertEqual(RecordingPressure(lag: track.backlog.pendingSeconds), .transcriptDelayed)
+        XCTAssertEqual(track.backlog.pendingSeconds, 20, accuracy: 0.01)
         let recognizer = SlowRecognizer()
         let pump = Task {
             while let data = try await track.backlog.next() {
@@ -104,21 +96,27 @@ private actor SlowRecognizer {
                 track.backlog.acknowledge(data.count)
             }
         }
-        // Capture still accepts new audio while draining. Stop closes only the capture writer.
         for _ in 0..<10 { track.accept(buffer) }
         track.finish()
         try await pump.value
         let bytes = await recognizer.count
-        XCTAssertEqual(bytes, 510 * 1600 * 2)
+        XCTAssertEqual(bytes, 210 * 1600 * 2)
         XCTAssertEqual(track.backlog.pendingSeconds, 0)
-        XCTAssertEqual(RecordingPressure(lag: 0), .normal)
         XCTAssertFalse(captureFailed)
-        let saved = try AVAudioFile(forReading: url)
-        XCTAssertEqual(saved.length, 510 * 1600)
-        let all = AVAudioPCMBuffer(pcmFormat: saved.processingFormat, frameCapacity: AVAudioFrameCount(saved.length))!
-        try saved.read(into: all)
-        XCTAssertEqual(all.frameLength, 510 * 1600)
-        XCTAssertEqual(all.floatChannelData![0][Int(all.frameLength)-1], Float(1234) / 32768, accuracy: 0.00001)
+    }
+
+    func testOverflowFailsExplicitlyInsteadOfPersistingOrDroppingAudio() {
+        let track = AudioTrack()
+        var failures = 0
+        track.onFailure = { _ in failures += 1 }
+        let buffer = AVAudioPCMBuffer(pcmFormat: track.format, frameCapacity: 16000)!
+        buffer.frameLength = 16000
+        for i in 0..<16000 { buffer.int16ChannelData![0][i] = 1000 }
+        for _ in 0..<35 { track.accept(buffer) }
+        XCTAssertEqual(failures, 1)
+        XCTAssertEqual(track.backlog.pendingSeconds, 30)
+        track.backlog.discard()
+        XCTAssertEqual(track.backlog.pendingSeconds, 0)
     }
 
     func testCrashWriterHelper() throws {
@@ -129,11 +127,6 @@ private actor SlowRecognizer {
             var meeting = Meeting(title: phase); meeting.status = phase
             meeting.segments = [Segment(source: "system", speaker: "system:speaker-1", start: 0, end: 1, text: "Saved before termination")]
             model.meeting = meeting; model.phase = phase; try model.save()
-            let folder = try store.directory(meeting.id)
-            // A durable PCM journal and a deliberately unfinished WAV header.
-            let backlog = try AudioBacklog(url: folder.appendingPathComponent("system.wav.transcribing.pcm"))
-            try backlog.append(Data(repeating: 0, count: 32_000))
-            try Data("unfinished".utf8).write(to: folder.appendingPathComponent("system.wav"))
         }
         try Data().write(to: URL(fileURLWithPath: path).appendingPathComponent("ready"))
         while true { Thread.sleep(forTimeInterval: 1) } // Parent terminates this process; no graceful shutdown.
@@ -163,8 +156,8 @@ private actor SlowRecognizer {
             XCTAssertEqual(meeting.status, "interrupted")
             XCTAssertNotNil(meeting.endedAt); XCTAssertNotNil(meeting.purgeAt)
             XCTAssertEqual(meeting.segments.first?.text, "Saved before termination")
-            let wav = try AVAudioFile(forReading: store.directory(meeting.id).appendingPathComponent("system.wav"))
-            XCTAssertEqual(wav.length, 16_000)
+            let files = try FileManager.default.contentsOfDirectory(atPath: store.directory(meeting.id).path)
+            XCTAssertEqual(files, ["transcript.json"])
         }
         let again = AppModel(store: store)
         XCTAssertEqual(again.library.map(\.endedAt), relaunched.library.map(\.endedAt))

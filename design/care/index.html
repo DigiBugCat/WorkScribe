@@ -260,7 +260,7 @@ Care.ready(function () {
     ["10:21", "A question", "Priya asks what the Halvorsen contract commits them to. The side panel doesn’t switch tabs. Live Q&A gets a count; the answer is waiting there with two sources and the model that made it.",
       "Questions asked of you by name are marked <q>Asked of you</q> and sorted first. That is the one you might need in ten seconds.",
       "No sound, no motion outside the panel.",
-      ["Cloud unreachable", "It answers on this Mac and says <q>On this Mac (offline)</q>. If nothing answers it: <q>Nothing in your notes or files answers this.</q> Never a guess."]],
+      ["Model busy", "It answers on this Mac when the model is free and says <q>On this Mac</q>. If nothing answers it: <q>Nothing in your notes or files answers this.</q> Never a guess."]],
     ["10:27", "A line rewrites", "New evidence arrives about the photo queue. The pencil line under <q>photo uploads queue — cap?</q> changes only the words that changed. New words arrive darker and dry to pencil grey.",
       "A rewrite that only rephrases is dropped. Lines change when facts change, at most once every 15 seconds.",
       "140 ms out, 180 ms height, 220 ms in, 2.4 s to dry.",
@@ -330,7 +330,7 @@ Care.ready(function () {
     ["Questions and Ask", [
       "*A detected question never takes focus or switches the panel’s tab; Live Q&A gets a count, and that’s all.",
       "Questions asked of you by name are marked “Asked of you” and sorted first.",
-      "Every answer says where it was made: “GPT-5 mini” or “On this Mac”.",
+      "Every answer says which on-device model made it: “Qwen 3.5 · on this Mac”.",
       "When nothing answers a question, the card says “Nothing in your notes or files answers this” instead of guessing.",
       "“Add to note” inserts the answer under your cursor as your line, with the asker’s name and the source.",
       "Ask cites notes for past meetings, never transcripts that have faded.",
@@ -368,7 +368,7 @@ Care.ready(function () {
     ]],
     ["When things fail", [
       "If Obsidian quits mid-meeting, recording continues, and reopening the note says “Caught up on 6 minutes”.",
-      "When the cloud model is unreachable, answers fall back to this Mac and say so; AI lines carry on, slower, without a banner.",
+      "When the Mac is busy, answers and AI lines wait for the model and carry on, slower, without a banner. Nothing ever leaves the Mac.",
       "If no model is available, AI lines freeze under one header note, “AI lines paused · your notes are saving”; nothing turns red.",
       "If the note changed under WorkScribe, Finalize writes beside it rather than merging blind, and says where.",
       "If a deletion fails, the pill says “Couldn’t delete 1 file yet. Trying again in a minute.” and it retries until done.",

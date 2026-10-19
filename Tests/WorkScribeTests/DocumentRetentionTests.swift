@@ -2,8 +2,8 @@ import XCTest
 import WorkScribeCore
 @testable import WorkScribe
 
-private struct NoDocumentEnhancement: NoteEnhancing {
-    func enhance(_ meeting: Meeting, incremental: Bool, missedTopics: Bool) async throws -> NoteDraft? { nil }
+private struct NoDocumentEnhancement: Enriching {
+    func enhance(_ meeting: Meeting, incremental: Bool) async throws -> Enrichment? { nil }
 }
 
 @MainActor final class DocumentRetentionTests: XCTestCase {

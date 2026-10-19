@@ -128,7 +128,7 @@
         "audio_files": { "enum": ["allowed", "forbidden"], "description": "Transcribing another device's recordings. Defaults to the value of audio." },
         "screen": { "enum": ["allowed", "forbidden"] },
         "egress": { "enum": ["internet", "local", "none"], "description": "The furthest meeting content may travel from a source." },
-        "cloud": { "enum": ["allowed", "forbidden"], "description": "Cloud model and embedding providers." },
+        "cloud": { "enum": ["forbidden"], "description": "Reserved. WorkScribe has no cloud model or embedding providers." },
         "sources": { "type": "array", "items": { "type": "string" }, "description": "An allowlist of source ids." },
         "source_signers": { "type": "array", "items": { "type": "string", "pattern": "^[A-Z0-9]{10}$" }, "description": "Developer ID team IDs a command source's executable must be signed by." },
         "reason": { "type": "string", "maxLength": 300, "description": "Shown to the user verbatim." },
@@ -150,11 +150,11 @@
             "required": ["kind"],
             "additionalProperties": false,
             "properties": {
-              "kind": { "type": "string", "examples": ["local", "apple", "openai", "openai-compatible"] },
+              "kind": { "type": "string", "examples": ["local", "apple", "loopback-http"] },
               "base_url": { "type": "string" },
               "model": { "type": "string" },
               "dimension": { "type": "integer", "minimum": 1 },
-              "location": { "enum": ["on-device", "local-network", "cloud"] }
+              "location": { "enum": ["on-device"] }
             }
           }
         }

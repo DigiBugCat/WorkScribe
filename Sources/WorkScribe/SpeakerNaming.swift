@@ -50,7 +50,7 @@ struct SpeakerUndo {
             entry.voiceRevision = (entry.voiceRevision ?? 0) + 1
             entry.speakerSuggestions = nil
             try persistIdentity(entry)
-            voiceStatus = entry.status == "recording" ? "Voice samples will be learned when recording ends" : "Speaker name saved"
+            voiceStatus = entry.status == "recording" ? "Learning from live speech" : "Speaker name saved"
             let original = Meeting.originalSpeakerName(segment.speaker)
             speakerToast = SpeakerToast(meetingID: entry.id, text: wholeSpeaker ? "\(original) is now \(assignment.name)" : "Line renamed to \(assignment.name)")
             analyzeVoices(id: entry.id)
@@ -114,9 +114,8 @@ struct SpeakerUndo {
         } catch { voiceStatus = "Couldn’t finish forgetting voice: \(error.localizedDescription)" }
     }
     func analyzeVoices(id: String) {
-        guard voiceTasks[id] == nil, let snapshot = latestMeeting(id), snapshot.status == "complete",
+        guard voiceTasks[id] == nil, let snapshot = latestMeeting(id), ["recording", "finalizing", "complete"].contains(snapshot.status),
               !voices.isEmpty, let folder = try? store.directory(id) else { return }
-        guard snapshot.sourceOffsets != nil else { voiceStatus = "Name saved. Older recordings lack audio alignment for voice learning."; return }
         let generation = voiceGeneration, revision = snapshot.voiceRevision ?? 0
         voiceJobs.insert(id)
         let token = UUID(); voiceTaskTokens[id] = token

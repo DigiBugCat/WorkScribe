@@ -265,7 +265,7 @@ export class EnhancedNotesView extends ItemView {
         add.disabled = true;
         try {
           const note = await this.plugin.client.addNote(m.id, `${t.topic} ${t.text}`.trim(), t.start, { fromMissedTopic: { topic: t.topic } });
-          const n: Note = note.enhanced ? note : { ...note, enhanced: { topic: t.topic, text: t.text }, state: "done" };
+          const n: Note = note.enhanced ? note : { ...note, enhanced: { topic: t.topic, text: t.text }, state: "answered" };
           m.notes.push(n);
           m.missedTopics = m.missedTopics.filter((x) => x !== t);
           // You chose to add it: it's yours.

@@ -14,9 +14,10 @@ enum ImageVerification {
         var note = Note(text:"![[" + url.lastPathComponent + "]]",createdAt:760); note.images=[image]
         var meeting=Meeting(title:"Mobile launch review"); meeting.notes=[note]
         meeting.segments=[Segment(source:"system",speaker:"Marcus",start:750,end:770,text:"Marcus walked through the chart. The high spike is the 12 mini stall during image decoding. We need to move image decode off the main thread.")]
-        guard let result = try await NoteEnhancer().enhance(meeting,incremental:true,missedTopics:false,model:.gemma4,modelPath:args[i+1]) else { throw CaptureError.message("No note plan") }
-        let notes=NoteEnhancement.apply(result.output,plan:result.plan,to:meeting.notes ?? []).notes
-        let report: [String:Any] = ["ocr_ready_seconds":ocrAt,"caption_ready_seconds":captionAt,"useful_line_seconds_without_scheduler":Date().timeIntervalSince(started),"ocr":ocr.text ?? "","caption":image.caption ?? "","raw_output":result.output,"ai_line":notes.first?.enhanced ?? ""]
+        guard let result = try await Enrich(textModel: TextModels.generator(.gemma4, path: args[i+1])).enhance(meeting,incremental:true) else { throw CaptureError.message("No note plan") }
+        CurrentNoteEngine.apply(result, to: &meeting, final: false)
+        let notes=meeting.notes ?? []
+        let report: [String:Any] = ["ocr_ready_seconds":ocrAt,"caption_ready_seconds":captionAt,"useful_line_seconds_without_scheduler":Date().timeIntervalSince(started),"ocr":ocr.text ?? "","caption":image.caption ?? "","ai_line":notes.first?.line.text ?? ""]
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject:report,options:[.prettyPrinted,.sortedKeys]))
     }
     static func run() async throws {

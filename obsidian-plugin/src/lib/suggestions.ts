@@ -9,7 +9,7 @@ export const NO_MATCH = "No matching discussion yet";
 export function lineState(note: Note): LineState {
   if (note.enhanced && (note.enhanced.text || note.enhanced.topic))
     return { kind: note.userEdited ? "owned" : "ai", enhanced: note.enhanced };
-  if (note.state === "pending" || note.state === "enhancing") return { kind: "waiting", drafting: note.state === "enhancing" };
+  if (note.state === "listening" || note.state === "found") return { kind: "waiting", drafting: note.state === "found" };
   return { kind: "none", hint: friendlyHint(note.hint) };
 }
 export function friendlyHint(hint: string | undefined): string {

@@ -14,6 +14,12 @@ public enum SourceKind: String, Sendable { case meeting, file, vault }
 
 /// One searchable moment: a span of a meeting, a page or passage of a document, a window of a recording.
 public struct Chunk: Sendable, Equatable {
+    public var id: String = ""
+    public var seq: Int64 = 0
+    public var source: SourceID = SourceID(.folder, "")
+    public var anchor: String = ""
+    public var context: String?
+    public var embeddedText: String { [context, text].compactMap { $0 }.filter { !$0.isEmpty }.joined(separator: "\n\n") }
     public var kind: ChunkKind
     public var modality: Modality
     public var start: Double?
@@ -131,7 +137,7 @@ public struct SearchResults: Sendable {
 ///
 /// Schema after DigUp's `IndexStore` (vectors next to their metadata, the vector model recorded in `meta`).
 public final class SearchIndex: @unchecked Sendable {
-    public static let schemaVersion = 3
+    public static let schemaVersion = 4
     public let url: URL
     public let db: Database
     public var ranking = Ranking()
@@ -162,7 +168,7 @@ public final class SearchIndex: @unchecked Sendable {
                                                     attributes: [.posixPermissions: 0o700])
         }
         db = try Database(path: url.path, readOnly: readOnly)
-        if !readOnly { try migrate(); try db.execute(Self.metaTable) }
+        if !readOnly { try migrate(); try db.execute(Self.metaTable); try db.execute(Self.linesTable) }
     }
 
     /// Facts about a source that aren't searchable text (a clip's URL, a note's vault path). Kept out of the numbered
@@ -239,6 +245,23 @@ public final class SearchIndex: @unchecked Sendable {
           INSERT INTO vector_changes(chunk_id) VALUES(OLD.id);
         END;
         CREATE TRIGGER vector_source_time AFTER UPDATE OF started_at ON sources BEGIN
+          INSERT INTO vector_changes(chunk_id) SELECT id FROM chunks WHERE source = NEW.id AND vec IS NOT NULL;
+        END;
+        """,
+        // Immutable content identity and monotonic watermarks survive deletions and restart.
+        """
+        ALTER TABLE chunks ADD COLUMN chunk_key TEXT;
+        ALTER TABLE chunks ADD COLUMN anchor TEXT;
+        ALTER TABLE chunks ADD COLUMN context TEXT;
+        ALTER TABLE chunks ADD COLUMN embedded_hash TEXT;
+        CREATE UNIQUE INDEX chunks_key ON chunks(chunk_key) WHERE chunk_key IS NOT NULL;
+        INSERT INTO meta(key, value) SELECT 'chunk_seq', CAST(COALESCE(MAX(id), 0) AS TEXT) FROM chunks;
+        ALTER TABLE sources ADD COLUMN revision INTEGER NOT NULL DEFAULT 0;
+        ALTER TABLE sources ADD COLUMN source_kind TEXT;
+        UPDATE sources SET fingerprint = 'rechunk:' || fingerprint, content_hash = NULL;
+        DROP TRIGGER vector_source_time;
+        CREATE TRIGGER vector_source_time AFTER UPDATE OF started_at ON sources
+          WHEN OLD.started_at IS NOT NEW.started_at BEGIN
           INSERT INTO vector_changes(chunk_id) SELECT id FROM chunks WHERE source = NEW.id AND vec IS NOT NULL;
         END;
         """,
@@ -322,38 +345,19 @@ public final class SearchIndex: @unchecked Sendable {
     public func replace(kind: SourceKind, ref: String, root: String? = nil, title: String?, startedAt: Date? = nil,
                         fingerprint: String, contentHash: String? = nil, modelID: String?, voiceRevision: Int? = nil,
                         state: String = "indexed", detail: String? = nil, meta: [String: String]? = nil, chunks: [Chunk]) throws {
-        try db.transaction {
-            guard try self.meta("purged:" + ref) != "1", try self.meta("purged:" + (root ?? "")) != "1" else { return }
-            try deleteRows(ref: ref)
-            if let meta, !meta.isEmpty, hasMetaTable {
-                let json = String(decoding: try JSONSerialization.data(withJSONObject: meta, options: [.sortedKeys]), as: UTF8.self)
-                try db.run("INSERT INTO source_meta(ref, json) VALUES(?, ?)", [.text(ref), .text(json)])
-            }
-            try db.run("""
-                INSERT INTO sources(kind, ref, root, title, started_at, fingerprint, content_hash, model_id, voice_revision,
-                                    state, detail, indexed_at) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, [.text(kind.rawValue), .text(ref), .optional(root), .optional(title),
-                      .optional(startedAt?.timeIntervalSince1970), .text(fingerprint), .optional(contentHash),
-                      .optional(modelID), .optional(voiceRevision), .text(state), .optional(detail),
-                      .double(Date().timeIntervalSince1970)])
-            let source = db.lastInsertID
-            for chunk in chunks {
-                try db.run("""
-                    INSERT INTO chunks(source, kind, modality, start_s, end_s, page, track, anchor_segment, segment_ids,
-                                       speakers, speaker_keys, text, vec, thumbnail, window, vec_dim, vec_format)
-                    VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)
-                    """, [.int(source), .text(chunk.kind.rawValue), .text(chunk.modality.rawValue), .optional(chunk.start),
-                          .optional(chunk.end), .optional(chunk.page), .optional(chunk.track), .optional(chunk.anchorSegment),
-                          .text(Self.json(chunk.segmentIDs)), .text(Self.json(chunk.speakers)),
-                          .text(Self.json(chunk.speakerKeys)), .optional(chunk.text),
-                          chunk.vector.map { .blob(VectorEncoding.fullBlob($0)) } ?? .null, .optional(chunk.thumbnail),
-                          .optional(chunk.window), .optional(chunk.vector?.count)])
-                try db.run("INSERT INTO fts(rowid, title, speakers, body) VALUES(?, ?, ?, ?)",
-                           [.int(db.lastInsertID), .optional(title), .text(chunk.speakers.joined(separator: ", ")),
-                            .text(chunk.text.map(SearchText.normalized) ?? "")])
-            }
+        let source = SourceID(kind == .meeting ? .meeting : kind == .vault ? .vault : .folder, ref)
+        let passages = chunks.enumerated().map { i, chunk in
+            Passage(text: chunk.text ?? "", page: chunk.page, source: source,
+                    anchor: chunk.anchor.isEmpty ? (chunk.anchorSegment ?? "block:\(i)") : chunk.anchor,
+                    context: chunk.context, start: chunk.start, end: chunk.end, speaker: chunk.speakers.first,
+                    kind: chunk.kind, modality: chunk.modality, track: chunk.track, speakerKey: chunk.speakerKeys.first,
+                    segmentIDs: chunk.segmentIDs, thumbnail: chunk.thumbnail, window: chunk.window, vector: chunk.vector)
         }
-        invalidate()
+        if let modelID { try adopt(modelID: modelID) }
+        var revision = SourceRevision(source: source, passages: passages, title: title, root: root,
+                                      startedAt: startedAt, fingerprint: fingerprint, contentHash: contentHash, voiceRevision: voiceRevision)
+        revision.state = state; revision.detail = detail; revision.metadata = meta ?? [:]
+        _ = try apply(revision)
     }
 
     /// New display names for a meeting's speakers (a voice was named): keyword text only, no re-embedding.
@@ -385,7 +389,7 @@ public final class SearchIndex: @unchecked Sendable {
         invalidate()
     }
 
-    private func deleteRows(ref: String) throws {
+    func deleteRows(ref: String) throws {
         try db.run("DELETE FROM fts WHERE rowid IN (SELECT c.id FROM chunks c JOIN sources s ON s.id = c.source WHERE s.ref = ?)",
                    [.text(ref)])
         try db.run("DELETE FROM chunks WHERE source IN (SELECT id FROM sources WHERE ref = ?)", [.text(ref)])

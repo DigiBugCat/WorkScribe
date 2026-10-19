@@ -8,10 +8,10 @@ function edit(old: string, from: number, to: number, insert: string) {
   const c = ChangeSet.of({ from, to, insert }, old.length);
   return { c, text: old.slice(0, from) + insert + old.slice(to) };
 }
-test('Markdown units retain nested children, exclude context and opaque blocks', () => {
+test('Markdown units retain children and structured mounting points, exclude context', () => {
   const text = '---\nkey: value\n---\n# Context\n\nparagraph\ncontinued\n\n- parent\n  - child\n- [ ] task\n\n```js\nnot a note\n```\n\n> quote\n\n| a | b |\n|---|---|\n| x | y |\n';
   const b = parseBlocks(text);
-  assert.deepEqual(b.map(x => x.text), ['paragraph\ncontinued', '- parent', '  - child', '- [ ] task']);
+  assert.deepEqual(b.filter(x=>!x.surface).map(x => x.text), ['paragraph\ncontinued', '- parent', '  - child', '- [ ] task']);
   assert.ok(b.every(x => text.slice(x.from, x.to) === x.text));
   assert.ok(b.every(x => x.section === 'Context'));
 });

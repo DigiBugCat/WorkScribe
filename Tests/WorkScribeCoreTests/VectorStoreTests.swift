@@ -94,7 +94,7 @@ final class VectorStoreTests: XCTestCase {
             try db.execute("INSERT INTO fts(rowid,body) VALUES(1,'legacy')")
         }
         let index = try SearchIndex(url: path)
-        XCTAssertEqual(index.userVersion, 3)
+        XCTAssertEqual(index.userVersion, SearchIndex.schemaVersion)
         XCTAssertEqual(index.vectorModel, "model")
         XCTAssertEqual(try index.vectorStats().count, 1)
         try index.db.query("SELECT length(vec),vec_dim,vec_format FROM chunks") {

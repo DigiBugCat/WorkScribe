@@ -190,7 +190,7 @@ export function parseEnhancement(raw: unknown): Enhancement | null {
   return { topic: "", text: s.trim() };
 }
 
-const NOTE_STATES: NoteState[] = ["pending", "enhancing", "done", "plain", "paused"];
+const NOTE_STATES: NoteState[] = ["listening", "found", "answered", "settled", "quiet", "yours"];
 
 export function parseNote(raw: unknown): Note {
   if (!isObj(raw)) throw new ApiShapeError("note", "not an object");
@@ -199,11 +199,12 @@ export function parseNote(raw: unknown): Note {
   const state: NoteState = NOTE_STATES.includes(st as NoteState)
     ? (st as NoteState)
     : enhanced
-      ? "done"
-      : "pending";
+      ? "answered"
+      : "listening";
   // Excerpts may be under `excerpts` or `refs`.
   const excerpts = arr(raw.excerpts ?? raw.refs).map(parseExcerpt);
   const n: Note = {
+    line: isObj(raw.line) ? parseSurfaceEvent('line', raw.line) as import('./types').LineEvent ?? undefined : undefined,
     id: need(str(raw.id), "note", "id"),
     at: seconds(raw.at) ?? 0,
     text: str(raw.text) ?? str(raw.shorthand) ?? "",
@@ -346,10 +347,13 @@ export function parseLiveEvent(event: string, data: string): LiveEvent | null {
   const type = event === "message" ? str(raw.type) ?? "" : event;
   const meetingId = str(raw.meetingId) ?? "";
   try {
+    const surface = parseSurfaceEvent(type, raw);
+    if(surface)return surface;
     switch (type) {
       case "meeting.purged":
         return { type: "purged", meetingId: need(str(raw.meetingId), "purged", "meetingId") };
       case "status":
+        if (["ready","loading","missing"].includes(String(raw.model))) return {type,model:raw.model as import("./types").EngineStatus["model"],paused:str(raw.paused)};
         return { type, status: parseStatus(raw.status ?? raw) };
       case "segment":
       case "transcript":
@@ -447,4 +451,18 @@ export function parseTrace(raw: unknown): import('./types').AITrace | undefined 
   return { ...(Array.isArray(raw.sources)?{sources:raw.sources.filter(isObj).map(s=>({kind:str(s.kind)??'',title:str(s.title)??'',text:str(s.text)??'',link:str(s.link)??'',thumbnail:str(s.thumbnail),start:typeof s.start==='number'?s.start:undefined,end:typeof s.end==='number'?s.end:undefined}))}:{}), model: str(raw.model), location: str(raw.location), durationMs: typeof raw.durationMs === 'number' ? raw.durationMs : undefined,
     steps: arr(raw.steps).filter(isObj).map(s => ({title: str(s.title) ?? '', status: str(s.status) ?? 'complete', detail: str(s.detail)})),
     revisions: arr(raw.revisions).filter(isObj).map(v => ({version: typeof v.version === 'number' ? v.version : 1, text: str(v.text) ?? '', reason: str(v.reason) ?? '', at: str(v.at) ?? ''})) };
+}
+
+/** Invalid ranges are ignored rather than attached to arbitrary text. */
+export function parseSurfaceEvent(type:string,raw:Record<string,unknown>):import('./types').SurfaceEvent|null {
+  if(!['line','pin','check','preview'].includes(type))return null;
+  const sources=Array.isArray(raw.sources)?raw.sources.filter((s):s is import('./types').SurfaceSource=>isObj(s)&&typeof s.kind==='string'&&typeof s.title==='string'):[];
+  const integer=(n:unknown):n is number=>Number.isSafeInteger(n)&&Number(n)>=0;
+  if(type==='preview')return typeof raw.requestId==='string'&&raw.kind==='diagram'&&typeof raw.mermaid==='string'?{type,requestId:raw.requestId,kind:'diagram',mermaid:raw.mermaid,sources}:null;
+  if(typeof raw.documentId!=='string'||typeof raw.blockId!=='string')return null;
+  const base={documentId:raw.documentId,blockId:raw.blockId,sources};
+  if(type==='line'&&['listening','found','answered','settled','quiet','yours'].includes(String(raw.state))&&integer(raw.revision))return {...base,type,state:raw.state as import('./types').LineState,revision:raw.revision,text:str(raw.text),reason:str(raw.reason),changed:Array.isArray(raw.changed)?raw.changed.filter((r):r is [number,number]=>Array.isArray(r)&&r.length===2&&integer(r[0])&&integer(r[1])&&r[1]>=r[0]):undefined};
+  if(type==='pin'&&isObj(raw.anchor)&&['cell','line','task','sentence'].includes(String(raw.anchor.kind))&&Array.isArray(raw.anchor.path)&&raw.anchor.path.every(integer))return {...base,type,anchor:raw.anchor as unknown as import('./types').PinEvent['anchor']};
+  if(type==='check'&&isObj(raw.sentence)&&integer(raw.sentence.from)&&integer(raw.sentence.to)&&raw.sentence.to>raw.sentence.from&&['supported','differs'].includes(String(raw.verdict)))return {...base,type,sentence:{from:raw.sentence.from,to:raw.sentence.to},verdict:raw.verdict as 'supported'|'differs',note:str(raw.note)};
+  return null;
 }

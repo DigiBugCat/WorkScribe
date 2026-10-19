@@ -2,12 +2,17 @@ import XCTest
 import WorkScribeCore
 @testable import WorkScribe
 
-private actor CountingEnhancer: NoteEnhancing {
+private actor CountingEnhancer: Enriching {
     var calls: [(Bool, Int)] = []
-    func enhance(_ meeting: Meeting, incremental: Bool, missedTopics: Bool) async throws -> NoteDraft? {
-        let plan = try NotePlanner.plan(meeting, incremental: incremental, missedTopics: missedTopics)
+    func enhance(_ meeting: Meeting, incremental: Bool) async throws -> Enrichment? {
+        let plan = try SelectionFixture.plan(meeting, incremental: incremental)
         calls.append((incremental, plan.targets.count))
-        return NoteDraft(plan: plan, output: "* **Release:** Friday.")
+        var result = Enrichment(plan: plan)
+        for target in plan.targets {
+            result.outcomes[target.note.id] = .line(Bullet(topic: "Release", text: "Release is Friday.", refs: []), plan.chunkRefs[target.note.id] ?? [])
+            result.bases[target.note.id] = "fixture"
+        }
+        return result
     }
 }
 
@@ -55,8 +60,8 @@ private actor CountingEnhancer: NoteEnhancing {
         scheduler.enhancer = CountingEnhancer()
         await scheduler.finish(meeting.id, model: model)
         let result = try XCTUnwrap(model.meeting?.notes?.first)
-        XCTAssertNotNil(result.enhanced)
-        XCTAssertTrue((result.excerptRefs ?? []).isEmpty)
+        XCTAssertNotNil(result.line.text)
+        XCTAssertTrue((result.line.evidence ?? []).isEmpty)
         XCTAssertFalse(result.imageEvidence.isEmpty)
         XCTAssertNotNil(result.trace)
     }

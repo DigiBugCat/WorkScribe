@@ -90,14 +90,14 @@ public struct MeetingWriteUp: Equatable, Sendable {
         var used = Set(blockIDs.values)
         var next = (blockIDs.values.compactMap { Int($0.dropFirst()) }.max() ?? 0) + 1
         let notes = (meeting.notes ?? []).compactMap { note -> NoteLine? in
-            let text = note.text + (note.enhanced.map { "\n  " + $0 } ?? "")
+            let text = note.text + (note.line.text.map { "\n  " + $0 } ?? "")
             guard !text.isEmpty else { return nil }
             var block = blockIDs[note.id]
             if block == nil {
                 while used.contains("e\(next)") { next += 1 }
                 block = "e\(next)"; used.insert(block!); next += 1
             }
-            return NoteLine(id: note.id, markdown: text, blockID: block!, sources: excerpts(note.excerptRefs))
+            return NoteLine(id: note.id, markdown: text, blockID: block!, sources: excerpts(note.line.evidence))
         }
         self.init(meetingID: meeting.id, title: meeting.title, startedAt: meeting.startedAt,
                   duration: meeting.endedAt.map { $0.timeIntervalSince(meeting.startedAt) },

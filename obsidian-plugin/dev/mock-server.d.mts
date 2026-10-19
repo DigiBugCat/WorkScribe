@@ -4,6 +4,7 @@ export interface MockServer {
   discoveryPath: string | null;
   startRecording(title?: string): void;
   stopRecording(): void;
+  replaySurfaces():void;
   close(): Promise<void>;
 }
 export function startMockServer(opts?: {
@@ -13,5 +14,6 @@ export function startMockServer(opts?: {
   vault?: string;
   speed?: number;
   live?: boolean;
+  surfaces?:boolean;
   quiet?: boolean;
 }): Promise<MockServer>;

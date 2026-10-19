@@ -34,10 +34,8 @@ final class MeetingRetention {
         meeting.retention = "finalized"
         meeting.purgeAt = meeting.endedAt!.addingTimeInterval(86_400)
         meeting.attendees = MeetingWriteUp.namedVoices(meeting)
-        if meeting.brief == nil {
-            let lines = (meeting.notes ?? []).map { $0.enhanced ?? $0.text }
-            meeting.brief = lines.isEmpty ? String(meeting.orderedSegments.prefix(2).map(\.text).joined(separator: " ").prefix(600)) : lines.prefix(3).joined(separator: " ")
-        }
+        // The brief comes only from the final pass (`BriefPolicy`). Note lines glued together, or
+        // the first seconds of transcript, are not a summary; no brief is better than that.
         let path: String
         if let document = meeting.document {
             do { path = try vault.finalizeDocument(meeting, allowRebase: allowRebase) }
@@ -68,7 +66,7 @@ final class MeetingRetention {
         let receipts = RetentionStore(meetings: model.store)
         if try receipts.load(id) == nil || model.meetingSnapshot(id)?.document?.finalized == false {
             // Done is an explicit disposal request. A failed optional quality pass
-            // must never keep raw audio past its retention deadline.
+            // must never keep transcript evidence past its retention deadline.
             await NoteEnhancementScheduler.shared.finish(id, model: model)
             guard model.meetingSnapshot(id)?.endedAt != nil, !(model.busy && model.meeting?.id == id) else { throw CaptureError.message("Recording resumed; keep its raw material") }
             try await finalize(id, allowRebase: true)

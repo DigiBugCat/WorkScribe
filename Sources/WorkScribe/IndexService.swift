@@ -1,15 +1,16 @@
 import Foundation
 import WorkScribeCore
 
-/// Runs semantic indexing off the main thread: meetings after they're finalized, folders the user added. Pauses
-/// while recording (speech recognition owns the Neural Engine and the CPU then) and releases the embedding model when
-/// a pass ends. The UI asks it to search; nothing here touches views.
+/// Live transcript chunks, interactive queries, and yielding background indexing share admission.
+/// Only recording pressure blocks embeddings; recording itself does not.
 actor IndexService {
     let index: SearchIndex
     private(set) var embedder: CoreMLEmbedder?
     let store: MeetingStore
-    private var paused = false
-    private var waiters: [CheckedContinuation<Void, Never>] = []
+    let admission = IndexAdmission()
+    private var liveTask: Task<Void, Never>?
+    private var pendingLive: Meeting?
+    private var liveFingerprint: String?
     private var running: Task<Void, Never>?
     private var pendingMeetings = false
     private var pendingFolders = false
@@ -33,23 +34,49 @@ actor IndexService {
     /// Repair can finish after keyword-only search has already opened.
     func refreshRuntime() async {
         if embedder == nil { embedder = CoreMLEmbedder.bundled() }
-        await meetingsChanged()
-        await foldersChanged()
+        meetingsChanged()
+        foldersChanged()
     }
 
-    // MARK: Pause while recording
+    func setPressure(_ value: RecordingPressure) async { await admission.setPressure(value) }
 
-    func setPaused(_ value: Bool) async {
-        paused = value
-        if value { await embedder?.release() }
-        else { let ready = waiters; waiters = []; ready.forEach { $0.resume() } }
+    var queryEmbedder: (any Embedder)? {
+        embedder.map { AdmittedEmbedder($0, admission: admission, priority: .query) }
+    }
+    private var backlogEmbedder: (any Embedder)? {
+        embedder.map { AdmittedEmbedder($0, admission: admission, priority: .backlog) }
     }
 
-    /// Awaited before each embedding call.
-    func waitWhilePaused() async {
-        guard paused else { return }
-        await withCheckedContinuation { waiters.append($0) }
+    /// `segments` are finalized ASR turns; partial hypotheses live in a separate field.
+    /// Coalesce snapshots while a call runs and reuse unchanged chunk vectors.
+    func liveChanged(_ meeting: Meeting) {
+        guard ProcessInfo.processInfo.environment["WORKSCRIBE_INDEX_DISABLED"] != "1",
+              !["purged", "purging"].contains(meeting.retention ?? "") else { return }
+        do { try index.saveLines(meeting) }
+        catch { status = "Line persistence: \(error.localizedDescription)"; return }
+        let fingerprint = MeetingSource.fingerprint(meeting) + ":voice:\(meeting.voiceRevision ?? 0)"
+        guard fingerprint != liveFingerprint else { return }
+        do { _ = try index.apply(MeetingSource.revision(meeting)) }
+        catch { status = "Live indexing: \(error.localizedDescription)"; return }
+        liveFingerprint = fingerprint
+        pendingLive = meeting
+        guard liveTask == nil else { return }
+        liveTask = Task { await applyPendingSpeech() }
     }
+    private func applyPendingSpeech() async {
+        while let meeting = pendingLive, !Task.isCancelled {
+            pendingLive = nil
+            let embedder = self.embedder.map { AdmittedEmbedder($0, admission: admission, priority: .live) }
+            do {
+                if let embedder { try index.adopt(modelID: embedder.modelID) }
+                if let embedder { try await index.embedMissing(SourceID(.meeting, meeting.id), using: embedder) }
+            } catch { status = "Live indexing: \(error.localizedDescription)" }
+        }
+        liveTask = nil
+    }
+
+    /// Enter the actor before reading so queued source revisions precede a note selection.
+    func evidenceIndex() -> SearchIndex { index }
 
     // MARK: Indexing
 
@@ -96,36 +123,35 @@ actor IndexService {
     }
 
     private func kick() {
-        guard running == nil else { return }
+        guard running == nil, ProcessInfo.processInfo.environment["WORKSCRIBE_INDEX_DISABLED"] != "1" else { return }
         running = Task.detached(priority: .utility) { [weak self] in
             await self?.drain()
         }
     }
 
     private func drain() async {
-        let gate: @Sendable () async -> Void = { [weak self] in await self?.waitWhilePaused() }
+        let gate: @Sendable () async -> Void = { await Task.yield() }
         while pendingMeetings || pendingFolders || pendingVault != nil {
             if pendingMeetings {
                 pendingMeetings = false
                 status = "Indexing meetings…"
-                lastReport.meetings = try? await MeetingIndexer(index: index, embedder: embedder, gate: gate).sync(store: store)
+                lastReport.meetings = try? await MeetingIndexer(index: index, embedder: backlogEmbedder, gate: gate).sync(store: store)
             }
             if pendingFolders {
                 pendingFolders = false
                 status = "Indexing folders…"
-                lastReport.folders = try? await FolderIndexer(index: index, embedder: embedder, extractor: FileExtractors(), gate: gate).sync()
+                lastReport.folders = try? await FolderIndexer(index: index, embedder: backlogEmbedder, extractor: FileExtractors(), gate: gate).sync()
             }
             if let work = pendingVault, let root = vaultRoot {
                 pendingVault = nil
                 status = "Indexing notes…"
-                let indexer = VaultIndexer(index: index, embedder: embedder, extractor: FileExtractors(), gate: gate)
+                let indexer = VaultIndexer(index: index, embedder: backlogEmbedder, extractor: FileExtractors(), gate: gate)
                 let report: IndexReport? = if let paths = work.paths { try? await indexer.update(paths: Array(paths), vault: root) }
                     else { try? await indexer.sync(vault: root) }
                 lastVaultReport = report
                 if report != nil, let checkpoint = work.checkpoint { try? index.setMeta(Self.checkpointKey(root), checkpoint.description) }
             } else { pendingVault = nil }
         }
-        await embedder?.release()
         index.invalidate()   // vectors reload lazily on the next meaning search
         status = "Search index up to date"
         running = nil
@@ -133,12 +159,27 @@ actor IndexService {
 
     // MARK: Search
 
+    func shutdown() async {
+        running?.cancel()
+        pendingMeetings = false; pendingFolders = false; pendingVault = nil
+        await running?.value
+        await finishLive()
+    }
+
+    func finishLive() async {
+        pendingLive = nil
+        liveTask?.cancel()
+        await liveTask?.value
+        liveTask = nil
+        liveFingerprint = nil
+    }
+
     func search(_ request: SearchRequest) async throws -> SearchResults {
         var vector: [Float]?
-        if !paused, let embedder, index.vectorModel == embedder.modelID, !request.text.trimmingCharacters(in: .whitespaces).isEmpty {
+        if let embedder = queryEmbedder, index.vectorModel == embedder.modelID, !request.text.trimmingCharacters(in: .whitespaces).isEmpty {
             vector = try? await embedder.text(request.text, role: .query)
         }
-        return try index.search(request, queryVector: vector, queryModelID: paused ? nil : embedder?.modelID)
+        return try index.search(request, queryVector: vector, queryModelID: embedder?.modelID)
     }
 }
 
@@ -156,6 +197,7 @@ extension IndexService {
         try index.purge(refs: refs)
     }
     func indexFinalNote(_ url: URL, vault: URL) async {
-        _ = try? await VaultIndexer(index: index, embedder: nil, extractor: FileExtractors()).update(paths: [url.path], vault: vault)
+        guard ProcessInfo.processInfo.environment["WORKSCRIBE_INDEX_DISABLED"] != "1" else { return }
+        _ = try? await VaultIndexer(index: index, embedder: backlogEmbedder, extractor: FileExtractors()).update(paths: [url.path], vault: vault)
     }
 }

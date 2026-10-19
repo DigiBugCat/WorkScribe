@@ -3,7 +3,7 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 revision=e467e5b5e5ba43071d6151b3d881deb9300d000e
-model_revision=b4243c156154b6dca9324415f8c7ccc098b4aed1
+model_revision=b8093469224f83f5c38f691eb906c380e9e63114
 runtime_home="${WORKSCRIBE_RUNTIME_HOME:-$HOME/Library/Application Support/WorkScribe/Runtime}"
 work="${WORKSCRIBE_RUNTIME_CACHE:-$HOME/Library/Caches/WorkScribe/Runtime}/image-build"
 output=${WORKSCRIBE_IMAGE_RUNTIME:-$runtime_home/models/vision}
@@ -24,12 +24,12 @@ cp -R "$work/build/bin/"*.dylib "$output/lib/"
 fetch() {
   local file="$1" expected="$2" target="$output/$1"
   if [ -f "$target" ] && [[ "$(stat -f %Sf "$target")" != *dataless* ]] && [ "$(shasum -a 256 "$target" | awk '{print $1}')" = "$expected" ]; then return; fi
-  curl -fL "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/$model_revision/$file" -o "$target.partial"
+  curl -fL "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/$model_revision/$file" -o "$target.partial"
   echo "$expected  $target.partial" | shasum -a 256 -c -
   mv "$target.partial" "$target"
 }
-fetch mmproj-gemma-4-E2B-it-Q8_0.gguf 9406f99c16d68cda4f1f0552192dcc99021ea1fc6d2fd50b1dc3ccf30d04b292
-fetch gemma-4-E2B-it-Q4_0.gguf 8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52
+fetch mmproj-gemma-4-E4B-it-Q8_0.gguf 197f49a93027f9843772bd24a6a9e0be2a32a788de5a3def330e9c585d86edd1
+bash scripts/download-title-model.sh
 cp "$work/llama.cpp/LICENSE" "$output/LICENSE-llama.cpp"
 codesign --force --sign - "$output/bin/image-caption"
-echo "Prepared $output at llama.cpp $revision; bundle it with a fully downloaded Gemma 4 E2B Q4_0 model."
+echo "Prepared $output at llama.cpp $revision; bundle it with a fully downloaded Gemma 4 E4B Q4_0 model."

@@ -23,7 +23,37 @@ META = ROOT / 'Resources/licenses'
 def log(message):
     print(message, flush=True)
 
-from runtime_doctor_download import download
+from runtime_doctor_download import download, copy_verified
+
+# Only product assets participate in migration, validation and checksum receipts.
+# Retired files already on disk are left untouched, but cannot become runtime requirements.
+PRODUCT_FILES = {
+    'models/gemma-4-E4B-it-Q4_0.gguf',
+    'models/vision/mmproj-gemma-4-E4B-it-Q8_0.gguf',
+    'models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf',
+    'models/Nemotron-3-Diarization.q8_0.gguf',
+}
+PRODUCT_TREES = ('nemo', 'models/embeddinggemma-2-coreml', 'models/wespeaker_v2.mlmodelc',
+                 'models/vision/bin', 'models/vision/lib')
+
+def product_asset(name):
+    return name in PRODUCT_FILES or any(name == root or name.startswith(root + '/') for root in PRODUCT_TREES)
+
+def local_candidates(name, sources):
+    """Where a pinned file may already exist on this Mac: a model folder or a runtime-home copy."""
+    relative = Path(name)
+    for source in sources:
+        for candidate in (source/relative.name, source/relative, source/relative.relative_to('models')):
+            yield candidate
+
+def install(name, digest, url, sources):
+    dest = HOME/name
+    for candidate in local_candidates(name, sources):
+        if candidate.resolve() != dest.resolve() and state(candidate, digest) == 'present':
+            copy_verified(candidate, digest, dest)
+            log(f'{name}: installed from {candidate} (SHA-256 verified)')
+            return
+    download(url, digest, dest)
 
 def materialize(path):
     if state(path) != 'evicted':
@@ -35,12 +65,14 @@ def materialize(path):
             raise RuntimeError(f'iCloud download timed out: {path}')
         time.sleep(1)
 
-def migrate(source, destination=None):
+def migrate(source, destination=None, *, product_only=False):
     destination = destination or HOME
     if not source.exists() or source.resolve() == destination.resolve():
         return
     for path in source.rglob('*'):
         target = destination / path.relative_to(source)
+        if product_only and not product_asset(str(target.relative_to(HOME))):
+            continue
         if path.is_symlink():
             if not target.exists() and not target.is_symlink():
                 target.parent.mkdir(parents=True, exist_ok=True)
@@ -86,10 +118,8 @@ def install_nemo():
 def specs():
     result = []
     for name, repo, rev, digest in [
-        ('Qwen3.5-2B-Q4_K_M.gguf','unsloth/Qwen3.5-2B-GGUF','f6d5376be1edb4d416d56da11e5397a961aca8ae','aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223'),
-        ('gemma-4-E2B_q4_0-it.gguf','google/gemma-4-E2B-it-qat-q4_0-gguf','675cff42a74c774d6cb76f76d8eacb49b48c9b93','fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634'),
-        ('vision/mmproj-gemma-4-E2B-it-Q8_0.gguf','ggml-org/gemma-4-E2B-it-GGUF','b4243c156154b6dca9324415f8c7ccc098b4aed1','9406f99c16d68cda4f1f0552192dcc99021ea1fc6d2fd50b1dc3ccf30d04b292'),
-        ('vision/gemma-4-E2B-it-Q4_0.gguf','ggml-org/gemma-4-E2B-it-GGUF','b4243c156154b6dca9324415f8c7ccc098b4aed1','8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52')]:
+        ('gemma-4-E4B-it-Q4_0.gguf','ggml-org/gemma-4-E4B-it-GGUF','b8093469224f83f5c38f691eb906c380e9e63114','a555b900214b477d8880e7832e0b8925e139b0159640036b09fe472b6f2097f2'),
+        ('vision/mmproj-gemma-4-E4B-it-Q8_0.gguf','ggml-org/gemma-4-E4B-it-GGUF','b8093469224f83f5c38f691eb906c380e9e63114','197f49a93027f9843772bd24a6a9e0be2a32a788de5a3def330e9c585d86edd1')]:
         result.append(('models/'+name, digest, f'https://huggingface.co/{repo}/resolve/{rev}/{Path(name).name}'))
     for name, repo, rev, digest in [
         ('nemotron-3.5-asr-streaming-0.6b.q8_0.gguf','nvidia/nemotron-3.5-asr-streaming-0.6b','1c8deaecc64b91f034d73e08dd8b64625eb3395d','a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae'),
@@ -110,8 +140,9 @@ def specs():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--check', action='store_true')
-    parser.add_argument('--all-models', action='store_true', help='also fetch the alternate Gemma title model')
     parser.add_argument('--source', action='append', default=[])
+    parser.add_argument('--model-source', action='append', default=[], type=Path,
+                        help='a folder holding pinned model files (e.g. an earlier download); each is installed only if its SHA-256 matches')
     args = parser.parse_args()
     if sys.version_info < (3, 12):
         parser.error('Python 3.12 or newer is required')
@@ -127,6 +158,7 @@ def main():
         errors = []
         receipt_file = HOME/'checksums.json'
         receipts = json.loads(receipt_file.read_text()) if state(receipt_file) == 'present' else {}
+        receipts = {name: digest for name, digest in receipts.items() if product_asset(name)}
         corrupt = []
         for name, expected in receipts.items():
             if state(HOME/name, expected) != 'present':
@@ -146,10 +178,10 @@ def main():
                 sources.append((ROOT/common).resolve().parent/'.runtime')
             bundled_models = ROOT.parent/'Models'
             if migrate_existing and bundled_models.is_dir():
-                try: migrate(bundled_models, HOME/'models')
+                try: migrate(bundled_models, HOME/'models', product_only=True)
                 except Exception as e: log(f'Bundled migration deferred: {e}')
             for source in sources:
-                try: migrate(source)
+                try: migrate(source, product_only=True)
                 except Exception as e: log(f"Migration deferred: {e}")
             for model, rev in [('nemotron-3.5-asr-streaming-0.6b','1c8deaecc64b91f034d73e08dd8b64625eb3395d'),('Nemotron-3-Diarization','f667ed73aee57d40cc39428eb768b4fd87a0a29e')]:
                 cache = Path.home()/'Library/Caches/NeMoSpeech/models/nvidia'/model/rev
@@ -166,15 +198,14 @@ def main():
                     install_nemo()
                     receipts = {k:v for k,v in receipts.items() if not k.startswith('nemo/')}
                 except Exception as e: errors.append(str(e)); log(f'Native runtime repair failed: {e}')
+        model_sources = args.model_source + [Path('/private/tmp/claude-501/llm-models/gemma-4-e4b-gguf')] + [Path(p) for p in os.environ.get('WORKSCRIBE_MODEL_SOURCES', '').split(os.pathsep) if p]
         for name, digest, url in specs():
             dest = HOME/name; status=state(dest,digest)
-            # Gemma title is an optional alternate; do not fetch it unless installed.
-            optional = not args.all_models and name.endswith('gemma-4-E2B_q4_0-it.gguf') and os.environ.get('WORKSCRIBE_TITLE_MODEL', 'qwen35') != 'gemma4'
             log(f'{name}: {status}')
-            if args.check and status != 'present' and not (optional and status == 'missing'):
+            if args.check and status != 'present':
                 errors.append(f'{name}: {status}')
-            if status != 'present' and not args.check and not (optional and status=='missing'):
-                try: download(url,digest,dest)
+            if status != 'present' and not args.check:
+                try: install(name, digest, url, model_sources)
                 except Exception as e: errors.append(str(e)); log(f'Repair failed: {e}')
         embedding=HOME/'models/embeddinggemma-2-coreml'
         for folder in ['EmbeddingGemma2Text.mlmodelc','EmbeddingGemma2Audio.mlmodelc','EmbeddingGemma2Vision.mlmodelc']:
@@ -194,26 +225,20 @@ def main():
         for name in ['nemo','models/vision/bin/image-caption','models/vision/lib','models/vision','models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf','models/Nemotron-3-Diarization.q8_0.gguf']:
             status=state(HOME/name); log(f'{name}: {status}')
             if status != 'present': errors.append(f'{name}: {status} (install native runtime using README)')
-        log(f'speaker (legacy, unused): {state(HOME/"speaker")}')
         if args.check:
             errors.extend(f'{name}: wrong hash or missing' for name in corrupt)
-        else:
-            # Do not bless corruption of an unrepairable legacy runtime.
-            for name in corrupt:
-                if name.startswith('speaker/') and state(HOME/name, receipts[name]) != 'present':
-                    errors.append(f'{name}: needs reinstall (no pinned source)')
         # Record content identities for compiled/local native outputs with no upstream hash manifest.
         if not args.check:
             for p in HOME.rglob('*'):
+                name = str(p.relative_to(HOME))
+                if not product_asset(name):
+                    continue
                 if p.is_file() and not p.name.startswith('.') and not p.name.endswith('.partial') and state(p)=='present':
-                    name = str(p.relative_to(HOME))
-                    if name == 'checksums.json': continue
-                    if name not in receipts or not name.startswith('speaker/'):
-                        receipts[name]=sha256(p)
+                    receipts[name] = sha256(p)
             temporary = HOME/'checksums.json.partial'
             temporary.write_text(json.dumps(receipts,indent=2)+'\n')
             temporary.replace(receipt_file)
-        for name in ['models/Qwen3.5-2B-Q4_K_M.gguf', 'models/vision', 'models/wespeaker_v2.mlmodelc', 'models/embeddinggemma-2-coreml']:
+        for name in ['models/gemma-4-E4B-it-Q4_0.gguf', 'models/vision', 'models/wespeaker_v2.mlmodelc', 'models/embeddinggemma-2-coreml']:
             log(f'Final {name}: {state(HOME/name)}')
         log('Models ready' if not errors else 'Models need attention · '+ '; '.join(errors))
         return bool(errors)

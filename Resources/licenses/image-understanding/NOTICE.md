@@ -1,7 +1,7 @@
 # Image understanding
 
-Image captions use Google DeepMind's Gemma 4 E2B Q4_0 + Q8 projector, converted
-by ggml-org, under Apache-2.0. The [original model card](https://huggingface.co/google/gemma-4-E2B-it)
+Image captions use Google DeepMind's Gemma 4 E4B Q4_0 + Q8 projector, converted
+by ggml-org, under Apache-2.0. The [original model card](https://huggingface.co/google/gemma-4-E4B-it)
 links the [Gemma 4 license](https://ai.google.dev/gemma/docs/gemma_4_license).
 Full Apache terms: `../apache-2.0/LICENSE`. Unlike older Gemma generations,
 this pinned Gemma 4 model is published under Apache-2.0.

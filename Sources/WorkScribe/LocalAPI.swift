@@ -76,8 +76,9 @@ final class LocalAPI {
             case .startRecording:
                 let start = try body(APIStartBody.self, request)
                 guard !model.busy else { throw APIFailure(409, model.phase == "recording" ? "Already recording" : "Recording is \(model.phase)") }
-                guard model.speechReady || model.phase == "error" else { throw APIFailure(503, "Speech engine is still warming up") }
-                await model.start()
+                let captions = (start.source ?? model.transcriptSource) == "zoom-captions"
+                guard captions || model.speechReady || model.phase == "error" else { throw APIFailure(503, "Speech engine is still warming up") }
+                await model.start(source: start.source)
                 if let title = start.title, let id = model.meeting?.id, model.phase == "recording" { model.rename(id: id, to: title) }
                 return .json(status())
             case .resumeRecording(let id):
@@ -125,7 +126,7 @@ final class LocalAPI {
                 guard let vault = model.retentionService?.vault else { throw APIFailure(503, "Vault is starting") }
                 try vault.validateDocumentPath(document, meetingID: id)
                 var next = document; next.revision += 1
-                let notes = document.notes(previous: meeting.notes ?? [])
+                let notes = document.notes(previous: meeting.notes ?? [], at: meeting.status == "recording" ? Date().timeIntervalSince(meeting.startedAt) : nil)
                 // Preserve the server's first-typed timestamps in the ledger too.
                 for i in next.blocks.indices {
                     next.blocks[i].at = notes[i].createdAt
@@ -140,7 +141,7 @@ final class LocalAPI {
                 guard let meeting = model.meetingSnapshot(id) else { throw APIFailure(404, "No such meeting") }
                 guard meeting.endedAt != nil, !model.busy else { throw APIFailure(409, "Stop recording first") }
                 guard let retention = model.retentionService else { throw APIFailure(503, "Vault is starting") }
-                guard await NoteEnhancementScheduler.shared.finish(id, model: model) else { throw APIFailure(409, "Transcript polish could not finish; saved audio is available for retry") }
+                guard await NoteEnhancementScheduler.shared.finish(id, model: model) else { throw APIFailure(409, "Final notes could not finish; the streaming transcript is saved") }
                 guard model.meetingSnapshot(id)?.endedAt == meeting.endedAt, !model.busy else { throw APIFailure(409, "Recording resumed during the final pass") }
                 try await retention.finalize(id)
                 return .json(model.meetingSnapshot(id)!.document)
@@ -158,6 +159,12 @@ final class LocalAPI {
                                               fromMissedTopic: note.fromMissedTopic?.topic)
                 return .json(APIShapes.note(added, meeting: meeting, chunks: APIShapes.chunkMap(meeting),
                                             blockId: VaultHookup.shared?.store.blockIDs(forMeeting: id)[added.id]), status: 201)
+            case .rewriteLine(let id, let noteID):
+                guard let meeting = model.meetingSnapshot(id), meeting.document?.blocks.contains(where: { $0.id == noteID }) == true else {
+                    throw APIFailure(404, "No such document block")
+                }
+                let edited = try model.letAIRewrite(meetingID: id, noteID: noteID)
+                return .json(APIShapes.line(edited, meeting: meeting, chunks: APIShapes.chunkMap(meeting)))
             case .editNote(let id, let noteID):
                 let note = try body(APINotePatch.self, request)
                 guard let meeting = model.meetingSnapshot(id) else { throw APIFailure(404, "No such meeting") }
@@ -222,7 +229,7 @@ final class LocalAPI {
         return APIStatus(
             recording: recording, phase: model.phase, meetingId: live?.id, title: live?.title, startedAt: live?.startedAt,
             elapsed: recording ? (live.map { Date().timeIntervalSince($0.startedAt) } ?? 0) : 0,
-            sources: .init(mic: recording, system: recording && model.includeSystemAudio && !model.systemAudioBlocked, screen: recording && screenOn),
+            sources: .init(mic: recording && model.microphoneIssue == nil, system: recording && model.includeSystemAudio && !model.systemAudioBlocked, screen: recording && screenOn),
             permissions: .init(screenRecording: model.screenAccess, microphone: AVCaptureDevice.authorizationStatus(for: .audio) == .authorized),
             warming: !model.speechReady && model.phase != "error", message: model.message,
             model: .init(provider: ask.generatorProvider, name: ask.generatorModel), finalizationProgress: model.finalizationProgress)
@@ -289,6 +296,8 @@ final class EventHub {
     private var bag: Set<AnyCancellable> = []
     private var sequence = 0
     private var lastStatus: Data?
+    private var lastLines: [String: APILine] = [:]
+    private var textModelState = "ready"
     private var sentSegments: Set<String> = []
     private var lastPartials: [String: String] = [:]
     private var sentScreen: Set<String> = []
@@ -303,6 +312,7 @@ final class EventHub {
         self.model = model; self.ask = ask
         Publishers.Merge4(model.$phase.map { _ in () }, model.$speechReady.map { _ in () },
                           model.$screenAccess.map { _ in () }, model.$systemAudioBlocked.map { _ in () })
+            .merge(with: model.$microphoneIssue.map { _ in () })
             .debounce(for: .milliseconds(150), scheduler: RunLoop.main)
             .sink { [weak self] in self?.publishStatus() }.store(in: &bag)
         model.$finalizationProgress.map { _ in () }.merge(with: model.$message.map { _ in () })
@@ -310,11 +320,20 @@ final class EventHub {
             .sink { [weak self] _ in self?.publishStatus() }.store(in: &bag)
         model.$meeting.receive(on: RunLoop.main).sink { [weak self] meeting in self?.transcript(meeting) }.store(in: &bag)
         model.$screenMoments.receive(on: RunLoop.main).sink { [weak self] moments in self?.screen(moments) }.store(in: &bag)
+        NotificationCenter.default.publisher(for: .workScribeTextModelState).receive(on: RunLoop.main)
+            .sink { [weak self] event in
+                guard let state = event.userInfo?["state"] as? String else { return }
+                self?.textModelState = state
+                if let self { self.publish("status", self.engineStatus()) }
+            }.store(in: &bag)
         NotificationCenter.default.publisher(for: .workScribeNotesChanged).receive(on: RunLoop.main)
             .sink { [weak self] note in if let id = note.userInfo?["meeting_id"] as? String { self?.notes(id) } }.store(in: &bag)
         NotificationCenter.default.publisher(for: .workScribeMeetingPurged).receive(on: RunLoop.main)
             .sink { [weak self] note in
-                if let id = note.userInfo?["meeting_id"] as? String { self?.publish("meeting.purged", ["meetingId": id]) }
+                if let id = note.userInfo?["meeting_id"] as? String {
+                    self?.lastLines = self?.lastLines.filter { $0.value.documentId != id } ?? [:]
+                    self?.publish("meeting.purged", ["meetingId": id])
+                }
             }.store(in: &bag)
         ask.events.sink { [weak self] event in
             guard let self, let ask = self.ask else { return }
@@ -368,6 +387,8 @@ final class EventHub {
         connection.onClose = { [weak self] in Task { @MainActor in self?.subscribers.removeValue(forKey: id) } }
         connection.write(HTTPResponse.eventStreamHead(extra: cors))
         if let status = status?() ?? nil { connection.write(SSE.event("status", status, id: next())) }
+        connection.write(SSE.event("status", engineStatus(), id: next()))
+        if let meeting = model?.meeting { for line in lines(meeting) { connection.write(SSE.event("line", line, id: next())) } }
     }
 
     func publish<T: Encodable>(_ name: String, _ value: T) {
@@ -395,10 +416,29 @@ final class EventHub {
         guard force || data != lastStatus else { return }
         lastStatus = data
         publish("status", status)
+        publish("status", engineStatus())
+    }
+
+    private struct EngineStatus: Encodable { var model: String; var paused: String? }
+    private func engineStatus() -> EngineStatus {
+        EngineStatus(model: TextModels.model(for: .line).isAvailable ? textModelState : "missing",
+                     paused: model?.liveAIPaused == true ? "Catching up with the conversation" : nil)
+    }
+    private func lines(_ meeting: Meeting) -> [APILine] {
+        let chunks = APIShapes.chunkMap(meeting)
+        return (meeting.notes ?? []).map { APIShapes.line($0, meeting: meeting, chunks: chunks, blockId: VaultHookup.shared?.store.blockIDs(forMeeting: meeting.id)[$0.id]) }
+    }
+    private func publishLines(_ meeting: Meeting) {
+        for line in lines(meeting) {
+            let key = line.documentId + "/" + line.blockId
+            if lastLines[key] != line { lastLines[key] = line; publish("line", line) }
+        }
     }
 
     private func transcript(_ meeting: Meeting?) {
-        guard let meeting, let model, model.busy else { return }
+        guard let meeting, let model else { return }
+        publishLines(meeting)
+        guard model.busy else { return }
         if trackedMeeting != meeting.id { trackedMeeting = meeting.id; sentSegments = []; lastPartials = [:]; sentScreen = [] }
         for segment in APIShapes.segments(meeting) {
             if segment.final {
@@ -424,6 +464,7 @@ final class EventHub {
 
     private func notes(_ meetingID: String) {
         guard let meeting = model?.meetingSnapshot(meetingID) else { return }
+        publishLines(meeting)
         let chunks = APIShapes.chunkMap(meeting)
         publish("notes", APIEventNotes(meetingId: meetingID, notes: (meeting.notes ?? []).map { APIShapes.note($0, meeting: meeting, chunks: chunks, blockId: VaultHookup.shared?.store.blockIDs(forMeeting: meetingID)[$0.id]) },
                                        missedTopics: (meeting.missedTopics ?? []).map {

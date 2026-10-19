@@ -1,5 +1,9 @@
-import { vaultRelative } from "../lib/format";
-import { editorInfoField, MarkdownView, Menu, Modal, Notice, TFile } from 'obsidian';
+import { insertDiagram } from './surfaces/make';
+import { renderSurfaceSources } from './surfaces/sources';
+import type { SurfaceHost } from './surfaces';
+import type { SurfaceSource } from '../lib/types';
+import { noteName, vaultRelative } from "../lib/format";
+import { editorInfoField, MarkdownView, MarkdownRenderer, Menu, Modal, normalizePath, Notice, TFile } from 'obsidian';
 import { EditorView } from '@codemirror/view';
 import { Transaction, type EditorState } from '@codemirror/state';
 import { aiRefresh, inkLines, clearOwnedIndents, rememberOwnedIndent, meetingEditor, ownBlock, setDocument, type EditorSession } from '../lib/editor-extension';
@@ -31,16 +35,18 @@ export class NoteEditor {
   private rings = new WeakMap<HTMLElement, SVGSVGElement>();
   private headerObservers = new Map<MarkdownView, ResizeObserver>();
   private elapsedByMeeting=new Map<string,number>();
-  private stoppedMetadata=new Set<string>();
   private actionMenu?: Menu;
   private evidenceModal?: Modal;
   private evidenceId?: string;
+  private focusedSources:SurfaceSource[]=[];
   private saveTimer?: ReturnType<typeof setTimeout>;
+  private makes = new Map<string,{requestId?:string;token:object;source:string}>();
   readonly editor;
   constructor(private p: WorkScribePlugin) {
     for (const [id, document] of Object.entries(p.documentLedgers)) this.sessions.set(id, { id, document, notes: new Map() });
     p.registerDomEvent(window.document,'keydown',event=>{if(event.key==='Escape'&&this.confirmDelete){this.confirmDelete=false;this.renderHeaders();}});
     this.editor = meetingEditor({
+      surfaces: state => this.surfaceHost(state),
       session: state => this.session(state), elapsed: () => p.elapsed(), paused:()=>p.connState.kind!=="online", recording:()=>p.recording,
       changed: (view, blocks) => this.changed(view, blocks),
       mounted: view => {this.views.add(view);this.p.registerDomEvent(view.dom,'keydown',event=>{
@@ -49,15 +55,11 @@ export class NoteEditor {
       takeOver: (view, block, text, offset) => this.takeOver(view, block, text, offset),
       why: (view, block, note) => this.why(view, block, note),
       replaceDocument: (state, document) => {const s=this.session(state);if(s)s.document=document;queueMicrotask(()=>this.p.notify(new Set(["notes"])));},
-      action: (view, block, note, event) => {
-        if(block.owned) {
-          const previous=note.trace?.revisions.at(-1)?.text;if(previous)this.p.live.notes.set(block.id,{...note,userEdited:false,state:'done',enhanced:{topic:'',text:previous}});
-          view.dispatch({changes:{from:block.owned.from-1,to:block.owned.to,insert:''},effects:ownBlock.of({id:block.id,owned:undefined}),userEvent:'input'});
-        }
-      },
+      action: (view, block) => { void this.handBack(view,block); },
     });
     p.register(p.subscribe(changes => {
-      if(changes.has('tick')){if(this.p.live.meetingId&&this.p.recording)this.elapsedByMeeting.set(this.p.live.meetingId,this.p.elapsed());this.renderHeaders();}
+      if(changes.has('tick')){if(this.p.live.meetingId&&this.p.recording)this.elapsedByMeeting.set(this.p.live.meetingId,this.p.elapsed());this.renderHeaders();for(const view of this.views)if(!view.composing)view.dispatch(aiRefresh());}
+      if (changes.has('notes')||changes.has('status'))this.adaptLoadedNotes();
       if (changes.has('notes') || changes.has('meeting') || changes.has('conn') || changes.has('status')) this.refresh();
       if (changes.has('conn') && p.connState.kind === 'online') for (const id of this.dirty) this.queue(id);
     }));
@@ -91,7 +93,62 @@ export class NoteEditor {
     const file = state.field(editorInfoField, false)?.file;
     if (!file) return null;
     const path = this.p.absolutePath(file.path);
-    return [...this.sessions.values()].find(s => s.document.path === path) ?? null;
+    const matches=[...this.sessions.values()].filter(s => s.document.path === path);
+    const existing=matches.find(s=>s.id===this.p.live.meetingId)??matches[0];
+    if(existing)return existing;
+    if(!path)return null;
+    const document={path,source:state.doc.toString(),revision:0,blocks:reconcile(state.doc.toString(),[],this.p.recording?this.p.elapsed():undefined)};
+    const session={id:path,document,notes:new Map<string,Note>()};this.sessions.set(path,session);return session;
+  }
+  private adaptLoadedNotes(): void {
+    for(const note of this.p.live.notes.values())if(note.line)this.p.surfaces.apply(note.line);
+  }
+  private surfaceHost(state:EditorState):SurfaceHost {
+    const session=this.session(state),id=session?.id??'';
+    const key=(b:Block)=>id+'/'+b.id;
+    return {store:this.p.surfaces,focusSources:sources=>{const panel=this.p.app.workspace.getLeavesOfType(LIVE_VIEW)[0]?.view;if(panel instanceof LiveView)panel.showSurfaceSources(sources);},recording:()=>this.p.recording,elapsed:()=>this.p.elapsed(),
+      sources:line=>this.openSources(line.sources),openSources:sources=>this.openSources(sources),
+      own:(view,block,text,offset)=>this.takeOver(view,block,text,offset),rewrite:(view,block)=>void this.handBack(view,block),
+      make:(view,block)=>void this.make(view,block),discard:block=>{this.makes.delete(key(block));this.refresh(true);},
+      insert:(view,block,preview)=>{insertDiagram(view,block,preview);this.makes.delete(key(block));this.refresh(true);},
+      preview:block=>{const request=this.makes.get(key(block));return request?.source===block.text&&request.requestId?this.p.surfaces.previews.get(request.requestId):undefined;},
+      pending:block=>{const request=this.makes.get(key(block));return !!request&&request.source===block.text&&(!request.requestId||!this.p.surfaces.previews.has(request.requestId));},
+      renderMermaid:async(code,container)=>{const fence='`'.repeat(Math.max(3,...Array.from(code.matchAll(/`+/g),m=>m[0].length+1)));try{await MarkdownRenderer.render(this.p.app,fence+'mermaid\n'+code+'\n'+fence,container,session?.document.path??'',this.p);}catch(error){this.p.surfaces.status={...this.p.surfaces.status,paused:'Diagram preview unavailable'};this.p.notify(new Set(['status']));throw error;}},
+    };
+  }
+  private async make(view:EditorView,block:Block):Promise<void> {
+    const session=this.session(view.state);if(!session||block.surface!=='fence')return;
+    const key=session.id+'/'+block.id,request={token:{},source:block.text} as {token:object;source:string;requestId?:string};
+    this.makes.set(key,request);this.refresh(true);
+    try{const result=await this.p.client.makeDiagram(session.id,block.id);if(this.makes.get(key)===request)request.requestId=result.requestId;}
+    catch{if(this.makes.get(key)===request)this.makes.delete(key);this.p.surfaces.status={...this.p.surfaces.status,paused:'Diagram unavailable'};}
+    this.p.notify(new Set(['status']));this.refresh(true);
+  }
+  private async handBack(view:EditorView,block:Block):Promise<void> {
+    const session=this.session(view.state);if(!session||!block.owned)return;
+    try{await this.p.client.rewriteLine(session.id,block.id);}
+    catch{try{await this.p.client.patchNote(session.id,block.id,{rewrite:true});}catch{this.p.surfaces.status={...this.p.surfaces.status,paused:'Rewrite unavailable'};this.p.notify(new Set(['status']));return;}}
+    // Explicitly requested handback is one normal undoable edit.
+    view.dispatch({changes:{from:block.owned.from-1,to:block.owned.to,insert:''},effects:ownBlock.of({id:block.id,owned:undefined}),annotations:isolateHistory.of('full'),userEvent:'input.rewrite'});
+  }
+  openSources(sources:SurfaceSource[]):void {
+    sources=sources.filter(s=>!this.p.surfaces.isPurged(s.meetingId??(s.kind==='meeting'?this.p.live.meetingId??'':'')));
+    this.focusedSources=sources;this.evidenceId=this.p.live.meetingId??undefined;
+    const panel=this.p.app.workspace.getLeavesOfType(LIVE_VIEW)[0]?.view;
+    if(panel instanceof LiveView){panel.showSurfaceSources(sources);return;}
+    this.evidenceModal?.close();const modal=new Modal(this.p.app);this.evidenceModal=modal;modal.titleEl.setText('Why?');
+    renderSurfaceSources(modal.contentEl,sources,source=>this.p.openMoment({kind:source.kind==='meeting'?'meeting':'note',title:source.title,meetingId:source.meetingId??this.p.live.meetingId??undefined,start:source.at,path:source.path,link:source.link,snippet:source.quote}));modal.open();
+  }
+  command(action:'why'|'own'|'rewrite'|'make'|'jump',checking:boolean):boolean {
+    const view=[...this.views].find(v=>v.hasFocus||v.dom.contains(document.activeElement));if(!view)return false;
+    const session=this.session(view.state);if(!session)return false;
+    const active=document.activeElement?.closest<HTMLElement>('[data-ws-block]')?.dataset.wsBlock;
+    const block=session.document.blocks.find(b=>b.id===active)||session.document.blocks.find(b=>view.state.selection.main.head>=b.from&&view.state.selection.main.head<=b.to||!!b.owned&&view.state.selection.main.head>=b.owned.from&&view.state.selection.main.head<=b.owned.to);
+    if(!block)return false;const line=this.p.surfaces.line(session.id,block);
+    if(action==='make'||action==='own'&&!line?.text||action==='rewrite'&&!block.owned)return false;
+    const sources=line?.sources??[...this.p.surfaces.pins.values(),...this.p.surfaces.checks.values()].filter(e=>e.documentId===session.id&&e.blockId===block.id).flatMap(e=>e.sources);
+    if(checking)return true;
+    if(action==='rewrite')void this.handBack(view,block);else if(action==='own')this.takeOver(view,block,line!.text!);else this.openSources(sources);return true;
   }
   private relative(path: string): string | null {
     const base = this.p.linkContext().vaultBase;
@@ -99,30 +156,16 @@ export class NoteEditor {
   }
   private refresh(immediate=false): void {
     const id=this.p.live.meetingId;
-    if(id&&this.p.recording){this.elapsedByMeeting.set(id,this.p.elapsed());this.stoppedMetadata.delete(id);}
+    if(id&&this.p.recording){this.elapsedByMeeting.set(id,this.p.elapsed());}
     this.renderHeaders();
-    if(id&&!this.p.recording&&!this.stoppedMetadata.has(id)&&this.elapsedByMeeting.has(id)){
-      this.stoppedMetadata.add(id);
-      const view=[...this.views].find(v=>this.session(v.state)?.id===id);
-      if(view){
-        const source=view.state.doc.toString(),tag=source.indexOf('\ntags:');
-        if(tag>=0&&source.includes('\nworkscribe:')){
-          const previous=/^duration:.*$/m.exec(source);
-          if(previous){view.dispatch({changes:{from:previous.index,to:previous.index+previous[0].length,insert:`duration: ${Math.max(1,Math.round(this.duration()/60))} min`},annotations:Transaction.addToHistory.of(false)});}
-          if(!previous){
-          const names=[...new Set(this.p.live.segments.map(s=>s.speaker))].filter(n=>n&&!/^(?:Speaker \d+|Unidentified speaker|Unknown speaker)$/i.test(n)&&n!=='You');
-          const metadata=`duration: ${Math.max(1,Math.round(this.duration()/60))} min\n`+(names.length?'attendees:\n'+names.map(n=>'  - '+JSON.stringify('[['+n+']]')).join('\n')+'\n':'');
-          view.dispatch({changes:{from:tag+1,insert:metadata},annotations:Transaction.addToHistory.of(false)});
-          }
-        }
-      }
-    }
     for (const s of this.sessions.values()) if (s.id === this.p.live.meetingId) s.notes = this.p.live.notes;
     for (const view of this.views) {
       this.renderBar(view);
       const parent=view.dom.closest('.workspace-leaf-content')?.querySelector('.view-actions');
       const busyMessage=this.p.recording && /still recording/.test(this.p.live.status?.message??'') ? this.p.live.status?.message : undefined;
-      const paused=!!busyMessage || this.p.connState.kind!=="online" || [...(this.session(view.state)?.notes.values()??[])].some(n=>n.state==='paused');
+      // Only a real pause: WorkScribe says it is catching up, or it can't be reached. A jot waiting a few
+      // seconds for its answer is normal and shows on the jot itself.
+      const paused=!!busyMessage || this.p.connState.kind!=="online" || !!this.p.surfaces.status.paused;
       const existing=parent?.querySelector('.ws-paused-header');
       if(paused && !existing && this.session(view.state) && !this.session(view.state)?.document.finalized) parent?.createDiv({cls:'ws-paused-header',text:busyMessage??'AI lines paused · your notes are saving'});
       if(existing && paused)existing.textContent=busyMessage??'AI lines paused · your notes are saving';
@@ -168,8 +211,8 @@ export class NoteEditor {
         pill.createEl('button',{cls:'ws-rec-stop',text:'■ Stop'}).onclick=()=>void this.p.stopRecording();
       }else if(!this.isFinalized()){
         const notes=[...this.p.live.notes.values()];
-        const finishing=this.p.live.status?.phase==='finalizing'||notes.some(n=>n.state==='enhancing');
-        const progress=finishing?(this.p.live.status?.finalizationProgress??notes.filter(n=>n.state!=='enhancing').length/Math.max(1,notes.length)):1;
+        const finishing=this.p.live.status?.phase==='finalizing'||notes.some(n=>n.state==='found');
+        const progress=finishing?(this.p.live.status?.finalizationProgress??notes.filter(n=>n.state!=='found').length/Math.max(1,notes.length)):1;
         this.progressRing(pill,progress,finishing?'Final pass in progress':'Final pass complete');
         const label=finishing?(this.p.live.status?.message==='Polishing the transcript…'?'Polishing the transcript…':'Finishing your notes…'):'Ready to finalize';
         pill.createEl('button',{cls:'ws-tbtn ws-rec-state',text:label}).onclick=()=>this.showFinalize();
@@ -266,7 +309,7 @@ export class NoteEditor {
     const s = this.session(view.state);
     if (!s || s.document.finalized) return;
     s.document = { ...s.document, source: view.state.doc.toString(), blocks };
-    this.queue(s.id);
+    if(s.id!==s.document.path)this.queue(s.id);
     this.refresh();
     clearTimeout(this.typingTimers.get(view));
     this.typingTimers.set(view,setTimeout(()=>{if(!this.stopped)this.refresh(true);},4100));
@@ -342,11 +385,29 @@ export class NoteEditor {
     for (const [id,s] of this.sessions) if (!s.document.finalized && !this.dirty.has(id) && !this.finalizing.has(id)) {
       try {
         const m = await this.p.client.meeting(id);
+        await this.retitle(id, m.title, m.status);
         if (m.document?.finalized) {
           s.document = m.document; delete this.p.documentLedgers[id]; await this.p.saveSettings(); this.refresh();
         }
       } catch { /* Normal offline state: the vault remains editable. */ }
     }
+  }
+  /** Once a meeting has stopped, its note takes WorkScribe's title in place of the placeholder
+   *  ("2026-10-18 Zoom meeting · …"), and a later, better title replaces one WorkScribe gave earlier.
+   *  A name you chose is never touched. Renaming through Obsidian keeps open tabs and links on it. */
+  private async retitle(id: string, title: string, status: string): Promise<void> {
+    if (status === 'recording' || !title || /^(Zoom meeting|Recording) · /.test(title)) return;
+    const file = this.p.app.vault.getMarkdownFiles().find(f => this.p.meetingIdOf(f) === id);
+    const day = file?.basename.match(/^(\d{4}-\d{2}-\d{2}) /)?.[1];
+    if (!file || !day) return;
+    const ours = /^\d{4}-\d{2}-\d{2} (?:Zoom meeting|Recording) · /.test(file.basename) || file.basename === this.p.meetingNames[id];
+    const name = `${day} ${noteName(title)}`;
+    if (!ours || file.basename === name) return;
+    const folder = file.parent?.path ?? '';
+    let path = normalizePath(`${folder}/${name}.md`);
+    for (let n = 2; this.p.app.vault.getAbstractFileByPath(path); n++) path = normalizePath(`${folder}/${name} ${n}.md`);
+    await this.p.app.fileManager.renameFile(file, path);
+    this.p.meetingNames[id] = file.basename; await this.p.saveSettings();
   }
   markFinalized(id: string): void {
     if(this.finalizing.has(id))return;
@@ -414,7 +475,7 @@ export class NoteEditor {
     const from=block.to+1;
     view.dispatch({changes:{from:block.to,insert:'\n'+value},
       effects:ownBlock.of({id:block.id,owned:{from,to:from+value.length,text:value}}),
-      selection:{anchor:from+continuation(text.slice(0,offset),block.text,true).length},userEvent:'input'});
+      selection:{anchor:from+continuation(text.slice(0,offset),block.text,true).length},annotations:isolateHistory.of('full'),userEvent:'input'});
     view.focus();
     if(top!==undefined){let frames=12;const stabilize=()=>view.requestMeasure({read:()=>view.dom.querySelector<HTMLElement>(`.ws-owned-line[data-ws-block="${block.id}"]`)?.getBoundingClientRect().top,write:y=>{if(y!==undefined)view.scrollDOM.scrollTop+=y-top;if(--frames>0)requestAnimationFrame(stabilize);}});requestAnimationFrame(stabilize);}
   }
@@ -465,8 +526,9 @@ export class NoteEditor {
   }
   purge(id: string): void {
     this.actionMenu?.hide(); this.actionMenu = undefined;
-    if (this.evidenceId === id) { this.evidenceModal?.close(); this.evidenceModal = undefined; this.evidenceId = undefined; }
-    this.sessions.delete(id); delete this.p.documentLedgers[id]; this.dirty.delete(id); this.refresh(); void this.p.saveSettings();
+    if (this.evidenceId === id || this.focusedSources.some(s=>s.meetingId===id)) {this.focusedSources=[]; this.evidenceModal?.close(); this.evidenceModal = undefined; this.evidenceId = undefined; }
+    this.sessions.delete(id); delete this.p.documentLedgers[id]; this.dirty.delete(id); for(const key of this.makes.keys())if(key.startsWith(id+"/"))this.makes.delete(key); this.refresh(true); void this.p.saveSettings();
   }
 
 }
+

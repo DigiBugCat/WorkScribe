@@ -24,7 +24,7 @@ enum ScreenCaptureState: Equatable {
         switch self {
         case .off: "Screen capture off"
         case .starting: "Starting screen capture…"
-        case .recording: "Recording the screen"
+        case .recording: "Reading screen text"
         case .paused: "Screen capture paused"
         case .privateApp(let name): "Screen text hidden while \(name) is in front"
         case .unavailable(let why): why
@@ -49,18 +49,13 @@ struct ScreenCaptureSettings {
     var framesPerSecond = 2
     /// Wide enough for Vision to read 11-pt UI text on a typical display.
     var maximumWidth = 1920
-    /// HEVC average bitrate: about 135 MB an hour at most, much less for mostly-static screens.
-    var bitrate = 300_000
     /// Base interval for pixel-gated scene embeddings. Pressure increases this interval.
     var sampleInterval = 2.5
     var deniedBundleIDs = ScreenPrivacy.defaultDeniedBundleIDs
-    var thumbnailWidth = 480
 }
 
-/// Records the screen into `screen.mov` and embeds pixel-gated samples to form visual scenes.
-/// Only scene representatives are read, lazily and at background priority; speech always wins.
-/// Scene metadata lives in `screen-moments.json` alongside the transcript. It owns its own `SCStream`, separate from the system-audio stream, so
-/// a screen failure can never stop audio.
+/// Reads transient screen frames for scene detection and OCR. Only derived text and
+/// scene metadata are persisted; no video, thumbnail, or keyframe is recorded.
 final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @unchecked Sendable {
     let folder: URL
     let meetingID: String
@@ -77,11 +72,8 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
     private let lock = NSLock()
     private let captureQueue = DispatchQueue(label: "WorkScribe.screen-capture", qos: .userInitiated)
     private var stream: SCStream?
-    private var writer: AVAssetWriter?
-    private var input: AVAssetWriterInput?
     private var firstPTS: CMTime?
     private var offset: Double?
-    private var writerFailure: String?
     private var sampler: KeyframeSampler
     private var builder = ScreenSceneDetector()
     private let embedder: CoreMLEmbedder?
@@ -154,26 +146,11 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         config.queueDepth = 5
         config.capturesAudio = false
 
-        let url = folder.appendingPathComponent(videoFile)
-        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
-        let writer = try AVAssetWriter(outputURL: url, fileType: .mov)
-        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [
-            AVVideoCodecKey: AVVideoCodecType.hevc, AVVideoWidthKey: width, AVVideoHeightKey: height,
-            AVVideoCompressionPropertiesKey: [AVVideoAverageBitRateKey: settings.bitrate,
-                                              AVVideoMaxKeyFrameIntervalKey: settings.framesPerSecond * 60,
-                                              AVVideoExpectedSourceFrameRateKey: settings.framesPerSecond],
-        ])
-        input.expectsMediaDataInRealTime = true
-        guard writer.canAdd(input) else { throw CaptureError.message("Can't encode the screen recording") }
-        writer.add(input)
-        self.writer = writer; self.input = input
-
         let stream = SCStream(filter: filter!, configuration: config, delegate: self)
         try stream.addStreamOutput(self, type: .screen, sampleHandlerQueue: captureQueue)
         self.stream = stream
         do { try await stream.startCapture() } catch {
-            self.stream = nil; self.writer = nil; self.input = nil
-            try? FileManager.default.removeItem(at: url)
+            self.stream = nil
             throw error
         }
         if targetDescription == "display" { watchLaunches() }
@@ -195,7 +172,7 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         set(value ? .paused : .recording)
     }
 
-    /// Stops capture, finishes the video and returns the final state and moments.
+    /// Stops capture and discards transient frames.
     func stop() async -> (info: ScreenCaptureInfo, moments: [ScreenMoment]) {
         let stream: SCStream? = lock.withLock { stopped = true; generation += 1; latestFrame = nil; defer { self.stream = nil }; return self.stream }
         if let stream { try? await stream.stopCapture() }
@@ -205,40 +182,23 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         let pending = lock.withLock { analyzing }
         pending?.cancel(); ocrTask?.cancel()
         // Core ML/Vision may be in an uninterruptible driver call. Invalidate publication now;
-        // let cleanup wait off the recording finalization path, never hold up saved audio.
+        // let cleanup wait off the recording finalization path, never hold up transcript finalization.
         let model = embedder
         Task.detached(priority: .background) { await pending?.value; await model?.release() }
-        await finishWriter()
         let end = now()
         let (moments, failed) = lock.withLock { (builder.finish(at: end), failure != nil) }
         ScreenContext.shared.clear()
         persist(moments)
-        frames.removeAll()
+        lock.withLock { frames.removeAll() }
         let final = info(state: failed ? "failed" : "complete", moments: moments.count)
         if !failed { set(.off) }
         return (final, store.loadScreenMoments(meetingID))
     }
 
-    private func finishWriter() async {
-        let (writer, input): (AVAssetWriter?, AVAssetWriterInput?) = lock.withLock {
-            defer { self.writer = nil; self.input = nil }
-            return (self.writer, self.input)
-        }
-        guard let writer else { return }
-        if writer.status == .writing {
-            input?.markAsFinished()
-            await writer.finishWriting()
-        } else {
-            writer.cancelWriting()
-            try? FileManager.default.removeItem(at: folder.appendingPathComponent(videoFile))
-        }
-    }
-
     private func info(state: String, moments: Int? = nil) -> ScreenCaptureInfo {
         lock.lock(); defer { lock.unlock() }
-        let wrote = FileManager.default.fileExists(atPath: folder.appendingPathComponent(videoFile).path) && offset != nil
-        return ScreenCaptureInfo(file: state == "recording" || wrote ? videoFile : nil, offset: offset,
-                                 target: targetDescription, state: state, failure: failure ?? writerFailure ?? sceneFailure ?? (embedder == nil ? "Scene detection model unavailable; recording screen video only" : nil),
+        return ScreenCaptureInfo(file: nil, offset: offset,
+                                 target: targetDescription, state: state, failure: failure ?? sceneFailure,
                                  momentCount: previousMoments.count + (moments ?? builder.all.count))
     }
 
@@ -249,7 +209,6 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         ScreenContext.shared.clear()
         persist(moments)
         set(.failed(error.localizedDescription))
-        Task { await finishWriter() }
     }
 
     func stream(_ stream: SCStream, didOutputSampleBuffer sampleBuffer: CMSampleBuffer, of type: SCStreamOutputType) {
@@ -258,17 +217,10 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         let pts = sampleBuffer.presentationTimeStamp
         lock.lock()
         guard !stopped, !paused else { lock.unlock(); return }
-        if firstPTS == nil, let writer, writerFailure == nil {
-            if writer.startWriting() {
-                writer.startSession(atSourceTime: pts)
-                firstPTS = pts
-                // How long ago this frame was captured, on the host clock its timestamp uses.
-                let age = max(0, CMClockGetTime(CMClockGetHostTimeClock()).seconds - pts.seconds)
-                offset = Date().addingTimeInterval(-age).timeIntervalSince(meetingStart)
-            } else { writerFailure = writer.error?.localizedDescription ?? "Couldn't write the screen recording" }
-        }
-        if let input, input.isReadyForMoreMediaData, writer?.status == .writing {
-            if !input.append(sampleBuffer) { writerFailure = writer?.error?.localizedDescription ?? "Screen video write failed" }
+        if firstPTS == nil {
+            firstPTS = pts
+            let age = max(0, CMClockGetTime(CMClockGetHostTimeClock()).seconds - pts.seconds)
+            offset = Date().addingTimeInterval(-age).timeIntervalSince(meetingStart)
         }
         let time = (offset ?? Date().timeIntervalSince(meetingStart)) + (firstPTS.map { (pts - $0).seconds } ?? 0)
         let front = frontmost
@@ -333,7 +285,6 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
             }
             return changed || builder.needsConfirmation
         }
-        scheduleOCR()
         guard eligible, !Task.isCancelled, let embedder else { return }
         let vector: [Float]
         do { vector = try await embedder.image(frame) }
@@ -354,36 +305,35 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
             frames[id] = frame
             _ = builder.add(.init(time: time, vector: vector, frameID: id, stability: stability,
                                   app: front.name, bundleID: front.bundleID, window: window), modelID: embedder.modelID)
-            // Candidate representatives also live on disk, but only accepted scenes enter metadata/search.
-            for (sceneID, frameID) in builder.representatives where sceneID == builder.open?.id {
-                if savedRepresentative?.scene == sceneID && savedRepresentative?.frame == frameID { continue }
-                if let image = frames[frameID] {
-                    savedRepresentative = (sceneID, frameID)
-                    writeThumbnail(image, to: folder.appendingPathComponent(ScreenFiles.thumbnail(sceneID)))
-                    writeThumbnail(image, to: folder.appendingPathComponent(ScreenFiles.keyframe(sceneID)), width: settings.maximumWidth)
-                }
+            // Keep only a few current representatives until OCR has read them.
+            if let scene = builder.open, let frameID = builder.representatives[scene.id] {
+                savedRepresentative = (scene.id, frameID)
             }
-            let keep = Set(builder.representatives.values)
-            frames = frames.filter { keep.contains($0.key) }
+            let recent = Set(builder.representatives.values)
+            frames = frames.filter { recent.contains($0.key) }
             if previousID != builder.open?.id || previousFrame != savedRepresentative?.frame || time - persistedAt >= 15 {
                 persistedAt = time; persist(builder.all)
             }
         }
+        scheduleOCR()
     }
 
     private func scheduleOCR() {
         lock.withLock {
             guard ocrTask == nil, workBudget().ocr, !paused, !stopped,
-                  let scene = builder.closed.first(where: { scene in
-                      store.loadScreenMoments(meetingID).first(where: { $0.id == scene.id })?.ocrState == nil
-                  }) else { return }
+                  let scene = builder.all.first(where: { scene in
+                      frames[builder.representatives[scene.id] ?? ""] != nil &&
+                          store.loadScreenMoments(meetingID).first(where: { $0.id == scene.id })?.ocrState == nil
+                  }), let frameID = builder.representatives[scene.id], let frame = frames[frameID] else { return }
+            builder.freezeRepresentative(scene.id)
+            persist(builder.all)
             ocrTask = Task.detached(priority: .background) { [weak self] in
                 guard let self else { return }
-                _ = await ScreenSceneText.shared.read(scene.id, meetingID: self.meetingID, store: self.store, allowed: { [weak self] in
+                _ = await ScreenSceneText.shared.read(scene.id, meetingID: self.meetingID, store: self.store, image: frame, allowed: { [weak self] in
                     guard let self else { return false }
                     return self.lock.withLock { !self.stopped && !self.paused && self.workBudget().ocr && !ScreenPrivacy.isDenied(self.frontmost.bundleID, list: self.settings.deniedBundleIDs) }
                 })
-                self.lock.withLock { self.ocrTask = nil; self.persist(self.builder.all) }
+                self.lock.withLock { self.frames.removeValue(forKey: frameID); self.ocrTask = nil; self.persist(self.builder.all) }
             }
         }
     }
@@ -406,29 +356,13 @@ final class ScreenRecorder: NSObject, SCStreamOutput, SCStreamDelegate, @uncheck
         }
     }
 
-    private func writeThumbnail(_ image: CGImage, to url: URL, width maximumWidth: Int? = nil) {
-        try? FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true,
-                                                 attributes: [.posixPermissions: 0o700])
-        let width = min(maximumWidth ?? settings.thumbnailWidth, image.width)
-        let height = max(1, image.height * width / max(image.width, 1))
-        guard let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
-                                      space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return }
-        context.interpolationQuality = .high
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        guard let small = context.makeImage(),
-              let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.jpeg.identifier as CFString, 1, nil) else { return }
-        CGImageDestinationAddImage(destination, small, [kCGImageDestinationLossyCompressionQuality: 0.6] as CFDictionary)
-        if CGImageDestinationFinalize(destination) {
-            try? FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
-        }
-    }
-
     private func persist(_ moments: [ScreenMoment]) {
         let combined: [ScreenMoment] = ScreenFiles.mutationLock.withLock {
             let saved = Dictionary(uniqueKeysWithValues: store.loadScreenMoments(meetingID).map { ($0.id, $0) })
-            let merged = (previousMoments + moments).map { scene -> ScreenMoment in
+            let merged = (previousMoments + moments).map { original -> ScreenMoment in
+                var scene = original; scene.thumbnail = nil; scene.keyframe = nil
                 guard let read = saved[scene.id], read.ocrState != nil, read.representativeTime == scene.representativeTime else { return scene }
-                var scene = scene; scene.text = read.text; scene.lines = read.lines; scene.ocrState = read.ocrState
+                scene.text = read.text; scene.lines = read.lines; scene.ocrState = read.ocrState
                 return scene
             }
             do { try store.saveScreenMoments(merged, id: meetingID) } catch { return [] }

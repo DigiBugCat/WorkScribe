@@ -3,42 +3,16 @@ import AVFoundation
 import CryptoKit
 import WorkScribeCore
 
-/// Read-only, opt-in replay of the actual disk queue → native connection → event reducer.
+/// Read-only, opt-in replay of the memory queue → native connection → event reducer.
 /// Results go to stdout; never instantiates AppModel or opens the user's meeting store.
 enum TranscriptReplay {
-    @MainActor static func batchWindow(path: String, start: Double, duration: Double) async throws {
-        guard start.isFinite, duration.isFinite, start >= 0, duration > 0, duration <= 300 else {
-            throw CaptureError.message("Batch window must be 0–300 seconds")
-        }
-        let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
-        guard file.processingFormat.sampleRate == 16000, file.processingFormat.channelCount == 1 else {
-            throw CaptureError.message("Replay needs 16 kHz mono WAV")
-        }
-        file.framePosition = min(file.length, AVAudioFramePosition(start * 16000))
-        let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: AVAudioFrameCount(duration * 16000))!
-        try file.read(into: buffer)
-        let samples = Array(UnsafeBufferPointer(start: buffer.floatChannelData![0], count: Int(buffer.frameLength)))
-        let runtime = SpeechRuntime()
-        do {
-            try await runtime.start()
-            let event = try await runtime.batch(samples)
-            let words = TranscriptParser.timedWords(event: event, offset: start, fallbackStart: start)
-            let result: [String: Any] = ["text": words.map(\.text).joined(separator: " "),
-                "words": words.map { ["word": $0.text, "start": $0.start, "end": $0.end] as [String: Any] }]
-            FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]))
-            await runtime.stop()
-        } catch { await runtime.stop(); throw error }
-    }
     @MainActor static func run(path: String, pace: Double) async throws {
         guard pace.isFinite && pace >= 0 else { throw CaptureError.message("Replay pace must be zero (burst) or a positive speed") }
         let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
         guard file.processingFormat.sampleRate == 16000, file.processingFormat.channelCount == 1 else {
             throw CaptureError.message("Replay needs 16 kHz mono WAV")
         }
-        let folder = FileManager.default.temporaryDirectory.appendingPathComponent("ws-replay-" + UUID().uuidString)
-        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
-        defer { try? FileManager.default.removeItem(at: folder) }
-        let backlog = try AudioBacklog(url: folder.appendingPathComponent("replay.pcm"))
+        let backlog = AudioBacklog()
         let runtime = SpeechRuntime()
         try await runtime.start()
         let connection = SpeechConnection(runtime: runtime)
@@ -59,6 +33,7 @@ enum TranscriptReplay {
                     try file.read(into: buffer)
                     var samples = (0..<Int(buffer.frameLength)).map { Int16(max(-32768, min(32767, Int((buffer.floatChannelData![0][$0] * 32768).rounded())))).littleEndian }
                     let data = samples.withUnsafeMutableBytes { Data($0) }
+                    while backlog.pendingSeconds >= 28 { try await Task.sleep(nanoseconds: 20_000_000) }
                     try backlog.append(data); inputHash.update(data: data); pushed += data.count
                     peakLag = max(peakLag, backlog.pendingSeconds)
                     if pace > 0 { try await Task.sleep(nanoseconds: UInt64(Double(buffer.frameLength) / 16000 / pace * 1e9)) }
@@ -98,6 +73,56 @@ enum TranscriptReplay {
                 return words.isEmpty ? (event["transcript"] as? String ?? "") : words.joined(separator: " ")
             }.joined(separator: " "),
             "segments": try JSONSerialization.jsonObject(with: JSONEncoder().encode(meeting.segments)), "events": events]
+        FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys]))
+    }
+
+    /// Both tracks of one recording through the live recognizer and reducer, then the echo filter.
+    /// Prints how many microphone segments repeated system speech, before and after filtering.
+    @MainActor static func pair(system: String, microphone: String, offsets: [String: Double]) async throws {
+        let runtime = SpeechRuntime()
+        try await runtime.start()
+        var meeting = Meeting(title: "Replay")
+        do {
+            for (source, path) in [("system", system), ("microphone", microphone)] {
+                let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
+                guard file.processingFormat.sampleRate == 16000, file.processingFormat.channelCount == 1 else {
+                    throw CaptureError.message("Replay needs 16 kHz mono WAV")
+                }
+                var reducer = LiveTranscript()
+                let connection = SpeechConnection(runtime: runtime)
+                connection.onEvent = { event in
+                    reducer.consume(event, source: source, offset: offsets[source] ?? 0, pressure: .normal, meeting: &meeting)
+                }
+                try await connection.connect()
+                let buffer = AVAudioPCMBuffer(pcmFormat: file.processingFormat, frameCapacity: 16000)!
+                while file.framePosition < file.length {
+                    try file.read(into: buffer)
+                    var samples = (0..<Int(buffer.frameLength)).map { Int16(max(-32768, min(32767, Int((buffer.floatChannelData![0][$0] * 32768).rounded())))).littleEndian }
+                    try await connection.write(samples.withUnsafeMutableBytes { Data($0) })
+                }
+                try await connection.finish()
+                for unfinished in reducer.unfinishedSources {
+                    reducer.consume(["type": "transcript.completed", "transcript": ""], source: unfinished, offset: offsets[source] ?? 0, pressure: .normal, meeting: &meeting)
+                }
+                connection.close()
+            }
+            await runtime.stop()
+        } catch { await runtime.stop(); throw error }
+        let before = meeting.segments.filter { $0.source == "microphone" }
+        let matches = EchoFilter.matches(meeting.segments)
+        meeting.removeEchoes()
+        func rows(_ segments: [Segment]) -> [[String: Any]] {
+            segments.sorted { $0.start < $1.start }.map { ["source": $0.source, "start": ($0.start * 10).rounded() / 10, "text": $0.text] }
+        }
+        let value: [String: Any] = [
+            "system_segments": meeting.segments.filter { $0.source == "system" }.count,
+            "microphone_segments_before": before.count,
+            "echo_duplicates_before": matches.count,
+            "microphone_segments_after": meeting.segments.filter { $0.source == "microphone" }.count,
+            "echo_duplicates_after": EchoFilter.matches(meeting.segments).count,
+            "kept_microphone": rows(meeting.segments.filter { $0.source == "microphone" }),
+            "removed_echo": rows(meeting.echoSegments ?? []),
+            "system": rows(meeting.segments.filter { $0.source == "system" })]
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys]))
     }
 }

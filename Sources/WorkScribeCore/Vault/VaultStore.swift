@@ -252,7 +252,7 @@ public final class VaultStore: @unchecked Sendable {
         var front = Frontmatter()
         let stamp = DateFormatter(); stamp.timeZone = timeZone; stamp.dateFormat = "yyyy-MM-dd HH:mm"
         front["date"] = .string(stamp.string(from: meeting.startedAt))
-        if let ended = meeting.endedAt { front["duration"] = .string("\(max(1, Int(ended.timeIntervalSince(meeting.startedAt) / 60))) min") }
+        if let ended = meeting.endedAt { front["duration"] = .string("\(max(1, Int((ended.timeIntervalSince(meeting.startedAt) / 60).rounded()))) min") }
         if let attendees = meeting.attendees, !attendees.isEmpty { front["attendees"] = .list(attendees.map { "[[" + $0 + "]]" }) }
         front["tags"] = .list(["meeting"])
         front["workscribe"] = .string(meeting.id)

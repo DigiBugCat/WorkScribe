@@ -30,7 +30,7 @@ struct FileExtractors: FileExtracting {
                 default: .rtf
                 }
                 let text = try NSAttributedString(url: url, options: [.documentType: type], documentAttributes: nil).string
-                return (nil, TextChunker.chunks(text).map { Passage(text: $0) })
+                return (nil, text.components(separatedBy: "\n\n").map { Passage(text: $0) })
             }
             return try await PlainTextExtractor().passages(of: url, kind: kind)
         default:
@@ -50,7 +50,7 @@ struct FileExtractors: FileExtracting {
                 let read = ocr(image)
                 if read.count > text.count { text = read }
             }
-            for piece in TextChunker.chunks(text) { passages.append(Passage(text: piece, page: index + 1)) }
+            for piece in text.components(separatedBy: "\n\n") { passages.append(Passage(text: piece, page: index + 1)) }
         }
         return (document.documentAttributes?[PDFDocumentAttribute.titleAttribute] as? String, passages)
     }

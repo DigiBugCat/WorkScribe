@@ -2,21 +2,10 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 runtime_home="${WORKSCRIBE_RUNTIME_HOME:-$HOME/Library/Application Support/WorkScribe/Runtime}"
-case "${1:-qwen35}" in
-  gemma4)
-    repo=google/gemma-4-E2B-it-qat-q4_0-gguf
-    revision=675cff42a74c774d6cb76f76d8eacb49b48c9b93
-    file=gemma-4-E2B_q4_0-it.gguf
-    expected=fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634
-    ;;
-  qwen35)
-    repo=unsloth/Qwen3.5-2B-GGUF
-    revision=f6d5376be1edb4d416d56da11e5397a961aca8ae
-    file=Qwen3.5-2B-Q4_K_M.gguf
-    expected=aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223
-    ;;
-  *) echo 'Usage: download-title-model.sh gemma4|qwen35' >&2; exit 2 ;;
-esac
+repo=ggml-org/gemma-4-E4B-it-GGUF
+revision=b8093469224f83f5c38f691eb906c380e9e63114
+file=gemma-4-E4B-it-Q4_0.gguf
+expected=a555b900214b477d8880e7832e0b8925e139b0159640036b09fe472b6f2097f2
 mkdir -p "$runtime_home/models"
 target="$runtime_home/models/$file"
 if [ -f "$target" ] && [[ "$(stat -f %Sf "$target")" != *dataless* ]]; then

@@ -20,7 +20,9 @@ public struct LiveTranscript {
             }
             displayed[source] = now
             if let text = event["transcript"] as? String, !text.isEmpty {
-                meeting.setPartial(text, source: source, speaker: TranscriptParser.partialSpeaker(event: event, source: source))
+                let words = TranscriptParser.timedWords(event: event, offset: offset, fallbackStart: ends[source] ?? offset)
+                let span = words.first.flatMap { first in words.last.map { (first.start, max(first.start, $0.end)) } }
+                meeting.setPartial(text, source: source, speaker: TranscriptParser.partialSpeaker(event: event, source: source), span: span)
             }
         } else if kind.hasSuffix(".completed") {
             var final = event

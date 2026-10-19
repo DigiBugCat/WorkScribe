@@ -115,7 +115,7 @@ final class LocalAPITests: XCTestCase {
         let chunks = APIShapes.chunkMap(meeting)
         let near = chunks.values.first { $0.start < 100 }!, far = chunks.values.first { $0.start > 100 }!
         var note = Note(text: "v2.4 → nov 4\ntodo update PRD", createdAt: 30)
-        note.enhanced = "Release moved to Nov 4."; note.enhancedFrom = note.text; note.excerptRefs = [near.id, far.id]
+        note.line.state = .answered; note.line.text = "Release moved to Nov 4."; note.line.queryText = note.text; note.line.evidence = [near.id, far.id]
         meeting.notes = [note]
         meeting.actionItems = [ActionItem(owner: "Priya", text: "update PRD", due: "2026-10-16")]
         meeting.missedTopics = [MissedTopic(topic: "Halvorsen", text: "You'll email them.", excerptRefs: [far.id])]
@@ -131,7 +131,7 @@ final class LocalAPITests: XCTestCase {
         XCTAssertEqual(detail.segments.last?.text, "and the photo cap")
         XCTAssertEqual(detail.notes.first?.excerpts.map(\.id), ["E1", "E2"])
         XCTAssertEqual(detail.notes.first?.excerpts.map(\.hollow), [false, true], "the 06:40 excerpt is outside the typing window")
-        XCTAssertEqual(detail.notes.first?.state, "done")
+        XCTAssertEqual(detail.notes.first?.state, "answered")
         XCTAssertEqual(detail.missedTopics.first?.excerpts.first?.id, "E1")
         XCTAssertEqual(detail.actionItems.map(\.text), ["update PRD"])
         XCTAssertEqual(detail.answers.map(\.answer), ["Nov 4 [1]."])
@@ -146,10 +146,10 @@ final class LocalAPITests: XCTestCase {
     func testStatusAndMomentJSON() throws {
         let status = APIStatus(recording: true, phase: "recording", meetingId: "m", title: "T", startedAt: nil, elapsed: 12,
                                sources: .init(mic: true, system: false, screen: true), permissions: .init(screenRecording: true, microphone: true),
-                               warming: false, message: nil, model: .init(provider: "openai", name: "gpt-5.4-mini"))
+                               warming: false, message: nil, model: .init(provider: "local", name: "Gemma 4 E4B"))
         let json = try JSONSerialization.jsonObject(with: APIJSON.encoder.encode(status)) as! [String: Any]
         XCTAssertEqual((json["sources"] as? [String: Bool])?["screen"], true)
-        XCTAssertEqual((json["model"] as? [String: String])?["provider"], "openai")
+        XCTAssertEqual((json["model"] as? [String: String])?["provider"], "local")
         var file = AskMoment(id: "x", sourceKind: "file", ref: "/docs/MSA.pdf", title: nil, kind: "document", page: 14, text: "terms")
         file.thumbnail = nil
         let moment = APIMoment(file, number: 2)
@@ -178,16 +178,17 @@ final class LocalAPITests: XCTestCase {
         var meeting = fixture()
         var note = Note(text: "release", createdAt: 30)
         meeting.notes = [note]
-        let plan = try NotePlanner.plan(meeting, matcher: LexicalMatcher(), incremental: true, missedTopics: false)
+        let plan = try SelectionFixture.plan(meeting, matcher: LexicalMatcher(), incremental: true)
         note.editEnhancement(.init(topic: "Release.", text: "My exact edit."))
         let saved = try APIJSON.decoder.decode(Note.self, from: APIJSON.encoder.encode(note))
-        let result = NoteEnhancement.apply("- **Release:** Automatically rewritten.", plan: plan, to: [saved])
-        XCTAssertEqual(result.notes[0].enhanced, "**Release.** My exact edit.")
-        XCTAssertFalse(result.notes[0].isStale)
+        var line = saved.line
+        XCTAssertFalse(line.apply(.line(Bullet(topic: "Release", text: "Automatically rewritten.", refs: []), []), basis: "late", query: saved.text, at: .distantPast))
+        XCTAssertEqual(line.text, "**Release.** My exact edit.")
+        XCTAssertFalse(saved.lineNeedsEvidence)
         let shape = APIShapes.note(saved, meeting: meeting, chunks: [:], blockId: "e1")
         XCTAssertEqual(shape.enhanced?.text, "My exact edit.")
         XCTAssertEqual(shape.blockId, "e1")
-        XCTAssertEqual(shape.state, "done")
+        XCTAssertEqual(shape.state, "yours")
     }
 
     func testSSEFraming() {
@@ -202,47 +203,27 @@ final class LocalAPITests: XCTestCase {
         XCTAssertTrue(text.contains("Content-Length: 11\r\n"))
         XCTAssertTrue(text.hasSuffix("\r\n\r\n{\"ok\":true}"))
     }
+}
 
-    // MARK: OpenAI Responses
-
-    func testOpenAIRequestIsBoundedAndPrivate() throws {
-        let long = String(repeating: "transcript words ", count: 5_000)
-        let moments = (0..<12).map { AskMoment(id: "\($0)", sourceKind: "meeting", ref: "m", title: "T", kind: "meetingSegment", start: Double($0), text: long) }
-        let prompt = AskPrompt.build(question: "What moved?", moments: moments)
-        let request = try OpenAIResponses.request(prompt, model: "gpt-5.4-mini", apiKey: "sk-test")
-        XCTAssertEqual(request.url?.absoluteString, "https://api.openai.com/v1/responses")
-        XCTAssertEqual(request.value(forHTTPHeaderField: "Authorization"), "Bearer sk-test")
-        let body = try JSONSerialization.jsonObject(with: request.httpBody!) as! [String: Any]
-        XCTAssertEqual(body["model"] as? String, "gpt-5.4-mini")
-        XCTAssertEqual(body["stream"] as? Bool, true)
-        XCTAssertEqual(body["store"] as? Bool, false)
-        XCTAssertEqual(body["instructions"] as? String, AskPrompt.instructionText)
-        let input = ((body["input"] as! [[String: Any]])[0]["content"] as! [[String: Any]])[0]["text"] as! String
-        XCTAssertLessThanOrEqual(input.count, OpenAIResponses.maxInputCharacters + 1)
-        XCTAssertTrue(input.hasSuffix("Question: What moved?"))
-        XCTAssertLessThan(input.count, long.count, "never the whole transcript")
-    }
-
-    func testOpenAIStreamParsing() {
-        let fixture = """
-        event: response.created
-        data: {"type":"response.created","response":{"id":"resp_1"}}
-
-        event: response.output_text.delta
-        data: {"type":"response.output_text.delta","item_id":"msg_1","output_index":0,"content_index":0,"delta":"Nov 4 "}
-
-        event: response.output_text.delta
-        data: {"type":"response.output_text.delta","delta":"[1]."}
-
-        event: response.completed
-        data: {"type":"response.completed","response":{"id":"resp_1","status":"completed"}}
-        """
-        let events = fixture.split(separator: "\n").compactMap { OpenAIResponses.parse(line: String($0)) }
-        XCTAssertEqual(events, [.ignored, .delta("Nov 4 "), .delta("[1]."), .completed])
-        XCTAssertEqual(OpenAIResponses.parse(data: #"{"type":"response.failed","response":{"error":{"message":"boom"}}}"#), .failed("boom"))
-        XCTAssertEqual(OpenAIResponses.parse(data: #"{"type":"error","message":"bad"}"#), .failed("bad"))
-        XCTAssertEqual(OpenAIResponses.parse(data: #"{"type":"response.incomplete","response":{"incomplete_details":{"reason":"max_output_tokens"}}}"#), .completed)
-        XCTAssertEqual(OpenAIResponses.errorMessage(Data(#"{"error":{"message":"quota"}}"#.utf8), status: 429), "quota")
-        XCTAssertTrue(OpenAIResponses.errorMessage(Data(), status: 401).contains("API key"))
+extension LocalAPITests {
+    func testNativeLineSnapshotCarriesStableIdentityAndEvidence() throws {
+        var meeting = Meeting(title: "Live evidence")
+        meeting.segments = [Segment(source: "system", speaker: "system:speaker-1", start: 1, end: 4, text: "The trial lasts fourteen days.")]
+        let chunks = APIShapes.chunkMap(meeting)
+        var note = Note(text: "trial?", createdAt: 2)
+        note.id = "block-1"
+        note.line.apply(.line(Bullet(topic: "Trial", text: "The trial lasts fourteen days.", refs: []), Array(chunks.keys)), basis: "one", query: note.text, at: .distantPast)
+        let line = APIShapes.line(note, meeting: meeting, chunks: chunks)
+        XCTAssertEqual(line.documentId, meeting.id)
+        XCTAssertEqual(line.blockId, "block-1")
+        XCTAssertEqual(line.state, .answered)
+        XCTAssertEqual(line.revision, 1)
+        XCTAssertEqual(line.sources.first?.quote, "The trial lasts fourteen days.")
+        XCTAssertEqual(line.sources.first?.meetingId, meeting.id)
+        note.editText("completely different budget subject", at: 5)
+        XCTAssertGreaterThan(APIShapes.line(note, meeting: meeting, chunks: chunks).revision, line.revision)
+        let data = try JSONSerialization.jsonObject(with: JSONEncoder().encode(line)) as! [String: Any]
+        XCTAssertNil(data["reason"])
+        XCTAssertEqual(APIRoute.match(method: "POST", path: "/v1/documents/m/blocks/b/rewrite"), .success(.rewriteLine(documentID: "m", blockID: "b")))
     }
 }

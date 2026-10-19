@@ -1,0 +1,106 @@
+[
+ {
+  "end": 16.947356057167053,
+  "id": "CE45F5E0-B4D9-41C6-B8F3-3A4CD79F7F89",
+  "source": "microphone",
+  "speaker": "microphone:speaker-1",
+  "start": 13.507356057167053,
+  "text": "Okay, let's talk about offline sync for Virtu Four"
+ },
+ {
+  "end": 58.307356057167055,
+  "id": "82F3FC89-C47D-4EB1-A87B-71002B997873",
+  "source": "microphone",
+  "speaker": "microphone:speaker-2",
+  "start": 52.06735605716705,
+  "text": "Friday on John says online that you end up a year and I'll be able to list a plock in the emails"
+ },
+ {
+  "end": 199.10735605716707,
+  "id": "3E59F7EF-E12F-4CEF-A2B2-50D63D5941AD",
+  "source": "microphone",
+  "speaker": "microphone:speaker-4",
+  "start": 198.94735605716704,
+  "text": "fees"
+ },
+ {
+  "end": 202.22735605716704,
+  "id": "0F623313-1BE3-4086-B2A2-B264FE7A17DC",
+  "source": "microphone",
+  "speaker": "microphone:speaker-4",
+  "start": 201.50735605716704,
+  "text": "can set"
+ },
+ {
+  "end": 205.50735605716704,
+  "id": "4F1BC746-6B07-4538-A8A2-566FD0F5586D",
+  "source": "microphone",
+  "speaker": "microphone:speaker-4",
+  "start": 205.02735605716705,
+  "text": "up cash"
+ },
+ {
+  "end": 219.26735605716706,
+  "id": "0B086D9D-5B32-4F69-8737-0881230C20D1",
+  "source": "microphone",
+  "speaker": "microphone:speaker-4",
+  "start": 217.26735605716706,
+  "text": "closed albums"
+ },
+ {
+  "end": 19.74327709197998,
+  "id": "4D902EA0-678C-49D9-B40E-E8251AE48D90",
+  "source": "system",
+  "speaker": "system:speaker-1",
+  "start": 13.34327709197998,
+  "text": "Okay, let's talk about offline sync for version two point four Marcus what's the problem with last right wins"
+ },
+ {
+  "end": 29.26327709197998,
+  "id": "19F7EFF9-99E0-4A0A-92DA-E67B61A5F7BE",
+  "source": "system",
+  "speaker": "system:speaker-2",
+  "start": 20.46327709197998,
+  "text": "if it's last right wins. An inspector's checklist edits just vanish when the office touches the same job. Nobody finds out until the report is wrong."
+ },
+ {
+  "end": 37.02327709197998,
+  "id": "24788EC5-9493-49C8-ABD9-AC18B6335697",
+  "source": "system",
+  "speaker": "system:speaker-1",
+  "start": 30.38327709197998,
+  "text": "Then let's merge at the field level for checklists and keep last right wins for everything else. Can you prototype that by Monday?"
+ },
+ {
+  "end": 47.50327709197998,
+  "id": "CDF941AB-4F2B-4206-9EAF-7E4E07710D74",
+  "source": "system",
+  "speaker": "system:speaker-2",
+  "start": 37.90327709197998,
+  "text": "Yes, give me till Monday, but the SQ light migration means QA needs a full week so October twenty eighth won't work. I'd say November fourth"
+ },
+ {
+  "end": 57.743277091979984,
+  "id": "7DBE97A6-7FA9-4371-A9B0-63D8A26BDDC2",
+  "source": "system",
+  "speaker": "system:speaker-1",
+  "start": 48.62327709197998,
+  "text": "fine November fourth I'll tell Halverson on Friday their contract says offline capture by the end of the year and they'll be the first of forty beta accounts."
+ },
+ {
+  "end": 68.14327709197998,
+  "id": "0255D1ED-4C4F-4A85-8864-4D8CBC8AAFE8",
+  "source": "system",
+  "speaker": "system:speaker-2",
+  "start": 58.62327709197998,
+  "text": "One more thing the photo upload Q needs a cap two hundred photos or one and a half gigabytes per device oldest first with a banner at the cap"
+ },
+ {
+  "end": 72.94327709197998,
+  "id": "05FE696A-8872-4D16-BD6A-FF420916C156",
+  "source": "system",
+  "speaker": "system:speaker-1",
+  "start": 69.02327709197998,
+  "text": "agreed and Android parody lands in two point five, not two point four"
+ }
+]

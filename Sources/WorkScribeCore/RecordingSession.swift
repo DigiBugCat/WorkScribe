@@ -1,6 +1,6 @@
 import Foundation
 
-/// Each capture owns fresh files and a speaker namespace. Times remain on the original meeting clock.
+/// Each capture owns a fresh speaker namespace. Times remain on the original meeting clock.
 public struct RecordingSession: Codable, Equatable, Sendable {
     public var id: String
     public var start: Double
@@ -8,6 +8,7 @@ public struct RecordingSession: Codable, Equatable, Sendable {
     public var sourceOffsets: [String: Double]
     public var screen: ScreenCaptureInfo?
     public var prefix: String { id == "initial" ? "" : "recordings/\(id)/" }
+    /// Legacy recording/import lookup only. Live capture never creates these files.
     public func audioFile(_ source: String) -> String { prefix + source + ".wav" }
     public var videoFile: String { prefix + "screen.mov" }
     public init(id: String = UUID().uuidString, start: Double, end: Double? = nil,
@@ -32,6 +33,7 @@ extension Meeting {
         recordingSessions!.append(RecordingSession(start: now.timeIntervalSince(startedAt)))
         endedAt = nil; purgeAt = nil; retention = "live"; status = "recording"; failure = nil
         partials = [:]; partialSpeakers = [:]; partialIDs = [:]
+        for i in (notes ?? []).indices { notes![i].line.resume() }
     }
     public enum ResumeError: Error { case unavailable }
     public func audioLocation(for segment: Segment) -> (file: String, offset: Double)? {

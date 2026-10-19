@@ -160,15 +160,24 @@ public struct VaultIndexer: Sendable {
         let fingerprint = try FolderIndexer.fingerprint(url)
         if let existing = try index.source(ref: url.path), existing.fingerprint == fingerprint,
            embedder == nil || existing.modelID == embedder?.modelID { return .unchanged }
-        var chunks = try await FolderIndexer(index: index, embedder: embedder, extractor: extractor, gate: gate).read(url, kind: .image)
-        if chunks.isEmpty { chunks = [Chunk(kind: .image, modality: .text, text: url.deletingPathExtension().lastPathComponent, thumbnail: url.path)] }
-        try index.replace(kind: .vault, ref: url.path, root: vault.path, title: url.lastPathComponent, fingerprint: fingerprint,
-                          modelID: embedder?.modelID, meta: ["path": VaultRules.relative(url, to: vault), "vault": vault.lastPathComponent], chunks: chunks)
+        let source = SourceID(.vault, url.path)
+        var passages = try await FolderIndexer(index: index, embedder: embedder, extractor: extractor, gate: gate).read(url, kind: .image)
+        for i in passages.indices { passages[i].source = source }
+        if passages.isEmpty { passages = [Passage(text: url.deletingPathExtension().lastPathComponent, source: source, anchor: "image", kind: .image, thumbnail: url.path)] }
+        var revision = SourceRevision(source: source, passages: passages, title: url.lastPathComponent,
+                                      root: vault.path, fingerprint: fingerprint)
+        revision.metadata = ["path": VaultRules.relative(url, to: vault), "vault": vault.lastPathComponent]
+        _ = try index.apply(revision)
+        if let embedder {
+            try await index.embedMissing(source, using: embedder, gate: gate)
+            try await index.embedImages(source, using: embedder, gate: gate)
+        }
         return .indexed
     }
 
     @discardableResult
     public func index(_ url: URL, vault: URL, resolver: EmbedResolver) async throws -> FolderIndexer.Outcome {
+        if let embedder { try index.adopt(modelID: embedder.modelID) }
         if VaultRules.isImage(VaultRules.relative(url, to: vault)) { return try await indexImage(url, vault: vault) }
         let ref = url.path
         let data = try Data(contentsOf: url)
@@ -205,46 +214,41 @@ public struct VaultIndexer: Sendable {
             meta["meeting_id"] = meeting
         }
 
-        let kind: ChunkKind = clip == nil ? .document : .clip
-        var texts: [String] = []
-        if let clip, !clip.highlights.isEmpty { texts.append("Highlights: " + clip.highlights.joined(separator: " · ")) }
-        for section in document.sections {
-            let body = [section.heading, section.text].compactMap { $0?.isEmpty == false ? $0 : nil }.joined(separator: "\n")
-            texts.append(contentsOf: TextChunker.chunks(body))
+        let source = SourceID(clip == nil ? .vault : .clip, ref)
+        var passages = MarkdownSource.passages(raw, title: title, source: source)
+        if let clip, !clip.highlights.isEmpty {
+            passages.append(Passage(text: clip.highlights.joined(separator: " · "), source: source,
+                                    anchor: "highlights", context: title, kind: .clip))
         }
-        // Embedded notes, one level: their own embeds are not followed.
+        // Embedded notes have their own heading/block anchors within this source.
         var embedded = Set<String>()
         for embed in document.embeds {
             guard let target = resolver.resolve(embed.target, from: relative), target.path != url.path,
                   embedded.insert(target.path).inserted,
                   let text = try? String(contentsOf: target, encoding: .utf8) else { continue }
-            let plain = VaultDocument.parse(text).plainText
-            guard !plain.isEmpty else { continue }
-            texts.append(contentsOf: TextChunker.chunks("Embedded \(embed.display):\n" + String(plain.prefix(embedLimit))))
-        }
-        var chunks = texts.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            .map { Chunk(kind: kind, modality: .text, text: $0) }
-        if chunks.isEmpty { chunks = [Chunk(kind: kind, modality: .text, text: title)] }
-        if let embedder {
-            let rows = chunks.indices.filter { chunks[$0].text.map(SearchText.hasWords) ?? false }
-            for batch in stride(from: 0, to: rows.count, by: 32) {
-                await gate()
-                try Task.checkCancellation()
-                let part = Array(rows[batch..<min(batch + 32, rows.count)])
-                let vectors = try await embedder.texts(part.map { chunks[$0].text ?? "" }, role: .document(title: title))
-                for (row, vector) in zip(part, vectors) { chunks[row].vector = VectorMath.normalized(vector) }
-            }
+            passages += MarkdownSource.passages(String(text.prefix(embedLimit)), title: title + " > Embedded " + embed.display, source: source)
+                .map { var p = $0; p.anchor = target.path + ":" + p.anchor; return p }
         }
         for image in imageURLs {
             guard NoteImageContent.resolve(.init(target:image.lastPathComponent,path:image.path),note:url,vault:vault) != nil else { continue }
             await gate(); try Task.checkCancellation()
             let evidence = (try? await extractor.passages(of:image,kind:.image).passages.map(\.text).joined(separator:"\n")) ?? ""
-            let vector = embedder?.supportsImages == true ? try? await embedder?.image(image) : nil
-            chunks.append(Chunk(kind:.image,modality:vector == nil ? .text : .image,
-                                text:"Image in \(title): \(image.lastPathComponent)\n" + evidence, vector:vector ?? nil,thumbnail:image.path))
+            let anchor = image.path + ":" + (try FolderIndexer.contentHash(image))
+            passages.append(Passage(text: "Image in \(title): \(image.lastPathComponent)\n" + evidence,
+                                    source: source, anchor: anchor + ":ocr", kind: .image, thumbnail: image.path))
+            if embedder?.supportsImages == true {
+                passages.append(Passage(text: image.lastPathComponent, source: source, anchor: anchor + ":visual",
+                                        kind: .image, modality: .image, thumbnail: image.path))
+            }
         }
-        try index.replace(kind: .vault, ref: ref, root: vault.path, title: title, fingerprint: fingerprint, contentHash: hash,
-                          modelID: embedder?.modelID, meta: meta, chunks: chunks)
+        var revision = SourceRevision(source: source, passages: passages, title: title, root: vault.path,
+                                      fingerprint: fingerprint, contentHash: hash)
+        revision.metadata = meta
+        _ = try index.apply(revision)
+        if let embedder {
+            try await index.embedMissing(source, using: embedder, gate: gate)
+            try await index.embedImages(source, using: embedder, gate: gate)
+        }
         return .indexed
     }
 }

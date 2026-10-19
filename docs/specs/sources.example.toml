@@ -140,11 +140,11 @@ reason = "Halvorsen's contract doesn't allow recordings."
 [models]
 note_lines = ["local"]
 titles = ["local"]
-answers = ["openai", "local"]  # the first available; falls back before any text is written
+answers = ["local", "apple"]  # the first available on this Mac; nothing leaves it
 embeddings = ["local"]
 
 [models.providers.ollama]
-kind = "openai-compatible"
+kind = "loopback-http"   # host must be 127.0.0.1 or ::1
 base_url = "http://127.0.0.1:11434/v1"
 model = "qwen3.5:7b"
 location = "on-device"

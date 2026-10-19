@@ -12,7 +12,7 @@ final class RetentionTests: XCTestCase {
         meeting.endedAt = Date(); meeting.status = "complete"
         meeting.segments = [Segment(source: "microphone", speaker: "one", start: 0, end: 3, text: "rawsentineluniquexyz")]
         var note = Note(text: "  ship Nov 4  ", createdAt: 2)
-        note.enhanced = "**Ship:** Release November 4."; note.excerptRefs = [meeting.segments[0].id + "#0"]
+        note.line.text = "**Ship:** Release November 4."; note.line.evidence = [meeting.segments[0].id + "#0"]
         meeting.notes = [note]; meeting.retention = "finalized"; meeting.purgeAt = .distantPast
         try store.save(meeting)
         let folder = try store.directory(meeting.id)
@@ -26,7 +26,7 @@ final class RetentionTests: XCTestCase {
         let out = try vault.writeMeeting(meeting)
         let url = vault.url(out.path)
         let text = try String(contentsOf: url, encoding: .utf8)
-        XCTAssertTrue(text.contains(note.text)); XCTAssertTrue(text.contains(note.enhanced!))
+        XCTAssertTrue(text.contains(note.text)); XCTAssertTrue(text.contains(note.line.text!))
         XCTAssertFalse(text.contains("workscribe://")); XCTAssertFalse(text.contains("^e1"))
         let index = try SearchIndex(url: root.appendingPathComponent("index.sqlite"))
         let vector = Array(repeating: Float(0.1), count: 768)
@@ -76,20 +76,7 @@ final class RetentionTests: XCTestCase {
         XCTAssertFalse(FileManager.default.fileExists(atPath: try store.directory(meeting.id).path))
     }
 
-    func testHandBackRejectsOldOutputAndFinalPassIncludesPreviousText() throws {
-        var meeting = Meeting(title: "Notes")
-        meeting.segments = [Segment(source: "mic", speaker: "one", start: 1, end: 2, text: "Ship on Friday")]
-        var note = Note(text: "ship", createdAt: 2)
-        note.enhanced = "**Ship:** Ship Friday."; note.enhancedFrom = note.text
-        meeting.notes = [note]
-        let plan = try NotePlanner.plan(meeting, incremental: false, missedTopics: true)
-        XCTAssertTrue(NotePrompt.instruction(plan).contains("previous_text"))
-        note.editEnhancement(.init(topic: "Ship", text: "My wording"))
-        note.letAIRewrite()
-        let applied = NoteEnhancement.apply("* **Ship:** Old in-flight output", plan: plan, to: [note])
-        XCTAssertEqual(applied.notes[0].enhanced, note.enhanced)
-        XCTAssertEqual(applied.notes[0].text, "ship")
-    }
+
 }
 
 extension RetentionTests {

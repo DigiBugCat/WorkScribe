@@ -49,7 +49,7 @@ Each moment has one act of care and a failure path.
 1. **Before (09:58).** Four minutes out, the tally grows a small dot and one notification offers the note, which already exists with the calendar title and attendees as links. Prep lines you write get AI lines too: "Don't agree to Oct 28 until Marcus has sized the migration" is answered by the meeting. Opening the note never starts recording. *Fails:* without calendar access there's no nudge; the call starting still starts recording, with a soft tick so you know it heard.
 2. **The first ten seconds (10:02).** The tally's red dot swells once and holds still. The note gains a pill, "● 0:03 · Mic + system · Stop", and the cursor waits on the first empty bullet. At ten seconds WorkScribe checks both channels and, if only your mic is coming through, says so by name: "Priya and Marcus won't be in the transcript." *Fails:* a denied mic permission turns the tally amber (never red) and the pill offers Open Settings, straight to Privacy & Security › Microphone.
 3. **Typing.** Pencil lines appear under lines you've left, never under the one you're typing. When a pencil line above the cursor grows, the editor scrolls by the same amount so your line doesn't move. *Fails:* if Obsidian quits mid-meeting, recording continues; reopening says "Caught up on 6 minutes".
-4. **A question (10:21).** Priya asks what the Halvorsen contract commits them to. The panel doesn't switch tabs; Live Q&A gets a count; the answer waits with sources and the model that made it. Questions asked of you by name are marked "Asked of you" and sorted first. *Fails:* with the cloud down it answers on this Mac and says so; if nothing answers, "Nothing in your notes or files answers this", never a guess.
+4. **A question (10:21).** Priya asks what the Halvorsen contract commits them to. The panel doesn't switch tabs; Live Q&A gets a count; the answer waits with sources and the model that made it. Questions asked of you by name are marked "Asked of you" and sorted first. *Fails:* if nothing answers, "Nothing in your notes or files answers this", never a guess.
 5. **A line rewrites (10:27).** Only changed words move; new words arrive darker and dry to pencil grey. A rewrite that only rephrases is dropped. *Fails:* with no model available, lines freeze under one header note, "AI lines paused · your notes are saving".
 6. **Stop (10:34).** Instant, from the pill, the menu bar or ⌥⌘R. The final pass reads the whole call and sweeps down the note in reading order while you keep typing; "android?" finally gets an answer and "pricing for the beta?" is marked Not discussed. *Fails:* stopped by mistake, "Resume" stays in the pill for ten minutes.
 7. **Finalize (10:35).** A bar says exactly what will be written and that your edits stay. Press it and pencil becomes ink in reading order, 45 ms per line, as one editor transaction: one ⌘Z puts it all back. *Fails:* if the file changed underneath (Sync, another device), Finalize writes beside it as "… (WorkScribe).md" and says where.
@@ -150,7 +150,7 @@ Sixty-four details. ★ marks the ten to build first: together they decide wheth
 
 31. ★ A detected question never takes focus or switches the panel's tab; Live Q&A gets a count, and that's all.
 32. Questions asked of you by name are marked "Asked of you" and sorted first.
-33. Every answer says where it was made: "GPT-5 mini" or "On this Mac".
+33. Every answer says which on-device model made it: "Qwen 3.5 · on this Mac". Nothing leaves the Mac.
 34. When nothing answers a question, the card says "Nothing in your notes or files answers this" instead of guessing.
 35. "Add to note" inserts the answer under your cursor as your line, with the asker's name and the source.
 36. Ask cites notes for past meetings, never transcripts that have faded.
@@ -193,7 +193,7 @@ Sixty-four details. ★ marks the ten to build first: together they decide wheth
 **When things fail**
 
 60. If Obsidian quits mid-meeting, recording continues, and reopening the note says "Caught up on 6 minutes".
-61. When the cloud model is unreachable, answers fall back to this Mac and say so; AI lines carry on, slower, without a banner.
+61. When the Mac is busy, answers and AI lines wait for the on-device model and carry on, slower, without a banner.
 62. If no model is available, AI lines freeze under one header note, "AI lines paused · your notes are saving"; nothing turns red.
 63. If the note changed under WorkScribe, Finalize writes beside it rather than merging blind, and says where.
 64. If a deletion fails, the pill says "Couldn't delete 1 file yet. Trying again in a minute." and it retries until done.

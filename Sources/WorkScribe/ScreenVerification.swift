@@ -2,7 +2,7 @@ import AppKit
 import Foundation
 import WorkScribeCore
 
-/// `WorkScribe --verify-screen <seconds>`: reads a rendered test slide (no permission needed), then records the screen
+/// `WorkScribe --verify-screen <seconds>`: reads a rendered test slide (no permission needed), then reads the screen
 /// for `seconds` into a throwaway meeting, prints its moments as JSON, and deletes everything it wrote.
 enum ScreenVerification {
     @MainActor
@@ -40,7 +40,11 @@ enum ScreenVerification {
             let folder = try store.directory(meeting.id)
             let video = folder.appendingPathComponent(ScreenFiles.video)
             let thumbnails = (try? FileManager.default.contentsOfDirectory(atPath: folder.appendingPathComponent(ScreenFiles.thumbnails).path)) ?? []
+            let media = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)!.compactMap { $0 as? URL }
+                .filter { ["wav", "pcm", "mov", "mp4", "jpg", "png"].contains($0.pathExtension.lowercased()) }
+            guard media.isEmpty else { throw CaptureError.message("Screen capture persisted media") }
             report["capture"] = [
+                "recorded_media_files": media.map(\.path),
                 "state": result.info.state, "failure": result.info.failure as Any? ?? NSNull(),
                 "video_offset_seconds": result.info.offset as Any? ?? NSNull(),
                 "video_bytes": (try? FileManager.default.attributesOfItem(atPath: video.path)[.size] as? Int) ?? 0,

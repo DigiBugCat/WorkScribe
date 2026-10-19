@@ -1,13 +1,6 @@
 import CommonCrypto
 import Foundation
 
-/// A passage of a file: a PDF page, a stretch of a document, an image's recognized text.
-public struct Passage: Sendable, Equatable {
-    public var text: String
-    public var page: Int?
-    public init(text: String, page: Int? = nil) { self.text = text; self.page = page }
-}
-
 /// A 16 kHz mono window of a recording (≤ 10 s), with its place in the file.
 public struct AudioWindow: Sendable {
     public var start: Double
@@ -32,8 +25,12 @@ public struct PlainTextExtractor: FileExtracting {
         guard ["txt", "text", "md", "markdown", "html", "htm"].contains(ext) else { throw FolderIndexer.Skip.unsupported(ext) }
         var encoding = String.Encoding.utf8
         let raw = try (try? String(contentsOf: url, usedEncoding: &encoding)) ?? String(contentsOf: url, encoding: .isoLatin1)
-        let text = ext.hasPrefix("htm") ? TextChunker.plainText(fromHTML: raw) : raw
-        return (nil, TextChunker.chunks(text).map { Passage(text: $0) })
+        let text = ext.hasPrefix("htm") ? TextExtraction.plainText(fromHTML: raw) : raw
+        let passages = ["md", "markdown"].contains(ext)
+            ? MarkdownSource.passages(text, title: url.deletingPathExtension().lastPathComponent, source: SourceID(.folder, url.path))
+            : text.components(separatedBy: "\n\n").map { Passage(text: $0) }
+        return (nil, passages)
+
     }
     public func audioWindows(of url: URL, _ body: (AudioWindow) async throws -> Void) async throws {
         throw FolderIndexer.Skip.unsupported(url.pathExtension)
@@ -98,8 +95,11 @@ public struct FolderIndexer: Sendable {
     public enum Outcome: Sendable { case indexed, refreshed, unchanged, skipped }
 
     public static func fingerprint(_ url: URL) throws -> String {
-        let values = try url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
-        return "f1:\(values.fileSize ?? 0):\(Int64(((values.contentModificationDate?.timeIntervalSince1970) ?? 0) * 1000))"
+        // URL resource values can stay cached across an edit through the same URL instance.
+        let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+        let size = (attributes[.size] as? NSNumber)?.int64Value ?? 0
+        let modified = (attributes[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
+        return "f1:\(size):\(Int64(modified * 1000))"
     }
 
     /// SHA-256 of the file, streamed.
@@ -118,6 +118,7 @@ public struct FolderIndexer: Sendable {
 
     @discardableResult
     public func index(_ url: URL, kind: ChunkKind, root: String) async throws -> Outcome {
+        if let embedder { try index.adopt(modelID: embedder.modelID) }
         let ref = url.path
         let fingerprint = try Self.fingerprint(url)
         let existing = try index.source(ref: ref)
@@ -133,10 +134,15 @@ public struct FolderIndexer: Sendable {
         }
         let title = url.lastPathComponent
         do {
-            let chunks = try await read(url, kind: kind)
-            guard !chunks.isEmpty else { throw Skip.empty }
-            try index.replace(kind: .file, ref: ref, root: root, title: title, fingerprint: fingerprint, contentHash: hash,
-                              modelID: embedder?.modelID, chunks: chunks)
+            let passages = try await read(url, kind: kind)
+            guard !passages.isEmpty else { throw Skip.empty }
+            let revision = SourceRevision(source: SourceID(.folder, ref), passages: passages, title: title,
+                                          root: root, fingerprint: fingerprint, contentHash: hash)
+            _ = try index.apply(revision)
+            if let embedder {
+                try await index.embedMissing(revision.source, using: embedder, gate: gate)
+                try await index.embedImages(revision.source, using: embedder, gate: gate)
+            }
             return .indexed
         } catch let skip as Skip {
             // Remembered, so an unreadable file isn't retried until it changes.
@@ -146,48 +152,36 @@ public struct FolderIndexer: Sendable {
         }
     }
 
-    func read(_ url: URL, kind: ChunkKind) async throws -> [Chunk] {
+    func read(_ url: URL, kind: ChunkKind) async throws -> [Passage] {
+        let source = SourceID(.folder, url.path)
         switch kind {
         case .document, .image:
-            let (_, passages) = try await extractor.passages(of: url, kind: kind)
-            var chunks = passages.filter { !$0.text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }.map {
-                Chunk(kind: kind, modality: .text, page: $0.page, text: $0.text)
+            let (_, extracted) = try await extractor.passages(of: url, kind: kind)
+            var passages = extracted.enumerated().map { ordinal, passage in
+                var p = passage; p.source = source; p.kind = kind
+                if p.anchor.isEmpty { p.anchor = "page:\(p.page ?? 0)#\(ordinal)" }
+                if p.context == nil { p.context = url.deletingPathExtension().lastPathComponent }
+                return p
             }
-            if let embedder {
-                let rows = chunks.indices.filter { chunks[$0].text.map(SearchText.hasWords) ?? false }
-                for batch in stride(from: 0, to: rows.count, by: 32) {
-                    await gate()
-                    try Task.checkCancellation()
-                    let part = Array(rows[batch..<min(batch + 32, rows.count)])
-                    let vectors = try await embedder.texts(part.map { chunks[$0].text ?? "" },
-                                                           role: .document(title: url.deletingPathExtension().lastPathComponent))
-                    for (row, vector) in zip(part, vectors) { chunks[row].vector = VectorMath.normalized(vector) }
-                }
+            if kind == .image, embedder?.supportsImages == true {
+                passages.append(Passage(text: url.deletingPathExtension().lastPathComponent, source: source,
+                                        anchor: "image:" + (try Self.contentHash(url)), kind: .image,
+                                        modality: .image, thumbnail: url.path))
             }
-            if kind == .image, let embedder, embedder.supportsImages {
-                await gate(); try Task.checkCancellation()
-                if let vector = try? await embedder.image(url) {
-                    chunks.append(Chunk(kind: .image, modality: .image, text: url.deletingPathExtension().lastPathComponent,
-                                        vector: VectorMath.normalized(vector), thumbnail: url.path))
-                }
-            }
-            return chunks
+            return passages
         case .audio, .video:
-            // A recording without the audio model is indexed by name only, and re-read once the model is there.
             guard let embedder, embedder.supportsAudio else { throw Skip.noAudioModel }
-            var chunks: [Chunk] = []
+            var passages: [Passage] = []
             try await extractor.audioWindows(of: url) { window in
                 guard window.start < maximumAudioSeconds else { throw Skip.tooLarge }
-                guard TextChunker.rms(window.samples[...]) > TextChunker.silenceRMS else { return }
-                await gate()
-                try Task.checkCancellation()
+                guard TextExtraction.rms(window.samples[...]) > TextExtraction.silenceRMS else { return }
+                await gate(); try Task.checkCancellation()
                 let vector = try await embedder.audio(window.samples)
-                chunks.append(Chunk(kind: kind, modality: .audio, start: window.start, end: window.end,
-                                    vector: VectorMath.normalized(vector)))
+                passages.append(Passage(text: "", source: source, anchor: "audio:\(window.start)",
+                                        start: window.start, end: window.end, kind: kind, modality: .audio, vector: vector))
             }
-            return chunks
-        case .meetingSegment, .screen, .clip:
-            return []
+            return passages
+        case .meetingSegment, .screen, .clip: return []
         }
     }
 }

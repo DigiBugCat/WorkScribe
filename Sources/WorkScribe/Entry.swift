@@ -11,40 +11,16 @@ import Carbon.HIToolbox
 @main
 enum Entry {
     @MainActor static func main() async {
-        if let index = CommandLine.arguments.firstIndex(of: "--verify-batch-window"), index + 1 < CommandLine.arguments.count {
-            func number(_ key: String, _ fallback: Double) -> Double {
-                guard let i = CommandLine.arguments.firstIndex(of: key), i + 1 < CommandLine.arguments.count else { return fallback }
-                return Double(CommandLine.arguments[i + 1]) ?? fallback
+        if let index = CommandLine.arguments.firstIndex(of: "--replay-transcript"), index + 1 < CommandLine.arguments.count,
+           let mic = CommandLine.arguments.firstIndex(of: "--microphone"), mic + 1 < CommandLine.arguments.count {
+            // Both tracks of one recording: system first, then the microphone on the same clock.
+            func offset(_ key: String) -> Double? {
+                guard let i = CommandLine.arguments.firstIndex(of: key), i + 1 < CommandLine.arguments.count else { return nil }
+                return Double(CommandLine.arguments[i + 1])
             }
-            do { try await TranscriptReplay.batchWindow(path: CommandLine.arguments[index + 1], start: number("--start", 0), duration: number("--duration", 60)) }
-            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
-            return
-        }
-        if let index = CommandLine.arguments.firstIndex(of: "--verify-batch-audio"), index + 1 < CommandLine.arguments.count {
-            let runtime = SpeechRuntime()
             do {
-                let words = try await NativeBatchTranscriber(runtime: runtime).transcribe(url: URL(fileURLWithPath: CommandLine.arguments[index + 1]), offset: 0) { _ in }
-                let result: [String: Any] = ["text": words.map(\.text).joined(separator: " "),
-                    "words": words.map { ["word": $0.text, "start": $0.start, "end": $0.end] as [String: Any] }]
-                FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys]))
-                await runtime.stop()
-            } catch { await runtime.stop(); FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
-            return
-        }
-        if let index = CommandLine.arguments.firstIndex(of: "--polish-transcript"), index + 1 < CommandLine.arguments.count {
-            let input = URL(fileURLWithPath: CommandLine.arguments[index + 1])
-            let root = FileManager.default.temporaryDirectory.appendingPathComponent("ws-polish-" + UUID().uuidString)
-            defer { try? FileManager.default.removeItem(at: root) }
-            do {
-                let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
-                let original = try decoder.decode(Meeting.self, from: Data(contentsOf: input))
-                let model = AppModel(store: MeetingStore(root: root))
-                model.meeting = original
-                try await model.polishTranscript(original.id, audioFolder: input.deletingLastPathComponent())
-                guard model.meeting?.transcriptPolishedForEnd != nil else { throw CaptureError.message("No saved audio to polish") }
-                let encoder = JSONEncoder(); encoder.dateEncodingStrategy = .iso8601; encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                FileHandle.standardOutput.write(try encoder.encode(model.meeting))
-                await model.runtime.stop()
+                try await TranscriptReplay.pair(system: CommandLine.arguments[index + 1], microphone: CommandLine.arguments[mic + 1],
+                                                offsets: ["system": offset("--system-offset") ?? 0, "microphone": offset("--microphone-offset") ?? 0])
             } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
             return
         }
@@ -52,6 +28,18 @@ enum Entry {
             let paceIndex = CommandLine.arguments.firstIndex(of: "--pace")
             let pace = paceIndex.flatMap { $0 + 1 < CommandLine.arguments.count ? Double(CommandLine.arguments[$0 + 1]) : nil } ?? 1
             do { try await TranscriptReplay.run(path: CommandLine.arguments[index + 1], pace: pace) }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+            return
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--replay-caption-trace"), index + 1 < CommandLine.arguments.count {
+            ZoomCaptions.replay(trace: URL(fileURLWithPath: CommandLine.arguments[index + 1])); exit(0)
+        }
+        if let index = CommandLine.arguments.firstIndex(of: "--probe-zoom-captions"), index + 2 < CommandLine.arguments.count {
+            await ZoomCaptions.probe(seconds: Double(CommandLine.arguments[index + 1]) ?? 60, output: URL(fileURLWithPath: CommandLine.arguments[index + 2]))
+            exit(0)
+        }
+        if CommandLine.arguments.contains("--replay") {
+            do { try await Replay.cli(CommandLine.arguments) }
             catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
             return
         }
@@ -186,44 +174,13 @@ enum Entry {
                     guard let index = CommandLine.arguments.firstIndex(of: key), index + 1 < CommandLine.arguments.count else { return nil }
                     return CommandLine.arguments[index + 1]
                 }
-                let selected = argument("--title-model").flatMap(TitleModel.init(rawValue:)) ?? .bundled
+                if let name = argument("--title-model"), GeneratorModel(rawValue: name) == nil {
+                    throw CaptureError.message("Only the bundled Gemma 4 E4B model is supported")
+                }
+                let selected = GeneratorModel.bundled
                 let result = try await TitleGenerator().generate(transcript: CommandLine.arguments[index + 1], model: selected, modelPath: argument("--model-path"))
                 let data = try JSONSerialization.data(withJSONObject: ["title": result, "seconds": Date().timeIntervalSince(started)])
                 FileHandle.standardOutput.write(data)
-            } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
-        }
-        else if let index = CommandLine.arguments.firstIndex(of: "--verify-notes"), index + 1 < CommandLine.arguments.count {
-            // Enhances the notes in a transcript.json with the bundled (or given) model; prints notes, missed topics and raw output.
-            do {
-                func argument(_ key: String) -> String? {
-                    guard let index = CommandLine.arguments.firstIndex(of: key), index + 1 < CommandLine.arguments.count else { return nil }
-                    return CommandLine.arguments[index + 1]
-                }
-                let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
-                let meeting = try decoder.decode(Meeting.self, from: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[index + 1])))
-                let selected = argument("--title-model").flatMap(TitleModel.init(rawValue:)) ?? .bundled
-                let started = Date()
-                let generator: (any AnswerGenerator)?
-                if argument("--note-provider") == "apple" {
-                    guard let apple = AnswerGenerators.appleIntelligence(), apple.isAvailable else { throw CaptureError.message("Apple Intelligence is unavailable") }
-                    generator = apple
-                } else if argument("--note-provider") == "cloud" {
-                    guard CloudSettings.useCloud, let key = CloudSettings.apiKey() else { throw CaptureError.message("Cloud notes require the enabled cloud setting and a configured key") }
-                    generator = OpenAIResponsesGenerator(credential: StoredAPIKey(key: key), model: CloudSettings.model)
-                } else { generator = nil }
-                let prepared: NoteDraft?
-                if argument("--note-provider") == "local-final" {
-                    prepared = NoteEnhancer.extractive(NoteDraft(plan: try NotePlanner.finalPlan(meeting), output: ""), meeting: meeting)
-                } else {
-                    prepared = try await NoteEnhancer(generator: generator).enhance(meeting, incremental: CommandLine.arguments.contains("--incremental"),
-                        missedTopics: true, model: selected, modelPath: argument("--model-path"))
-                }
-                guard let draft = prepared else { FileHandle.standardOutput.write(Data("{\"skipped\": true}".utf8)); return }
-                let result = NoteEnhancement.apply(draft.output, plan: draft.plan, to: meeting.notes ?? [])
-                let value: [String: Any] = ["seconds": Date().timeIntervalSince(started), "prompt": NotePrompt.instruction(draft.plan), "output": draft.output,
-                    "notes": result.notes.map { ["text": $0.text, "enhanced": $0.enhanced ?? "", "refs": $0.excerptRefs ?? []] },
-                    "missed": (result.missed ?? []).map { ["topic": $0.topic, "text": $0.text, "refs": $0.excerptRefs] }]
-                FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: value, options: [.prettyPrinted, .sortedKeys]))
             } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
         }
         else {
@@ -260,7 +217,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private lazy var api = LocalAPI(model: model, ask: ask)
     private lazy var quickAsk = QuickAskController(ask: ask, model: model)
     private var quickAskHotKey: GlobalHotKey?
-    private var cloudWindow: NSWindow?
     private var observers: [NSObjectProtocol] = []
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -304,9 +260,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         observers.append(center.addObserver(forName: .workScribeShowQuickAsk, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.popover.performClose(nil); self?.quickAsk.show() }
         })
-        observers.append(center.addObserver(forName: .workScribeShowCloudSettings, object: nil, queue: .main) { [weak self] _ in
-            MainActor.assumeIsolated { self?.showCloudSettings() }
-        })
         phaseObservation = Publishers.CombineLatest4(model.$phase, model.$speechReady, model.$screenAccess, model.$includeSystemAudio)
             .receive(on: RunLoop.main)
             .sink { [weak self] _, _, _, _ in DispatchQueue.main.async { self?.refreshStatusItem() } }
@@ -341,7 +294,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         Task { [weak self, store = model.store] in
             let service = await Task.detached(priority: .utility) { IndexService.make(store: store) }.value
             guard let self else { return }
-            if let service { self.search = SearchHookup(model: model, service: service) }
+            if let service {
+                model.lineIndex = await service.evidenceIndex()
+                self.search = SearchHookup(model: model, service: service)
+                Enrich.embedderSource = { [weak service] in await service?.queryEmbedder ?? Enrich.standaloneEmbedder }
+                NoteEnhancementScheduler.shared.enhancer = Enrich(indexSource: { [weak service] in await service?.evidenceIndex() })
+            }
             self.vault = VaultHookup(model: model, index: service)
             self.ask.index = service
             let retention = MeetingRetention(model: model, ask: ask, vault: self.vault!.store, index: service)
@@ -367,21 +325,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private func openLink(_ link: WorkScribeLink) {
         model.open(link)
         if case .meeting = link { showTranscriptWindow() }
-    }
-    private func showCloudSettings() {
-        popover.performClose(nil)
-        if cloudWindow == nil {
-            let view = CloudSettingsView { [weak self] in
-                guard let self else { return }
-                ask.setGenerator(AnswerGenerators.preferred())
-                cloudWindow?.performClose(nil)
-            }
-            let window = NSWindow(contentViewController: NSHostingController(rootView: view))
-            window.title = "Answers"; window.styleMask = [.titled, .closable]; window.isReleasedWhenClosed = false
-            window.center(); cloudWindow = window
-        }
-        cloudWindow?.makeKeyAndOrderFront(nil)
-        NSApplication.shared.activate(ignoringOtherApps: true)
     }
     /// workscribe:// links from MCP clients, notes and search results.
     func application(_ application: NSApplication, open urls: [URL]) {
@@ -498,14 +441,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         #else
         let deviceBusy = false
         #endif
-        return recordingQuit.request(phase: model.phase, blocked: deviceBusy, confirm: {
-            let alert = NSAlert()
-            alert.messageText = "Stop and save ‘\(model.meeting?.title ?? "this recording")’, then quit?"
-            alert.informativeText = "Your recording and notes will be saved on this Mac."
-            alert.addButton(withTitle: "Stop and save…")
-            alert.addButton(withTitle: "Keep recording")
-            return alert.runModal() == .alertFirstButtonReturn
-        }, save: { [self] in
+        return recordingQuit.request(phase: model.phase, blocked: deviceBusy, save: { [self] in
             await model.prepareToQuit()
         }, complete: { [self] in
             // Keep API, vault and capture ownership intact until the save has settled.

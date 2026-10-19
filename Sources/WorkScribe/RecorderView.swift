@@ -66,7 +66,7 @@ struct RecorderView: View {
             get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) { if let entry = pendingDelete { model.deleteRecording(id: entry.id) }; pendingDelete = nil }
             Button("Cancel", role: .cancel) { pendingDelete = nil }
-        } message: { Text("Its audio and transcript go to the Trash, where you can still restore them.") }
+        } message: { Text("Its transcript and supporting material go to the Trash, where you can still restore them.") }
     }
 
     /// Undo for speaker-name changes, shown for a few seconds after each one.
@@ -235,8 +235,22 @@ struct RecorderView: View {
             .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 6)
 
             if model.phase == "recording" {
-                LevelMeters(levels: model.levels, systemBlocked: model.systemAudioBlocked, systemOff: !model.includeSystemAudio)
+                LevelMeters(levels: model.levels, systemBlocked: model.systemAudioBlocked, systemOff: !model.includeSystemAudio,
+                            micIssue: model.microphoneIssue != nil, echoCancelling: model.echoCancelling)
                     .padding(.horizontal, 16).padding(.bottom, 8)
+            }
+            if let issue = model.microphoneIssue, model.phase == "recording" {
+                HStack(spacing: 8) {
+                    Image(systemName: "mic.slash").foregroundStyle(.orange)
+                    Text(issue + ". The other side is still being recorded.")
+                        .font(.caption).fixedSize(horizontal: false, vertical: true)
+                    Spacer(minLength: 4)
+                    Button("Sound settings…") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.Sound-Settings.extension") { NSWorkspace.shared.open(url) }
+                    }.controlSize(.small)
+                }
+                .padding(8).background(.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
+                .padding(.horizontal, 16).padding(.bottom, 8)
             }
             if model.systemAudioBlocked {
                 HStack(spacing: 8) {
@@ -460,7 +474,9 @@ private struct StatusHeader: View {
         switch model.phase {
         case "recording":
             let trigger = model.meeting?.recordingTrigger ?? "manual"
-            let source = model.systemAudioBlocked ? "Mic only, system audio blocked" : model.includeSystemAudio ? "Mic + system audio" : "Mic only"
+            let source = model.systemAudioBlocked ? "Mic only, system audio blocked"
+                : model.microphoneIssue != nil ? "Call audio only, mic unavailable"
+                : model.includeSystemAudio ? "Mic + system audio" : "Mic only"
             return trigger.hasPrefix("call:") ? "\(trigger.dropFirst(5)) call · started automatically · \(source)" : "\(source) · saved on this Mac"
         case "starting": return model.message
         case "finalizing": return model.message
@@ -475,6 +491,16 @@ private struct StatusHeader: View {
             Section("Recording") {
                 Toggle("Auto-record calls", isOn: $model.autoRecordCalls).disabled(model.busy)
                 Toggle("Include system audio", isOn: $model.includeSystemAudio).disabled(model.busy)
+                Picker("Transcript from", selection: $model.transcriptSource) {
+                    Text("This Mac’s audio").tag("recorder")
+                    Text("Zoom’s captions when they’re on").tag("auto")
+                    Text("Zoom’s captions only").tag("zoom-captions")
+                }.disabled(model.busy)
+                Toggle("Cancel speaker echo on the mic", isOn: Binding(
+                    get: { UserDefaults.standard.object(forKey: "echoCancellation") as? Bool ?? true },
+                    set: { UserDefaults.standard.set($0, forKey: "echoCancellation"); model.objectWillChange.send() }))
+                    .disabled(model.busy)
+                    .help("Apple voice processing removes the call playing through your speakers from the mic. Turn off only if your mic sounds wrong.")
                 Toggle("Capture the screen", isOn: $model.screenCaptureEnabled).disabled(model.busy)
                 if model.screenState.isCapturing {
                     Toggle("Pause screen capture", isOn: $model.screenCapturePaused)
@@ -487,7 +513,6 @@ private struct StatusHeader: View {
             if let vault = VaultHookup.shared { VaultSettingsSection(vault: vault) }
             Section("Ask") {
                 Button("Quick ask   ⌥⌘K") { NotificationCenter.default.post(name: .workScribeShowQuickAsk, object: nil) }
-                Button("Answers & cloud models…") { NotificationCenter.default.post(name: .workScribeShowCloudSettings, object: nil) }
             }
             #if WORKSCRIBE_PLAUD
             Section("Plaud Note Pro") {
@@ -505,7 +530,7 @@ private struct StatusHeader: View {
             Section("Status") {
                 Text(model.speechStatus)
                 Text(model.voiceStatus)
-                Text("NVIDIA speech + \(TitleModel.bundled.displayName) titles · entirely on this Mac")
+                Text("NVIDIA speech + \(GeneratorModel.bundled.displayName) titles · entirely on this Mac")
             }
         } label: { Image(systemName: "gearshape") }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
@@ -676,10 +701,17 @@ private struct LevelMeters: View {
     @ObservedObject var levels: LevelMonitor
     let systemBlocked: Bool
     let systemOff: Bool
+    var micIssue = false
+    var echoCancelling = false
 
     var body: some View {
         HStack(spacing: 14) {
-            meter("Mic", systemImage: "mic.fill", value: levels.microphone)
+            if micIssue {
+                Label("Mic unavailable", systemImage: "mic.slash").font(.caption2).foregroundStyle(.secondary)
+            } else {
+                meter("Mic", systemImage: "mic.fill", value: levels.microphone)
+                    .help(echoCancelling ? "Echo cancellation on: the call playing through your speakers is removed from the mic" : "")
+            }
             if systemBlocked || systemOff {
                 Label(systemBlocked ? "System blocked" : "System off", systemImage: "speaker.slash")
                     .font(.caption2).foregroundStyle(.secondary)

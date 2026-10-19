@@ -77,7 +77,7 @@ export interface Enhancement {
   text: string;
 }
 
-export type NoteState = "pending" | "enhancing" | "done" | "plain" | "paused";
+export type NoteState = LineState;
 
 export interface AITrace {
   sources?: {kind:string;title:string;text:string;link:string;thumbnail?:string;start?:number;end?:number}[];
@@ -95,6 +95,7 @@ export interface Note {
   enhanced?: Enhancement | null;
   userEdited?: boolean;
   state: NoteState;
+  line?: LineEvent;
   excerpts: Excerpt[];
   /** Set when the line came from a live answer ("Add to notes"). */
   fromAnswer?: { answerId: string; askedBy?: string; question: string } | null;
@@ -191,6 +192,8 @@ export interface Clip {
 }
 
 export type LiveEvent =
+  | SurfaceEvent
+  | { type: "status"; model: EngineStatus["model"]; paused?: string }
   | { type: "purged"; meetingId: string }
   | { type: "status"; status: Status }
   | { type: "segment"; meetingId: string; segment: Segment }
@@ -219,3 +222,40 @@ export interface AskRequest {
   conversationId?: string;
   attachments?: Attachment[];
 }
+
+/** Engine §2.8. Offsets are UTF-16; source times are meeting seconds. */
+export interface SurfaceSource {
+  kind: string;
+  title: string;
+  at?: number;
+  quote?: string;
+  speaker?: string;
+  segmentId?: string;
+  meetingId?: string;
+  path?: string;
+  link?: string;
+}
+export type LineState = 'listening' | 'found' | 'answered' | 'settled' | 'quiet' | 'yours';
+export interface LineEvent {
+  type: 'line'; documentId: string; blockId: string; state: LineState;
+  text?: string; revision: number; changed?: [number, number][];
+  sources: SurfaceSource[]; reason?: string;
+}
+export interface EngineStatus { model: 'ready' | 'loading' | 'missing'; paused?: string }
+export interface PinEvent {
+  type: 'pin'; documentId: string; blockId: string;
+  /** Zero-based: cell [row,column], line [line], task [], sentence [from,to]. */
+  anchor: { kind: 'cell' | 'line' | 'task' | 'sentence'; path: number[] };
+  sources: SurfaceSource[];
+}
+export interface CheckEvent {
+  type: 'check'; documentId: string; blockId: string;
+  /** Relative to the block's start. */
+  sentence: { from: number; to: number }; verdict: 'supported' | 'differs';
+  note?: string; sources: SurfaceSource[];
+}
+export interface PreviewEvent {
+  type: 'preview'; requestId: string; kind: 'diagram'; mermaid: string; sources: SurfaceSource[];
+}
+export interface MakeRequest { kind: 'diagram' }
+export type SurfaceEvent = LineEvent | PinEvent | CheckEvent | PreviewEvent;

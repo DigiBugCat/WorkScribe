@@ -41,7 +41,11 @@ extension AppModel {
         }
         screenRecorder = recorder
         do {
-            meeting?.screen = try await recorder.start(callBundleID: callBundleID)
+            // Await first, then write: `meeting?.screen = try await …` reads the whole meeting
+            // before the await and writes that stale copy back after it, erasing whatever the
+            // audio pumps recorded meanwhile (the microphone's clock offset, first segments).
+            let info = try await recorder.start(callBundleID: callBundleID)
+            meeting?.screen = info
             try? save()
         } catch {
             screenRecorder = nil

@@ -6,30 +6,6 @@
     "bytes": 5031510
   },
   {
-    "path": "models/Qwen3.5-2B-Q4_K_M.gguf",
-    "sha256": "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
-    "url": "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/f6d5376be1edb4d416d56da11e5397a961aca8ae/Qwen3.5-2B-Q4_K_M.gguf",
-    "bytes": 1280835840
-  },
-  {
-    "path": "models/gemma-4-E2B_q4_0-it.gguf",
-    "sha256": "fa401b55b07ee70a54c6dae3903c783a6e65064312529ea57175cb5f8dec6634",
-    "url": "https://huggingface.co/google/gemma-4-E2B-it-qat-q4_0-gguf/resolve/675cff42a74c774d6cb76f76d8eacb49b48c9b93/gemma-4-E2B_q4_0-it.gguf",
-    "bytes": 3349516256
-  },
-  {
-    "path": "models/vision/mmproj-gemma-4-E2B-it-Q8_0.gguf",
-    "sha256": "9406f99c16d68cda4f1f0552192dcc99021ea1fc6d2fd50b1dc3ccf30d04b292",
-    "url": "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/b4243c156154b6dca9324415f8c7ccc098b4aed1/mmproj-gemma-4-E2B-it-Q8_0.gguf",
-    "bytes": 557368064
-  },
-  {
-    "path": "models/vision/gemma-4-E2B-it-Q4_0.gguf",
-    "sha256": "8e30dff3ac4c8434c49a7036fa15564bdbb6044e42bf04550bf1a096ad7e6a52",
-    "url": "https://huggingface.co/ggml-org/gemma-4-E2B-it-GGUF/resolve/b4243c156154b6dca9324415f8c7ccc098b4aed1/gemma-4-E2B-it-Q4_0.gguf",
-    "bytes": 2841481184
-  },
-  {
     "path": "models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf",
     "sha256": "a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae",
     "url": "https://huggingface.co/nvidia/nemotron-3.5-asr-streaming-0.6b/resolve/1c8deaecc64b91f034d73e08dd8b64625eb3395d/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf",
@@ -148,5 +124,17 @@
     "sha256": "376afe7b51608637312cd15a0a89b1d7863f9779502aaf5f12fa6b14c4272d8d",
     "url": "https://huggingface.co/FluidInference/embeddinggemma-2-coreml/resolve/3f978ddf92cac9aa07eb2dcf6eb36cf450f3dba4/EmbeddingGemma2Vision.mlpackage/Manifest.json",
     "bytes": 617
+  },
+  {
+    "path": "models/gemma-4-E4B-it-Q4_0.gguf",
+    "sha256": "a555b900214b477d8880e7832e0b8925e139b0159640036b09fe472b6f2097f2",
+    "url": "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/b8093469224f83f5c38f691eb906c380e9e63114/gemma-4-E4B-it-Q4_0.gguf",
+    "bytes": 4590807392
+  },
+  {
+    "path": "models/vision/mmproj-gemma-4-E4B-it-Q8_0.gguf",
+    "sha256": "197f49a93027f9843772bd24a6a9e0be2a32a788de5a3def330e9c585d86edd1",
+    "url": "https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/b8093469224f83f5c38f691eb906c380e9e63114/mmproj-gemma-4-E4B-it-Q8_0.gguf",
+    "bytes": 559874816
   }
 ]

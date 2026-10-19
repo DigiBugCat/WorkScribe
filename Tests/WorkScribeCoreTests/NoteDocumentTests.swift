@@ -10,7 +10,7 @@ final class NoteDocumentTests: XCTestCase {
         let doc = NoteDocument(path: "/tmp/test.md", source: source, blocks: [b])
         try doc.validate()
         var meeting = Meeting(title: "Meeting")
-        var note = Note(text: b.text, createdAt: 2); note.id = "one"; note.enhanced = "**Plan:** Add offline support."
+        var note = Note(text: b.text, createdAt: 2); note.id = "one"; note.line.text = "**Plan:** Add offline support."
         meeting.notes = [note]; meeting.brief = "Offline support."
         let final = try doc.finalizedText(meeting: meeting)
         XCTAssertTrue(final.contains(b.text + "\n  *Add offline support.*"))
@@ -43,7 +43,7 @@ final class NoteDocumentTests: XCTestCase {
         let source="---\ndate: 2026-10-14 10:02\ntags:\n  - meeting\nworkscribe: m1\n---\n\n- café 👩🏽‍💻\n"
         let range=(source as NSString).range(of:"- café 👩🏽‍💻")
         let d=NoteDocument(path:"/test",source:source,blocks:[.init(id:"n",from:range.location,to:NSMaxRange(range),text:"- café 👩🏽‍💻")])
-        var n=Note(text:"- café 👩🏽‍💻",createdAt:0);n.id="n";n.enhanced="**Detail:** Unicode stays.";m.notes=[n]
+        var n=Note(text:"- café 👩🏽‍💻",createdAt:0);n.id="n";n.line.text="**Detail:** Unicode stays.";m.notes=[n]
         let text=NSMutableString(string:source)
         for i in try d.finalizedInsertions(meeting:m).reversed(){text.insert(i.text,at:i.at)}
         let result=try d.finalizedText(meeting:m)
@@ -66,7 +66,7 @@ final class NoteDocumentTests: XCTestCase {
         let doc = NoteDocument(path:"/tmp/a",source:source,blocks:[.init(id:"a",from:0,to:5,text:"words",owned:.init(from:7,to:23,text:"> My edited line"))])
         try doc.validate()
         var meeting=Meeting(title:"Test"); meeting.notes=doc.notes(previous:[])
-        XCTAssertEqual(meeting.notes?[0].userEdited,true)
+        XCTAssertEqual(meeting.notes?[0].line.owned,true)
         XCTAssertEqual(try doc.finalizedText(meeting:meeting).components(separatedBy:"> My edited line").count,2)
     }
     func testRejectsDuplicateInvalidAndOverlappingRanges() {
@@ -82,7 +82,7 @@ final class NoteDocumentTests: XCTestCase {
         let original=URL(fileURLWithPath:d.path)
         let source=d.source+"untouchable\n"; try source.write(to:original,atomically:true,encoding:.utf8)
         d.source=source; d.blocks=[.init(id:"a",from:(source as NSString).range(of:"untouchable").location,to:(source as NSString).range(of:"untouchable").location+11,text:"untouchable")]
-        meeting.document=d; meeting.notes=d.notes(previous:[]); meeting.notes?[0].enhanced="AI line"
+        meeting.document=d; meeting.notes=d.notes(previous:[]); meeting.notes?[0].line.text="AI line"
         let moved=original.deletingLastPathComponent().appendingPathComponent("Renamed.md")
         try FileManager.default.moveItem(at:original,to:moved)
         XCTAssertEqual(try vault.finalizeDocument(meeting),moved.path)
@@ -112,7 +112,7 @@ extension NoteDocumentTests {
         try rebase.validate()
         XCTAssertEqual(rebase.blocks.map(\.id),["a"])
         XCTAssertEqual(rebase.source,current)
-        var m=Meeting(title:"Fixture"); var n=Note(text:"keep",createdAt:0);n.id="a";n.enhanced="AI detail";m.notes=[n]
+        var m=Meeting(title:"Fixture"); var n=Note(text:"keep",createdAt:0);n.id="a";n.line.text="AI detail";m.notes=[n]
         let final=try rebase.finalizedText(meeting:m)
         XCTAssertTrue(final.contains("my rewritten text"));XCTAssertTrue(final.contains("keep\n*AI detail*"))
         XCTAssertEqual(final.components(separatedBy:"duplicate").count,3)
@@ -123,7 +123,7 @@ extension NoteDocumentTests {
         let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         defer { try? FileManager.default.removeItem(at:root) }
         let vault=VaultStore(root:root.appendingPathComponent("Vault"),stateDirectory:root.appendingPathComponent("State"))
-        var m=Meeting(title:"Early jots");var n=Note(text:"my original shorthand",createdAt:3);n.enhanced="Transient AI"
+        var m=Meeting(title:"Early jots");var n=Note(text:"my original shorthand",createdAt:3);n.line.text="Transient AI"
         m.notes=[n];let d=try vault.openDocument(m)
         try d.validate();XCTAssertTrue(d.source.contains(n.text));XCTAssertFalse(d.source.contains("Transient AI"))
         XCTAssertEqual(d.blocks.first?.id,n.id);XCTAssertEqual(d.blocks.first?.at,3)
@@ -135,7 +135,7 @@ extension NoteDocumentTests {
         let source="---\nworkscribe_id: test\n---\n# Notes\n\n- shorthand\n"
         let at=(source as NSString).range(of:"- shorthand").location
         let d=NoteDocument(path:"/test",source:source,blocks:[.init(id:"n",from:at,to:at+11,text:"- shorthand")])
-        var m=Meeting(title:"Test");var n=Note(text:"- shorthand",createdAt:0);n.id="n";n.enhanced="**Topic.** a_b *literal*";m.notes=[n];m.brief="A brief.";m.missedTopics=[.init(topic:"Other",text:"Fact",excerptRefs:[])]
+        var m=Meeting(title:"Test");var n=Note(text:"- shorthand",createdAt:0);n.id="n";n.line.text="**Topic.** a_b *literal*";m.notes=[n];m.brief="A brief.";m.missedTopics=[.init(topic:"Other",text:"Fact",excerptRefs:[])]
         let final=try d.finalizedText(meeting:m)
         XCTAssertTrue(final.hasPrefix("---\nworkscribe_id: test\n---\n\n*A brief.*"))
         XCTAssertTrue(final.contains("- shorthand\n  *a\\_b \\*literal\\**"))

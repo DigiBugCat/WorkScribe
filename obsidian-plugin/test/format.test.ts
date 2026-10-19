@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   citationsToMarkdown,
+  noteName,
   clock,
   duration,
   meetingUrl,
@@ -96,4 +97,11 @@ test("vault paths match through macOS's /private links", () => {
   assert.equal(canonicalPath("/example/private/tmp/a.md"), "/example/private/tmp/a.md");
   assert.equal(vaultRelative("/tmp/test-vault/Meetings/a.md", "/private/tmp/test-vault"), "Meetings/a.md");
   assert.equal(vaultRelative("/private/tmp/test-vault/Meetings/a.md", "/tmp/test-vault/"), "Meetings/a.md");
+});
+
+test("noteName makes a meeting title safe for a file name, like the app does", () => {
+  assert.equal(noteName("Beta Plan and Feature Freeze Details"), "Beta Plan and Feature Freeze Details");
+  assert.equal(noteName("Q4: pricing / tiers? [draft] #beta"), "Q4 pricing tiers draft beta");
+  assert.equal(noteName("  ...  "), "Untitled");
+  assert.equal(noteName("x".repeat(200)).length, 120);
 });

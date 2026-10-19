@@ -4,31 +4,22 @@ import WorkScribeCore
 @testable import WorkScribe
 
 @MainActor final class ResumeCaptureTests: XCTestCase {
-    func testResumedAudioPreservesInitialFileAndWritesSeparateSamples() throws {
-        let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
-        defer { try? FileManager.default.removeItem(at:root) }
-        let store=MeetingStore(root:root)
-        var meeting=Meeting(title:"Audio append");meeting.status="complete";meeting.endedAt=Date();meeting.sourceOffsets=["microphone":0]
+    func testResumedCaptureLeavesNoMedia() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = MeetingStore(root: root)
+        var meeting = Meeting(title: "Resume"); meeting.status = "complete"; meeting.endedAt = Date()
         try store.save(meeting)
-        let folder=try store.directory(meeting.id)
-        func write(_ path: String, sample: Int16) throws {
-            let url=folder.appendingPathComponent(path)
-            try FileManager.default.createDirectory(at:url.deletingLastPathComponent(),withIntermediateDirectories:true)
-            let track=try AudioTrack(url:url)
-            let buffer=AVAudioPCMBuffer(pcmFormat:track.format,frameCapacity:1600)!
-            buffer.frameLength=1600
-            for i in 0..<1600 { buffer.int16ChannelData![0][i]=sample }
-            track.accept(buffer);track.finish()
+        for _ in 0..<2 {
+            let track = AudioTrack()
+            let buffer = AVAudioPCMBuffer(pcmFormat: track.format, frameCapacity: 1600)!
+            buffer.frameLength = 1600
+            track.accept(buffer); track.finish()
+            try meeting.resume(); meeting.status = "complete"; meeting.endedAt = Date()
+            try store.save(meeting)
         }
-        try write("microphone.wav",sample:1000)
-        let original=try Data(contentsOf:folder.appendingPathComponent("microphone.wav"))
-        try meeting.resume()
-        let path=meeting.recordingSessions!.last!.audioFile("microphone")
-        try write(path,sample:2000)
-        XCTAssertEqual(try Data(contentsOf:folder.appendingPathComponent("microphone.wav")),original)
-        let file=try AVAudioFile(forReading:folder.appendingPathComponent(path))
-        XCTAssertEqual(file.length,1600)
-        XCTAssertNotEqual(try Data(contentsOf:folder.appendingPathComponent(path)),original)
+        let files = try FileManager.default.contentsOfDirectory(atPath: store.directory(meeting.id).path)
+        XCTAssertEqual(files, ["transcript.json"])
     }
 
     func testResumedMeetingIgnoresOldPurgeDeadlineAndRestartsOnStop() async throws {
@@ -74,22 +65,22 @@ import WorkScribeCore
         model.phase="recording"
         await enhancer.release()
         await task.value
-        XCTAssertNil(model.meeting?.notes?.first?.enhanced)
+        XCTAssertNil(model.meeting?.notes?.first?.line.text)
         XCTAssertNil(model.meeting?.endedAt)
     }
 }
 
-private actor SuspendedResumeEnhancer: NoteEnhancing {
+private actor SuspendedResumeEnhancer: Enriching {
     var waiting=false
     private var continuation: CheckedContinuation<Void,Never>?
-    func enhance(_ meeting:Meeting,incremental:Bool,missedTopics:Bool) async throws -> NoteDraft? {
+    func enhance(_ meeting:Meeting,incremental:Bool) async throws -> Enrichment? {
         waiting=true
         await withCheckedContinuation { continuation=$0 }
-        return NoteDraft(plan:try NotePlanner.plan(meeting,incremental:false,missedTopics:false),output:"* **Release:** Old final pass ships Friday.")
+        return Enrichment.fixture(plan:try SelectionFixture.plan(meeting,incremental:false),output:"* **Release:** Old final pass ships Friday.")
     }
     func release() { continuation?.resume();continuation=nil }
 }
 
-private struct NoResumeEnhancement: NoteEnhancing {
-    func enhance(_ meeting:Meeting,incremental:Bool,missedTopics:Bool) async throws -> NoteDraft? { nil }
+private struct NoResumeEnhancement: Enriching {
+    func enhance(_ meeting:Meeting,incremental:Bool) async throws -> Enrichment? { nil }
 }

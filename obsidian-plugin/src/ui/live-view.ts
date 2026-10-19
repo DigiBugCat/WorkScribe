@@ -1,3 +1,5 @@
+import { renderSurfaceSources } from './surfaces/sources';
+import type { SurfaceSource } from '../lib/types';
 import { askedOfYou, rankQuestions } from '../lib/questions';
 import { transcriptTurns } from "../lib/transcript-turns";
 // Companion panel. All note editing lives in Obsidian's ordinary MarkdownView.
@@ -15,6 +17,7 @@ import type { LivePanelTab } from '../settings';
 export const LIVE_VIEW = 'workscribe-live';
 export class LiveView extends ItemView {
   private unsub?: () => void;
+  private surfaceEvidence?:SurfaceSource[];
   private pill!: HTMLElement;
   private clockEl!: HTMLElement;
   private recordButton!: HTMLButtonElement;
@@ -81,7 +84,7 @@ export class LiveView extends ItemView {
     }
     this.body = this.contentEl.createDiv({ cls: 'ws-companion-body', attr:{role:'tabpanel'} });
     this.unsub = this.p.subscribe(changes => {
-      if(changes.has('purged')){this.evidence=undefined;this.renderedEvidenceId=undefined;this.contentSignature='';}
+      if(changes.has('purged')){this.surfaceEvidence=undefined;this.evidence=undefined;this.renderedEvidenceId=undefined;this.contentSignature='';}
       if (changes.has('tick')) {this.renderPill();updateOpen();}
       if ((['meeting','notes','segments','answer','status','conn'] as LiveChange[]).some(x => changes.has(x))) {updateOpen();this.schedule();}
     });
@@ -107,7 +110,14 @@ export class LiveView extends ItemView {
     this.tabButtons.get('qa')?.setText(this.p.live.answers.length?`Live Q&A · ${this.p.live.answers.length}`:'Live Q&A');
     this.finishButton.setAttribute('aria-label', this.p.noteEditor.isFinalized() ? 'Delete raw meeting data now. The note remains.' : 'Finalize this meeting note');
   }
+  showSurfaceSources(sources:SurfaceSource[]):void {
+    const note:Note={id:'surface-focus',at:0,text:'',state:'answered',excerpts:sources.filter(s=>s.kind==='meeting').map((s,i)=>({id:String(i),segmentId:s.segmentId,speaker:s.speaker??s.title,start:s.at??0,quote:s.quote??'',match:'meaning'}))};
+    this.showEvidence(note);this.surfaceEvidence=sources;
+    const header=this.body.querySelector<HTMLElement>('.ws-evidence-header');
+    if(header)renderSurfaceSources(header,sources,source=>this.p.openMoment({kind:source.kind==='meeting'?'meeting':'note',title:source.title,meetingId:source.meetingId??this.p.live.meetingId??undefined,start:source.at,path:source.path,link:source.link,snippet:source.quote}));
+  }
   showEvidence(note: Note): void {
+    this.surfaceEvidence=undefined;
     this.evidence=note;this.p.settings.livePanelTab='transcript';this.contentSignature='';this.render();
     const first=this.body.querySelector<HTMLElement>('.ws-turn.is-evidence');first?.scrollIntoView({block:'nearest'});
     window.setTimeout(()=>this.body.querySelectorAll('.is-evidence').forEach(el=>el.classList.remove('is-evidence')),2400);
@@ -135,6 +145,7 @@ export class LiveView extends ItemView {
         const header=this.body.createDiv({cls:'ws-evidence-header'});header.createEl('strong',{text:'What informed this line'});
         renderTrace(header,this.evidence.trace,{open:true,excerpts:this.evidence.excerpts,onSource:(m,e)=>this.p.openMoment(m,e)});
         [...header.querySelectorAll<HTMLDetailsElement>('details')].forEach((d,i)=>{if(evidenceOpen[i]!==undefined)d.open=evidenceOpen[i];});this.renderedEvidenceId=this.evidence.id;
+        if(this.surfaceEvidence)renderSurfaceSources(header,this.surfaceEvidence,source=>this.p.openMoment({kind:source.kind==='meeting'?'meeting':'note',title:source.title,meetingId:source.meetingId??this.p.live.meetingId??undefined,start:source.at,path:source.path,link:source.link,snippet:source.quote}));
         header.createEl('p',{cls:'ws-trace-retention',text:'The transcript, evidence and revision history fade with this meeting. Only your note remains.'});
       }
       if (!this.p.live.segments.length) this.body.createDiv({ cls:'ws-panel-empty', text: this.p.recording ? 'Listening…' : this.p.live.retention==='purged' ? `This transcript faded${this.p.live.purgeAt?' on '+new Date(this.p.live.purgeAt).toLocaleString([],{weekday:'short',day:'numeric',month:'short',hour:'numeric',minute:'2-digit'}):''}. Your note is what remains. Ask and search use it now.` : 'Transcript appears here during a meeting and fades after 24 hours.' });

@@ -212,29 +212,30 @@ public struct ScreenMomentBuilder: Sendable {
 
 /// Screen moments as search chunks: one per moment (long text split), timed and linked to the transcript line
 /// spoken when it appeared.
-public enum ScreenChunker {
-    public static let maximumCharacters = 1_200
-
-    public static func chunks(_ moments: [ScreenMoment], meeting: Meeting, folder: URL?) -> [Chunk] {
+public enum ScreenSource {
+    public static func passages(_ moments: [ScreenMoment], meeting: Meeting, folder: URL?) -> [Passage] {
+        let source = SourceID(.meeting, meeting.id)
         let segments = meeting.orderedSegments
-        return moments.sorted { $0.start < $1.start }.flatMap { moment -> [Chunk] in
+        return moments.sorted { $0.start < $1.start }.flatMap { moment -> [Passage] in
             guard moment.embedding != nil || ScreenMomentBuilder.words(moment.text).count >= 3 else { return [] }
-            let anchor = segments.last { $0.start <= moment.start + 1 }?.id ?? segments.first?.id
+            let segment = segments.last { $0.start <= moment.start + 1 }?.id ?? segments.first?.id
             let thumbnail = moment.thumbnail.map { path in folder.map { $0.appendingPathComponent(path).path } ?? path }
-            let pieces = moment.text.count > maximumCharacters
-                ? TextChunker.chunks(moment.text, size: maximumCharacters, overlap: 120) : [moment.text]
-            let visual = moment.embedding.map { vector in
-                Chunk(kind: .screen, modality: .image, start: moment.start, end: moment.end, track: "screen",
-                      anchorSegment: anchor, text: moment.context ?? "Visual scene", vector: vector,
-                      thumbnail: thumbnail, window: moment.context)
+            var result: [Passage] = []
+            if let vector = moment.embedding {
+                result.append(Passage(text: moment.context ?? "Visual scene", source: source, anchor: moment.id + ":image",
+                                      start: moment.start, end: moment.end, kind: .screen, modality: .image, track: "screen",
+                                      segmentIDs: segment.map { [$0] } ?? [], thumbnail: thumbnail, window: moment.context, vector: vector))
             }
-            let textual = (moment.text.isEmpty ? [] : pieces).map { piece in
-                Chunk(kind: .screen, modality: .text, start: moment.start, end: moment.end, track: "screen",
-                      anchorSegment: anchor, text: [moment.context, piece].compactMap { $0 }.joined(separator: "\n"),
-                      thumbnail: thumbnail, window: moment.context)
+            if !moment.text.isEmpty {
+                result.append(Passage(text: moment.text, source: source, anchor: moment.id + ":ocr", context: moment.context,
+                                      start: moment.start, end: moment.end, kind: .screen, track: "screen",
+                                      segmentIDs: segment.map { [$0] } ?? [], thumbnail: thumbnail, window: moment.context))
             }
-            return visual.map { [$0] + textual } ?? textual
+            return result
         }
+    }
+    public static func chunks(_ moments: [ScreenMoment], meeting: Meeting, folder: URL?) -> [Chunk] {
+        passages(moments, meeting: meeting, folder: folder).flatMap(Chunker.chunks)
     }
 
     /// Folded into the meeting fingerprint (only when there are moments, so audio-only meetings keep theirs).

@@ -4,7 +4,7 @@ import { NO_MATCH, friendlyHint, lineState } from "../src/lib/suggestions";
 import { parseNote, parseMeetingSummary, parseLiveEvent } from "../src/lib/parse";
 import { applyEvent, emptyLive } from "../src/lib/live";
 import type { Note } from "../src/lib/types";
-const note = (extra: Partial<Note> = {}): Note => ({ id: "n1", at: 10, text: "ship nov 4", state: "done", excerpts: [], ...extra });
+const note = (extra: Partial<Note> = {}): Note => ({ id: "n1", at: 10, text: "ship nov 4", state: "answered", excerpts: [], ...extra });
 const ship = { topic: "Ship date.", text: "v2.4 moves to Nov 4." };
 test("AI updates never change typed text or require approval", () => {
   const n = note({ enhanced: ship });
@@ -14,8 +14,8 @@ test("AI updates never change typed text or require approval", () => {
   assert.equal(n.text, "ship nov 4");
   n.userEdited = true;
   assert.equal(lineState(n).kind, "owned");
-  assert.equal(lineState(note({ state: "pending" })).kind, "waiting");
-  assert.deepEqual(lineState(note({ state: "plain" })), { kind: "none", hint: NO_MATCH });
+  assert.equal(lineState(note({ state: "listening" })).kind, "waiting");
+  assert.deepEqual(lineState(note({ state: "quiet" })), { kind: "none", hint: NO_MATCH });
   assert.equal(friendlyHint("Kept as typed."), NO_MATCH);
 });
 test("ownership and retention survive wire parsing; purge removes cached raw content", () => {

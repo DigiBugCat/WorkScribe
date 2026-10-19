@@ -145,16 +145,16 @@ final class ScreenTests: XCTestCase {
         let moments = [ScreenMoment(id: "m1", start: 42, end: 70, text: agenda, app: "Keynote", window: "Q3.key", thumbnail: "screen/m1.jpg"),
                        ScreenMoment(id: "m2", start: 5, end: 9, text: "ok"),
                        ScreenMoment(id: "m3", start: 80, end: 90, text: long)]
-        let chunks = ScreenChunker.chunks(moments, meeting: meeting, folder: URL(fileURLWithPath: "/meetings/X"))
+        let chunks = ScreenSource.chunks(moments, meeting: meeting, folder: URL(fileURLWithPath: "/meetings/X"))
         XCTAssertEqual(chunks.first?.kind, .screen)
         XCTAssertEqual(chunks.first?.start, 42); XCTAssertEqual(chunks.first?.end, 70)
         XCTAssertEqual(chunks.first?.thumbnail, "/meetings/X/screen/m1.jpg")
         XCTAssertEqual(chunks.first?.window, "Keynote — Q3.key")
         XCTAssertEqual(chunks.first?.anchorSegment, meeting.segments[1].id)
-        XCTAssertTrue(chunks.first?.text?.hasPrefix("Keynote — Q3.key\nQ3 Marketing") ?? false)
+        XCTAssertTrue(chunks.first?.embeddedText.hasPrefix("Keynote — Q3.key\n\nQ3 Marketing") ?? false)
         XCTAssertFalse(chunks.contains { $0.start == 5 }, "too few words to be a moment")
-        XCTAssertGreaterThan(chunks.filter { $0.start == 80 }.count, 1, "long text is split")
-        XCTAssertTrue(chunks.allSatisfy { ($0.text?.count ?? 0) <= ScreenChunker.maximumCharacters + 40 })
+        XCTAssertGreaterThan(chunks.filter { $0.start ?? 0 >= 80 }.count, 1, "long text is split")
+        XCTAssertTrue(chunks.allSatisfy { ($0.text ?? "").split(whereSeparator: \.isWhitespace).count <= 74 })
     }
 
     // MARK: Persistence
@@ -170,7 +170,7 @@ final class ScreenTests: XCTestCase {
         XCTAssertNil(old.screen)
         XCTAssertEqual(store.loadScreenMoments(old.id), [])
         XCTAssertTrue(MeetingIndexer.isIndexable(old))
-        XCTAssertFalse(MeetingChunker.fingerprint(old).contains("+s"), "audio-only fingerprints are unchanged")
+        XCTAssertFalse(MeetingSource.fingerprint(old).contains("+s"), "audio-only fingerprints are unchanged")
 
         var meeting = Meeting(title: "New")
         meeting.status = "complete"

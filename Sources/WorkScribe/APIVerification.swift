@@ -52,7 +52,7 @@ extension APIVerification {
         let model = AppModel(store: store)
         let ask = AskService(model: model, store: ConversationStore(root: root.appendingPathComponent("Conversations")), generator: ContractAnswerGenerator())
         ask.register(ContractMoments(meetingID: meeting.id))
-        NoteEnhancementScheduler.shared.enhancer = ContractNoteEnhancer()
+        NoteEnhancementScheduler.shared.enhancer = ContractEnrich()
         NoteEnhancementScheduler.shared.delay = 20_000_000
         NoteEnhancementScheduler.shared.minimumInterval = 0
         let vault = VaultStore(root: root.appendingPathComponent("Notes"), stateDirectory: root.appendingPathComponent("Vault"))
@@ -87,10 +87,16 @@ private struct ContractAnswerGenerator: AnswerGenerator {
         }
     }
 }
-private struct ContractNoteEnhancer: NoteEnhancing {
-    func enhance(_ meeting: Meeting, incremental: Bool, missedTopics: Bool) async throws -> NoteDraft? {
-        let plan = try NotePlanner.plan(meeting, matcher: LexicalMatcher(), incremental: incremental, missedTopics: false)
+private struct ContractEnrich: Enriching {
+    func enhance(_ meeting: Meeting, incremental: Bool) async throws -> Enrichment? {
+        var plan = EnrichmentBatch()
+        plan.targets = (meeting.notes ?? []).filter { $0.line.owned != true }.map { LineRequest(note: $0, refs: [], fresh: [], previous: nil) }
         try await Task.sleep(nanoseconds: 100_000_000)
-        return NoteDraft(plan: plan, output: plan.targets.map { _ in "- **Release:** Release is Friday." }.joined(separator: "\n"))
+        var result = Enrichment(plan: plan)
+        for target in plan.targets {
+            result.outcomes[target.note.id] = .line(Bullet(topic: "Release", text: "Release is Friday.", refs: []), plan.chunkRefs[target.note.id] ?? [])
+            result.bases[target.note.id] = "contract"
+        }
+        return result
     }
 }

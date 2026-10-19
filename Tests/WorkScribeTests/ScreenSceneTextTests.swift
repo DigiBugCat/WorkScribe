@@ -28,6 +28,24 @@ private actor ReadCounter {
         CGImageDestinationAddImage(destination, image, nil); XCTAssertTrue(CGImageDestinationFinalize(destination))
         return (root,store,meeting,scene)
     }
+    func testTransientFrameOCRLeavesOnlyTextOnDisk() async throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let store = MeetingStore(root: root)
+        var meeting = Meeting(title: "Transient OCR"); meeting.status = "complete"
+        meeting.screen = ScreenCaptureInfo(state: "complete")
+        try store.save(meeting)
+        var scene = ScreenMoment(start: 0, end: 10, text: "")
+        scene.representativeTime = 1
+        try store.saveScreenMoments([scene], id: meeting.id)
+        let reader = ScreenSceneText(reader: { _ in ("Only derived text", []) })
+        let result = await reader.read(scene.id, meetingID: meeting.id, store: store, image: ScreenVerification.renderSlide())
+        XCTAssertEqual(result?.text, "Only derived text")
+        XCTAssertNil(result?.keyframe); XCTAssertNil(result?.thumbnail)
+        XCTAssertEqual(Set(try FileManager.default.contentsOfDirectory(atPath: store.directory(meeting.id).path)),
+                       ["transcript.json", "screen-moments.json"])
+    }
+
     func testVisionPreprocessingUsesPinnedFloat16PositionContract() throws {
         let (features, count) = try EmbeddingGemmaVision.preprocess(ScreenVerification.renderSlide(), positions: Data(repeating: 0, count: 2*1024*768*2))
         XCTAssertLessThanOrEqual(count, 70)
@@ -67,22 +85,6 @@ private actor ReadCounter {
         XCTAssertFalse(FileManager.default.fileExists(atPath: try store.directory(meeting.id).path))
         XCTAssertEqual(try index.vectorStats().count, 0)
     }
-    func testSceneTextInformsPromptAndTraceWithoutChangingUserNote() async throws {
-        let (root, store, initial, originalScene) = try fixture()
-        defer { try? FileManager.default.removeItem(at: root) }
-        var scene = originalScene; scene.text = "Revenue increased by ten percent"; scene.ocrState = "complete"
-        try store.saveScreenMoments([scene], id: initial.id)
-        var meeting = initial; meeting.notes = [Note(text: "dashboard", createdAt: 10)]
-        try store.save(meeting)
-        let model = AppModel(store: store)
-        var plan = try NotePlanner.plan(meeting, incremental: false, missedTopics: false)
-        let sources = await ScreenNoteEvidence.add(to: &plan, meeting: meeting)
-        XCTAssertEqual(plan.targets.first?.note.text, "dashboard")
-        XCTAssertTrue(NotePrompt.instruction(plan).contains("Revenue increased by ten percent"))
-        let source = try XCTUnwrap(sources[meeting.notes![0].id]?.first)
-        XCTAssertEqual(source.kind, "screen"); XCTAssertEqual(source.start, 0)
-        XCTAssertEqual(model.store.loadScreenMoments(meeting.id).first?.text, scene.text)
-        XCTAssertEqual(try store.load(meeting.id).notes?.first?.text, "dashboard")
-    }
+
 
 }

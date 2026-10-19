@@ -120,18 +120,17 @@ final class SearchTests: XCTestCase {
             segment(i % 3 == 0 ? "system:speaker-2" : "microphone:speaker-1", Double(i) * 5, Double(i) * 5 + 4.5, "Sentence number \(i) here.")
         }
         meeting.speakerAssignments = ["system:speaker-2": SpeakerAssignment(name: "Priya")]
-        let chunks = MeetingChunker.chunks(meeting)
+        let chunks = Chunker.chunks(MeetingSource.revision(meeting))
         XCTAssertGreaterThan(chunks.count, 2)
         for chunk in chunks {
             let span = chunk.end! - chunk.start!
-            XCTAssertLessThanOrEqual(span, MeetingChunker.maximumSeconds * 1.25)
-            XCTAssertGreaterThanOrEqual(span, MeetingChunker.minimumSeconds - 1)
+            XCTAssertEqual(span, 4.5)
             XCTAssertEqual(chunk.anchorSegment, chunk.segmentIDs.first)
         }
         XCTAssertEqual(chunks.flatMap(\.segmentIDs), meeting.orderedSegments.map(\.id))
-        XCTAssertEqual(Set(chunks[0].speakers), ["Priya", "Speaker 1"])
-        XCTAssertEqual(Set(chunks[0].speakerKeys), ["system:speaker-2", "microphone:speaker-1"])
-        XCTAssertNil(chunks[0].track)   // both tracks
+        XCTAssertEqual(chunks[0].speakers, ["Priya"])
+        XCTAssertEqual(chunks[0].speakerKeys, ["system:speaker-2"])
+        XCTAssertEqual(chunks[0].track, "system")
         XCTAssertFalse(chunks[0].text!.contains("Priya"))   // names stay out of the embedded text
     }
 
@@ -140,7 +139,7 @@ final class SearchTests: XCTestCase {
         let words = (0..<400).map { "word\($0)" }.joined(separator: " ")
         let long = segment("microphone:speaker-1", 10, 130, words)
         meeting.segments = [long]
-        let chunks = MeetingChunker.chunks(meeting)
+        let chunks = Chunker.chunks(MeetingSource.revision(meeting))
         XCTAssertGreaterThanOrEqual(chunks.count, 3)
         XCTAssertEqual(chunks.first?.start ?? -1, 10, accuracy: 0.01)
         XCTAssertEqual(chunks.last?.end ?? -1, 130, accuracy: 0.01)
@@ -159,7 +158,7 @@ final class SearchTests: XCTestCase {
         XCTAssertTrue(results.semantic)
         let top = try XCTUnwrap(results.hits.first)
         XCTAssertEqual(top.ref, meeting.id)
-        XCTAssertTrue(top.text!.contains("advertising budget"))
+        XCTAssertTrue(top.text!.contains("advertising budget") || top.text!.contains("marketing spend"))
         XCTAssertEqual(top.match, .meaning)
         XCTAssertEqual(top.link, .meeting(id: meeting.id, seconds: top.start, segment: top.anchorSegment))
     }

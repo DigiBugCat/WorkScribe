@@ -10,9 +10,9 @@ public struct TranscriptTurn {
 }
 
 public enum TranscriptTurns {
-    public static func group(_ meeting: Meeting, maxWords: Int = 60) -> [TranscriptTurn] {
+    public static func group(_ meeting: Meeting, maxWords: Int = 60, segments: [Segment]? = nil) -> [TranscriptTurn] {
         var result: [TranscriptTurn] = []
-        for segment in meeting.orderedSegments {
+        for segment in segments ?? meeting.settledSegments {
             if let last = result.last,
                last.first.source == segment.source, last.first.speaker == segment.speaker,
                meeting.assignment(for: last.first) == meeting.assignment(for: segment),

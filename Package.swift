@@ -30,7 +30,7 @@ let package = Package(
                           "-Xlinker", "-rpath", "-Xlinker", sdkLibrary]),
             .linkedLibrary("nemo_speech_asr_c")
         ]),
-        .target(name: "WorkScribeCore"),
+        .target(name: "WorkScribeCore", resources: [.copy("Resources/decision-head.json")]),
         .executableTarget(name: "WorkScribeVectorBench", dependencies: ["WorkScribeCore"]),
         // Browser native-messaging host for the clip extension (extras/chrome-extension); bundled in Contents/Helpers.
         .executableTarget(name: "WorkScribeNativeHost", dependencies: ["WorkScribeCore"]),

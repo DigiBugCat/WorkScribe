@@ -8,7 +8,7 @@ import type { Note } from '../src/lib/types';
 
 function setup(text = 'hello world') {
   const blocks = reconcile(text,[],2,undefined,()=> 'n1');
-  const note: Note = {id:'n1',text,at:2,excerpts:[],state:'done',enhanced:{topic:'Hello.',text:'First version'}};
+  const note: Note = {id:'n1',text,at:2,excerpts:[],state:'answered',enhanced:{topic:'Hello.',text:'First version'},line:{type:'line',documentId:'meeting',blockId:'n1',state:'answered',text:'Hello. First version',revision:1,sources:[]}};
   const session: EditorSession = {id:'meeting',document:{path:'/test.md',source:text,blocks,revision:0},notes:new Map([['n1',note]])};
   const ext=meetingEditor({ session:()=>session,elapsed:()=>100,changed:()=>{},mounted:()=>{},unmounted:()=>{},action:()=>{},takeOver:()=>{},why:()=>{},replaceDocument:(_s,d)=>{session.document=d;} });
   let state=EditorState.create({doc:text,extensions:[history(),ext.extension]});
@@ -21,9 +21,10 @@ test('AI rewrites never touch file, selection, or undo history',()=>{
   x.update({changes:{from:11,insert:'!'},selection:{anchor:12},userEvent:'input'});
   const doc=x.state.doc.toString(), selection=x.state.selection.toJSON();
   for(let i=0;i<25;i++) {
-    x.session.notes.set('n1',{...x.session.notes.get('n1')!,enhanced:{topic:'Hello.',text:`Updated ${i}`}});
+    x.session.notes.set('n1',{...x.session.notes.get('n1')!,enhanced:{topic:'Hello.',text:`Updated ${i}`},line:{type:'line',documentId:'meeting',blockId:'n1',state:'answered',text:`Updated ${i}`,revision:i+2,sources:[]}});
     x.update({effects:refreshAI.of(),annotations:Transaction.addToHistory.of(false)});
     assert.equal(x.state.doc.toString(),doc); assert.deepEqual(x.state.selection.toJSON(),selection);
+    assert.equal(x.state.field(x.ext.field).decorations.size,1,'fresh native lines are visible immediately while the caret remains in the jot');
   }
   assert.ok(x.command(undo)); assert.equal(x.state.doc.toString(),'hello world');
   assert.ok(x.command(redo)); assert.equal(x.state.doc.toString(),doc);
@@ -46,7 +47,7 @@ test('deleting a block removes decorations and undo restores the same identity',
 test('200-block transaction benchmark includes parsing, mapping and decorations',()=>{
   const text=Array.from({length:200},(_,i)=>`- block ${i}`).join('\n'); let sequence=0;
   const blocks=reconcile(text,[],0,undefined,()=>String(sequence++));
-  const session:EditorSession={id:'m',document:{path:'/test',source:text,revision:0,blocks},notes:new Map(blocks.map(b=>[b.id,{id:b.id,at:0,text:b.text,excerpts:[],state:'done',enhanced:{topic:'',text:'A long AI line '.repeat(30)}}]))};
+  const session:EditorSession={id:'m',document:{path:'/test',source:text,revision:0,blocks},notes:new Map(blocks.map(b=>[b.id,{id:b.id,at:0,text:b.text,excerpts:[],state:'answered',enhanced:{topic:'',text:'A long AI line '.repeat(30)}}]))};
   const e=meetingEditor({session:()=>session,elapsed:()=>2,changed:()=>{},mounted:()=>{},unmounted:()=>{},action:()=>{},takeOver:()=>{},why:()=>{},replaceDocument:(_s,d)=>{session.document=d;}});
   let state=EditorState.create({doc:text,extensions:e.extension}); const times:number[]=[];
   for(let i=0;i<200;i++) { const t=performance.now(); state=state.update({changes:{from:state.doc.length,insert:'x'}}).state; times.push(performance.now()-t); }

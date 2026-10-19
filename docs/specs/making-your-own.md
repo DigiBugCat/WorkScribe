@@ -31,10 +31,10 @@ A seam is a place where you can replace one part without touching the parts arou
 | Seam | Today | What changes | Your interface |
 | --- | --- | --- | --- |
 | **Transcript source** | Hard-wired in `AppModel.start` / `finishRecording`: two `AudioTrack`s, `AudioCapture`, one `SpeechConnection` per track, NeMo event dictionaries parsed in `AppModel.consume`. Two more sources hide in AppModel: Plaud import (`PlaudImport.swift`) and the synthetic caption demo (`runCaptionDemo`). | Extract the recorder into `LocalRecorderSource`. AppModel talks to `SourceHost`, which consumes canonical events. Add rules, policy, command and ingest sources. | `TranscriptSource` (Swift), the `wsp/1` JSON-lines protocol, or `POST /v1/sources/ingest` |
-| **Note and answer model** | `AnswerGenerator` is already a protocol with three conformers. Note lines (`NoteEnhancer`) and titles (`TitleGenerator`) call llama.cpp directly and format chat templates themselves. | One `TextModel` protocol used by all three jobs. Templates move into providers. An OpenAI-compatible provider with a configurable base URL covers Ollama, LM Studio and vLLM. | `TextModel` (Swift) or any OpenAI-compatible endpoint |
+| **Note and answer model** | `AnswerGenerator` is a protocol with two on-device conformers (llama.cpp and Apple Intelligence). Note lines (`NoteEnhancer`) and titles (`TitleGenerator`) call llama.cpp directly and format chat templates themselves. | One `TextModel` protocol used by all three jobs. Templates move into providers. A loopback HTTP provider covers a model server on this Mac (Ollama, LM Studio). WorkScribe has no cloud providers. | `TextModel` (Swift) or a model server on `127.0.0.1` |
 | **Screen and context** | `ScreenRecorder` (ScreenCaptureKit video + Vision OCR → `ScreenMoment`), started from `AppModel+Screen.swift`. | `ContextSource` with the transcript source's lifecycle and the same wire protocol, emitting `moment` events. | `ContextSource` (Swift) or `wsp/1` with `role = "context"` |
 | **Where notes live** | `VaultStore` writes Markdown into an Obsidian vault or a folder. The live document is bound to the Obsidian plugin. | `NoteDestination` for the final write-up. The live pencil stays Obsidian-only. | `NoteDestination` (Swift) |
-| **Embedder** | `Embedder` is already a protocol in Core. `IndexService` stores a concrete `CoreMLEmbedder?`. | Store `any Embedder`. Add an OpenAI-compatible `/v1/embeddings` provider. | `Embedder` (Swift) or an embeddings endpoint |
+| **Embedder** | `Embedder` is already a protocol in Core. `IndexService` stores a concrete `CoreMLEmbedder?`. | Store `any Embedder`. Add a loopback `/v1/embeddings` provider for a model server on this Mac. | `Embedder` (Swift) or an embeddings server on `127.0.0.1` |
 
 Two things are deliberately *not* seams: the meeting store and the retention journal. They are what make "only the note survives" true, and every seam above has obligations toward them rather than a way around them.
 
@@ -585,7 +585,7 @@ Policy keys:
 | `audio_files` | `allowed`, `forbidden` | sources with `audio.files` (transcribing another device's recording). Defaults to the value of `audio`. |
 | `screen` | `allowed`, `forbidden` | screen video and OCR, and any source or context source with `screen` |
 | `egress` | `internet`, `local`, `none` | sources sending meeting content further than this |
-| `cloud` | `allowed`, `forbidden` | cloud model and embedding providers (section 5) |
+| `cloud` | `forbidden` | reserved. WorkScribe has no cloud model or embedding providers (section 5); the key exists so a policy can state it |
 | `sources` | list of source IDs | everything not listed (an allowlist) |
 | `source_signers` | Developer ID team IDs | command sources not signed by one of them |
 | `reason`, `contact` | text | shown to the user, verbatim |
@@ -762,7 +762,7 @@ The same shape as transcript sources, with less to say. Each has a Swift protoco
 
 ### 5.1 Note and answer models
 
-Today `AnswerGenerator` (`displayName`, `provider`, `modelName`, `isAvailable`, `stream`) is a clean seam for answers, with `LlamaAnswerGenerator`, `AppleIntelligenceAnswerGenerator`, `OpenAIResponsesGenerator` and `FallbackAnswerGenerator`. Note lines and titles bypass it: `NoteEnhancer` and `TitleGenerator` call `ws_generate_text` directly and build Qwen and Gemma chat templates inline.
+Today `AnswerGenerator` (`displayName`, `provider`, `modelName`, `isAvailable`, `stream`) is a clean seam for answers, with `LlamaAnswerGenerator` and `AppleIntelligenceAnswerGenerator`, both on this Mac. There is no cloud provider and no network fallback, by the owner's rule. Note lines and titles bypass it: `NoteEnhancer` and `TitleGenerator` call `ws_generate_text` directly and build Qwen and Gemma chat templates inline.
 
 One protocol for all three jobs, with templates owned by the provider:
 
@@ -775,9 +775,9 @@ public struct ModelRequest: Sendable {
     public var stop: [String]
 }
 public protocol TextModel: Sendable {
-    var id: String { get }                // "local-qwen", "openai", "ollama"
+    var id: String { get }                // "local-qwen", "apple", "ollama"
     var displayName: String { get }       // "Qwen 3.5 · on this Mac" — shown under answers and in Why?
-    var location: ModelLocation { get }   // .onDevice, .localNetwork, .cloud
+    var location: ModelLocation { get }   // .onDevice only: a provider that leaves the Mac is refused
     var isAvailable: Bool { get }
     func stream(_ request: ModelRequest) -> AsyncThrowingStream<String, Error>
 }
@@ -787,16 +787,16 @@ public protocol TextModel: Sendable {
 [models]
 note_lines = ["local"]
 titles = ["local"]
-answers = ["openai", "local"]          # first available; falls back before any text, like today
+answers = ["local", "apple"]           # first available on this Mac
 
 [models.providers.ollama]
-kind = "openai-compatible"
-base_url = "http://127.0.0.1:11434/v1"
+kind = "loopback-http"
+base_url = "http://127.0.0.1:11434/v1"   # refused unless the host is 127.0.0.1 or ::1
 model = "qwen3.5:7b"
 location = "on-device"
 ```
 
-`OpenAIResponsesGenerator` already has an `endpoint` property; the OpenAI-compatible provider makes it configuration. Policy `cloud = "forbidden"` removes providers whose location is `cloud`. Provenance stays honest: the `trace` shows the provider that actually answered, as `AnswerProvenance` does today. Obligations: a provider is stateless (no conversation memory outside WorkScribe's stores, which purge), treats prompt content as data, and never logs prompts.
+A loopback provider accepts only `127.0.0.1` or `::1` as its host, so text never leaves the Mac. Provenance stays honest: the `trace` shows the provider that actually answered, as `AnswerProvenance` does today. Obligations: a provider is stateless (no conversation memory outside WorkScribe's stores, which purge), treats prompt content as data, and never logs prompts.
 
 ### 5.2 Screen and context sources
 
@@ -820,7 +820,7 @@ Obligations, all of which `VaultStore` meets today: writes are atomic; the user'
 
 ### 5.4 Embedder
 
-`Embedder` (`modelID`, `dimension`, `text`, `texts`, `audio`, `image`) already lives in Core, and `SearchIndex` already re-embeds when `modelID` changes. What changes is small: `IndexService` holds `any Embedder` instead of `CoreMLEmbedder?`, and memory release becomes an optional `ReleasableEmbedder` refinement. An `openai-compatible` embeddings provider (`base_url`, `model`, `dimension`) covers Ollama and hosted models. An embedder sends text off the Mac if its endpoint is remote, so `cloud = "forbidden"` applies to it too. `modelID` must change whenever anything that affects vectors changes, or the index silently mixes spaces.
+`Embedder` (`modelID`, `dimension`, `text`, `texts`, `audio`, `image`) already lives in Core, and `SearchIndex` already re-embeds when `modelID` changes. What changes is small: `IndexService` holds `any Embedder` instead of `CoreMLEmbedder?`, and memory release becomes an optional `ReleasableEmbedder` refinement. A loopback embeddings provider (`base_url` on `127.0.0.1`, `model`, `dimension`) covers a model server on this Mac. Remote and hosted embedders are not supported: indexed text never leaves the Mac. `modelID` must change whenever anything that affects vectors changes, or the index silently mixes spaces.
 
 ---
 
@@ -925,7 +925,6 @@ A fork that runs beside upstream on one Mac must not share its identity, or the 
 | `urlScheme` | `workscribe` | deep links (`DeepLink.swift`) |
 | `dataFolder` | `WorkScribe` | `~/Library/Application Support/<dataFolder>/`: meetings, `api.json`, sources, `sources.toml` |
 | `orgFolder` | `WorkScribe` | `/Library/Application Support/<orgFolder>/` |
-| `keychainService` | `local.workscribe.openai` | the cloud API key |
 | `pluginID` | `workscribe` | the Obsidian plugin's id and discovery |
 | `nativeHost` | per `extras/chrome-extension` | browser clip channel |
 

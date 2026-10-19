@@ -32,7 +32,6 @@ export WORKSCRIBE_MIGRATE_LEGACY=0
 export WORKSCRIBE_PLAUD=0
 export WORKSCRIBE_PLAUD_FRAMEWORKS="$CHECK/no-plaud-frameworks"
 export WORKSCRIBE_SIGN_IDENTITY=-
-export WORKSCRIBE_DISABLE_CLOUD=1
 export WORKSCRIBE_DISABLE_AUTORECORD=1
 export WORKSCRIBE_DATA_DIR="$HOME/Meetings"
 export WORKSCRIBE_NOTES_DIR="$HOME/Notes"
@@ -50,8 +49,8 @@ export PYTHONDONTWRITEBYTECODE=1
 
 `WORKSCRIBE_MIGRATE_LEGACY=0` disables opportunistic legacy/cache migration.
 `CFFIXED_USER_HOME` redirects Foundation's user home, in addition to the explicit
-application storage overrides. Cloud answers are disabled before any Keychain
-lookup; signing uses an ad-hoc identity. Xcode, the OS SDK, system frameworks and
+application storage overrides. WorkScribe has no cloud features, so nothing reads the
+Keychain; signing uses an ad-hoc identity. Xcode, the OS SDK, system frameworks and
 installed command-line prerequisites are still the host's normal tools.
 
 ## Commands and results

@@ -6,6 +6,31 @@ import WorkScribeCore
 @testable import WorkScribe
 
 final class NoteImageUnderstandingTests: XCTestCase {
+    private actor ImageTextModel: TextModel {
+        nonisolated let displayName = "Fixture E4B"
+        nonisolated let backend = TextBackend.llama
+        nonisolated let isAvailable = true
+        var instruction = ""
+        func generate(_ request: TextRequest) async throws -> TextGeneration {
+            instruction = request.instruction
+            return TextGeneration(text: "* **Chart:** Revenue increased to forty dollars.", stats: TextStats())
+        }
+        nonisolated func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
+        func prewarm(_ request: TextRequest?) async {}
+        func release() async {}
+    }
+    func testImageObservationReachesResidentTextModel() async throws {
+        var image = NoteImage(target: "chart.png", path: "chart.png")
+        image.text = "Revenue $40"; image.caption = "A revenue chart."
+        var note = Note(text: "![[chart.png]]", createdAt: nil); note.images = [image]
+        var meeting = Meeting(title: "Chart"); meeting.notes = [note]
+        let model = ImageTextModel()
+        let draft = try await Enrich(textModel: model, decisionModel: FixtureDecision(), embeddingSource: { FixtureEmbedder() }).enhance(meeting, incremental: true)
+        let instruction = await model.instruction
+        XCTAssertTrue(instruction.contains("<image>"))
+        XCTAssertTrue(instruction.contains("Revenue $40"))
+        XCTAssertEqual(draft?.model, "Fixture E4B")
+    }
     func testOldCaptionCannotSurviveAChangedOrMissingImage() async throws {
         let root=FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at:root,withIntermediateDirectories:true)

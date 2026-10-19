@@ -11,7 +11,7 @@ fi
 python3 scripts/runtime-doctor.py
 swift_flags=()
 [ "${WORKSCRIBE_SWIFT_DISABLE_SANDBOX:-0}" != 1 ] || swift_flags+=(--disable-sandbox)
-swift build ${swift_flags[@]+"${swift_flags[@]}"} -c release
+swift build ${swift_flags[@]+"${swift_flags[@]}"} --cache-path "${WORKSCRIBE_SWIFTPM_CACHE:-$PWD/.swiftpm-cache}" -c release
 stage="$(mktemp -d "${TMPDIR:-/tmp}/workscribe-build.XXXXXX")"
 trap 'rm -rf "$stage"' EXIT
 app="$stage/WorkScribe.app"
@@ -22,6 +22,7 @@ cp .build/release/WorkScribe "$app/Contents/MacOS/WorkScribe"
 # Liquid Glass icon macOS 26 prefers (CFBundleIconName); AppIcon.icns is the fallback.
 cp Resources/AppIcon/AppIcon.icns "$app/Contents/Resources/AppIcon.icns"
 cp Resources/AppIcon/Assets.car "$app/Contents/Resources/Assets.car"
+cp Sources/WorkScribeCore/Resources/decision-head.json "$app/Contents/Resources/decision-head.json"
 # Browser clip extension's native-messaging host (extras/chrome-extension/install-native-host.sh registers it).
 mkdir -p "$app/Contents/Helpers"
 cp .build/release/WorkScribeNativeHost "$app/Contents/Helpers/WorkScribeNativeHost"
@@ -37,12 +38,7 @@ install_name_tool -delete_rpath "$plaud_frameworks" "$app/Contents/MacOS/WorkScr
 fi
 ditto "$runtime_home/nemo"/share/licenses "$app/Contents/Resources/licenses"
 install_name_tool -delete_rpath "$runtime_home/nemo/lib" "$app/Contents/MacOS/WorkScribe"
-title_model="${WORKSCRIBE_TITLE_MODEL:-qwen35}"
-case "$title_model" in
-  gemma4) title_file=gemma-4-E2B_q4_0-it.gguf ;;
-  qwen35) title_file=Qwen3.5-2B-Q4_K_M.gguf ;;
-  *) echo 'WORKSCRIBE_TITLE_MODEL must be gemma4 or qwen35' >&2; exit 1 ;;
-esac
+title_model=gemma4
 ditto Resources/licenses "$app/Contents/Resources/licenses"
 ditto Resources/licenses/fluidaudio "$app/Contents/Resources/licenses/fluidaudio"
 cp .build/checkouts/FluidAudio/LICENSE "$app/Contents/Resources/licenses/fluidaudio/FluidAudio-LICENSE"
@@ -51,7 +47,7 @@ for resource_bundle in .build/release/FluidAudio_*.bundle .build/release/FluidUs
 done
 # Models stay in the non-synced runtime home. The app carries repair metadata/scripts.
 mkdir -p "$app/Contents/Resources/runtime/scripts" "$app/Contents/Resources/runtime/Resources"
-cp scripts/*.py scripts/prepare-image-model.sh scripts/image-caption.cpp scripts/cmake-requirements.txt "$app/Contents/Resources/runtime/scripts/"
+cp scripts/runtime-doctor.py scripts/runtime_home.py scripts/runtime_doctor_download.py scripts/prepare-embedding-model.py scripts/prepare-image-model.sh scripts/download-title-model.sh scripts/image-caption.cpp scripts/cmake-requirements.txt "$app/Contents/Resources/runtime/scripts/"
 ditto Resources/licenses "$app/Contents/Resources/runtime/Resources/licenses"
 ditto Resources/licenses/image-understanding "$app/Contents/Resources/licenses/image-understanding"
 ditto Resources/licenses/embeddinggemma2 "$app/Contents/Resources/licenses/embeddinggemma2"

@@ -63,32 +63,7 @@ public enum FolderRules {
     }
 }
 
-public enum TextChunker {
-    /// Splits text into ~`size`-character pieces (~450 tokens) that overlap a little, breaking at whitespace.
-    public static func chunks(_ text: String, size: Int = 1800, overlap: Int = 200, limit: Int = 2000) -> [String] {
-        let clean = text
-            .replacingOccurrences(of: "[ \t\u{00A0}]+", with: " ", options: .regularExpression)
-            .replacingOccurrences(of: #"\n\s*\n\s*\n+"#, with: "\n\n", options: .regularExpression)
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        var chunks: [String] = []
-        var start = clean.startIndex
-        while start < clean.endIndex, chunks.count < limit {
-            var end = clean.index(start, offsetBy: size, limitedBy: clean.endIndex) ?? clean.endIndex
-            if end < clean.endIndex, let space = clean[start..<end].lastIndex(where: \.isWhitespace),
-               clean.distance(from: start, to: space) > size / 2 {
-                end = space
-            }
-            let chunk = clean[start..<end].trimmingCharacters(in: .whitespacesAndNewlines)
-            if !chunk.isEmpty { chunks.append(chunk) }
-            guard end < clean.endIndex else { break }
-            var next = clean.index(end, offsetBy: -overlap, limitedBy: start) ?? end
-            if next <= start { next = end }
-            while next < end, !clean[next].isWhitespace { next = clean.index(after: next) }
-            start = next < end ? next : end
-        }
-        return chunks
-    }
-
+public enum TextExtraction {
     /// Good enough for search: drops scripts, styles and comments, turns block ends into line breaks, strips tags.
     public static func plainText(fromHTML html: String) -> String {
         var text = html

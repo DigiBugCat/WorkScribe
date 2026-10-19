@@ -39,9 +39,9 @@ final class VaultWriterTests: XCTestCase {
                                       "system:speaker-2": SpeakerAssignment(name: "Marcus Chen"),
                                       "microphone:speaker-1": SpeakerAssignment(name: "You")]
         var n1 = Note(text: "conflict res - field lvl", createdAt: 70)
-        n1.id = "N1"; n1.enhanced = "**Conflict resolution:** Field-level merge for checklists."; n1.excerptRefs = ["seg-a#0"]
+        n1.id = "N1"; n1.line.text = "**Conflict resolution:** Field-level merge for checklists."; n1.line.evidence = ["seg-a#0"]
         var n2 = Note(text: "ship nov 4", createdAt: 1660)
-        n2.id = "N2"; n2.enhanced = "**Ship date:** Nov 4, not Oct 28."; n2.excerptRefs = ["seg-b#0", "seg-b#1"]
+        n2.id = "N2"; n2.line.text = "**Ship date:** Nov 4, not Oct 28."; n2.line.evidence = ["seg-b#0", "seg-b#1"]
         meeting.notes = [n1, n2]
         meeting.missedTopics = [MissedTopic(topic: "Telemetry", text: "Marcus wants crash reporting before beta.", excerptRefs: ["seg-b#0"])]
         return meeting
