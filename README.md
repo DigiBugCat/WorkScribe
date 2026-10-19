@@ -1,5 +1,7 @@
 # WorkScribe
 
+Inspired by [Google AI Edge Foresight](https://developers.google.com/edge/foresight), built for Obsidian. WorkScribe is an independent project, not affiliated with Google.
+
 WorkScribe is an on-device, Obsidian-first note enrichment engine. It captures streaming speech with speaker labels and enriches your jots with supported meeting and vault context. It runs speech recognition, search, and note enhancement on your Mac. An Obsidian plugin puts live notes, cited answers, and meeting search in your vault; the app also works on its own. Models download during setup. After that everything runs on your Mac: WorkScribe has no cloud features, no API keys and no cloud fallback.
 
 ## Build from source
