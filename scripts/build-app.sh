@@ -31,6 +31,9 @@ if [ ! -x "$runtime_home/nemo"/bin/nemo-speech ]; then
   exit 1
 fi
 ditto "$runtime_home/nemo"/lib "$app/Contents/Frameworks"
+# CMake package files are build metadata, not code. Inside Frameworks their signatures live in
+# extended attributes, which disk images and downloads drop, breaking the app's signature.
+rm -rf "$app/Contents/Frameworks/cmake" "$app/Contents/Frameworks/pkgconfig"
 if [ "${WORKSCRIBE_PLAUD:-0}" = 1 ]; then
 ditto "$plaud_frameworks/PlaudBleSDK.framework" "$app/Contents/Frameworks/PlaudBleSDK.framework"
 ditto "$plaud_frameworks/PlaudDeviceBasicSDK.framework" "$app/Contents/Frameworks/PlaudDeviceBasicSDK.framework"
