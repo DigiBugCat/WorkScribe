@@ -36,10 +36,11 @@ public struct SavedClip: Codable, Equatable, Sendable, Identifiable {
 
 /// Writes WorkScribe's Markdown into a vault (or any folder) by direct file writes, which Obsidian picks up on its own.
 ///
-/// - Every write is atomic: a temporary file in the same folder, then `rename`. A new note never replaces a file that
+/// - Every write is atomic: a temporary file in the same folder, then a rename. A new note never replaces a file that
 ///   appeared meanwhile (`RENAME_EXCL`).
-/// - Before replacing a note, the file is re-read and must still hash to what the merge started from; otherwise the
-///   merge is redone once against the newer text.
+/// - A note is replaced by exchanging it with the temporary file (`RENAME_SWAP`) and looking at what came out. If
+///   that is not what the merge started from, Obsidian saved in between: it is put back, and the merge is redone
+///   once against the newer text (`exchange`, formal/tla/VaultNote.tla).
 /// - Meeting notes are merged region by region (`VaultWriter.merge`); user edits are never overwritten, and a
 ///   conflicting new version goes to a sibling `… .conflict.md`.
 /// - People pages are created once and never modified. `Inbox.md` is append-only.
@@ -441,16 +442,83 @@ public final class VaultStore: @unchecked Sendable {
     /// Replaces a file atomically. With `expected`, the file must still have that SHA-256 (nobody wrote meanwhile).
     func replace(_ target: URL, with text: String, expected: String?) throws {
         try guardInside(target)
-        if let expected {
-            guard let current = try? Data(contentsOf: target), VaultWriter.sha256(current) == expected else {
+        try exchange(target, with: text, expected: expected)
+    }
+
+    /// Tests only: run where a save from Obsidian could land. `beforeExchange` after the note was compared
+    /// and before it is replaced; `afterExchange` each time the note and the temporary file have changed places.
+    var beforeExchange: ((URL) -> Void)?
+    var afterExchange: ((URL) -> Void)?
+
+    /// The replacement itself.
+    ///
+    /// Reading the note again and then renaming over it leaves a gap, as long as it takes to write the temporary
+    /// file, in which a save from Obsidian is replaced by a text that never saw it. So the two files are
+    /// exchanged instead (`RENAME_SWAP`, one step) and what came out of the note's place is looked at. If it is
+    /// what the merge started from, nothing was missed. If it is not, it is a save this write never saw, and the
+    /// newest there is: it goes back in, and what comes out in its turn is judged the same way, until an
+    /// exchange takes out exactly what the one before it put in. The person's text is never deleted, and the
+    /// caller is told to read the note again (formal/tla/VaultNote.tla, `NoLostSave`).
+    ///
+    /// A save that began before an exchange has already truncated the old file, so it reads as changed.
+    private func exchange(_ target: URL, with text: String, expected: String?) throws {
+        func current() -> String? { (try? Data(contentsOf: target)).map(VaultWriter.sha256) }
+        if let expected { guard current() == expected else { throw Failure.changedDuringWrite } }
+        let temp = try temporary(beside: target, text: text)
+        func fail(_ code: Int32) -> Error { POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO) }
+        beforeExchange?(target)
+        guard let expected else {
+            // Nothing to compare with (a note of WorkScribe's own that it writes whole).
+            if rename(temp.path, target.path) != 0 { let code = errno; unlink(temp.path); throw fail(code) }
+            return
+        }
+        if renamex_np(temp.path, target.path, UInt32(RENAME_SWAP)) != 0 {
+            let code = errno
+            // A volume that cannot exchange two files: compare once more and rename, as before. The gap is then
+            // the two system calls, not the writing of the file.
+            if code == ENOTSUP || code == EINVAL, current() == expected, rename(temp.path, target.path) == 0 { return }
+            unlink(temp.path)
+            throw code == ENOTSUP || code == EINVAL || code == ENOENT ? Failure.changedDuringWrite : fail(code)
+        }
+        var put: String? = VaultWriter.sha256(Data(text.utf8)), expect: String? = expected
+        var givenUp = false
+        while true {
+            afterExchange?(target)
+            let out = (try? Data(contentsOf: temp)).map(VaultWriter.sha256)
+            if out == expect {
+                unlink(temp.path)
+                if givenUp { throw Failure.changedDuringWrite }
+                return
+            }
+            givenUp = true
+            if renamex_np(temp.path, target.path, UInt32(RENAME_SWAP)) != 0 {
+                // The note's place is empty (it was moved or deleted in this instant): what is held is the
+                // person's text, so it goes there, and is never thrown away.
+                let code = errno
+                if rename(temp.path, target.path) != 0 { throw fail(code) }
                 throw Failure.changedDuringWrite
             }
+            expect = put; put = out
         }
-        let temp = try temporary(beside: target, text: text)
-        if rename(temp.path, target.path) != 0 {
-            let code = errno; unlink(temp.path)
-            throw POSIXError(POSIXErrorCode(rawValue: code) ?? .EIO)
+    }
+
+    /// Takes WorkScribe's own markers out of a note it will not write again (its meeting is being purged). The
+    /// note is compared and exchanged like every other write; one that keeps changing, or that is not text,
+    /// keeps its markers, which are comments. Returns whether the note was rewritten. Never throws: this must
+    /// not stand between a meeting and its purge.
+    @discardableResult
+    public func removeMarkers(at url: URL) -> Bool {
+        lock.lock(); defer { lock.unlock() }
+        for _ in 0..<3 {
+            guard let data = try? Data(contentsOf: url), let source = String(data: data, encoding: .utf8) else { return false }
+            let clean = source.replacingOccurrences(of: #"(?m)^<!-- workscribe:(?:begin|end|frontmatter) [^\n]*-->\r?\n?"#,
+                                                    with: "", options: .regularExpression)
+            if clean == source { return false }
+            do { try exchange(url, with: clean, expected: VaultWriter.sha256(data)); return true }
+            catch Failure.changedDuringWrite { continue }
+            catch { return false }
         }
+        return false
     }
 
     func temporary(beside target: URL, text: String) throws -> URL {

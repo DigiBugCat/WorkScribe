@@ -84,21 +84,62 @@ extension SearchIndex {
 
     public func purge(refs: [String]) throws {
         try db.run("PRAGMA secure_delete = ON")
+        try db.transaction { for ref in refs { try erase(ref: ref) } }
+        try scrub()
+    }
+
+    /// Everything indexed for a purged meeting goes, and nothing of it can be indexed again: its transcript, the
+    /// files in its folder, and whatever was attached to it or to the conversations deleted with it (`roots`).
+    ///
+    /// The fences are set before what to delete is looked up, and both are in the transaction that deletes. Indexing
+    /// runs at the same time, off the actor that purges: an attachment whose words are applied while its meeting
+    /// is being purged is either already there, and deleted, or refused. Listing first and fencing afterwards, in
+    /// separate statements, let one applied in between survive the purge (formal/tla/IndexPurge.tla, `Gone`).
+    public func purge(meeting id: String, folder: String, roots: Set<String>) throws {
+        try db.run("PRAGMA secure_delete = ON")
         try db.transaction {
-            for ref in refs {
-                try setMeta("purged:" + ref, "1")
-                try db.run("DELETE FROM meta WHERE substr(key,1,?)=?", [.int(Int64(("watch:" + ref + ":").count)), .text("watch:" + ref + ":")])
-                try db.run("DELETE FROM lines WHERE source=?", [.text(ref)])
-                try deleteRows(ref: ref)
+            try setMeta("purged:" + id, "1")
+            for root in roots.sorted() { try setMeta("purged:" + root, "1") }
+            var refs = [id]
+            for kind in [SourceKind.meeting, .file] {
+                for source in try sources(kind: kind) where source.ref.hasPrefix(folder + "/") || source.root.map(roots.contains) == true {
+                    refs.append(source.ref)
+                }
             }
+            for ref in refs { try erase(ref: ref) }
         }
+        try scrub()
+    }
+
+    /// Fences one source and deletes its rows. Inside a transaction.
+    private func erase(ref: String) throws {
+        try setMeta("purged:" + ref, "1")
+        try db.run("DELETE FROM meta WHERE substr(key,1,?)=?", [.int(Int64(("watch:" + ref + ":").count)), .text("watch:" + ref + ":")])
+        try db.run("DELETE FROM lines WHERE source=?", [.text(ref)])
+        try deleteRows(ref: ref)
+    }
+
+    /// Makes what was deleted leave the index's files as well as its tables.
+    private func scrub() throws {
         try db.run("INSERT INTO fts(fts) VALUES('optimize')")
         vectorLock.lock(); defer { vectorLock.unlock() }
         let vectors = try store()
         try vectors.withExclusiveAccess { try synchronize(vectors); try vectors.compact() }
-        try db.run("PRAGMA wal_checkpoint(TRUNCATE)")
+        try checkpoint()
         try db.run("VACUUM")
-        try db.run("PRAGMA wal_checkpoint(TRUNCATE)")
+        try checkpoint()
+    }
+
+    /// Moves the write-ahead log into the database and empties it. Until that completes, the pages a purge
+    /// overwrote are still in the files. A checkpoint that another connection blocked (the MCP server reads the
+    /// same index from its own process) does not fail: it answers "busy" in its first column. Taking that for
+    /// success reported text as purged that was still on disk (formal/tla/IndexPurge.tla, `NothingLeftOnDisk`).
+    private func checkpoint() throws {
+        var busy: Int64 = 0
+        try db.query("PRAGMA wal_checkpoint(TRUNCATE)") { busy = $0.int(0) }
+        guard busy == 0 else {
+            throw Database.Failure(message: "Another program is reading the search index, so deleted text could not be cleared from its files yet")
+        }
     }
 
     public func vectorStats() throws -> VectorStoreStats {

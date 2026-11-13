@@ -1,9 +1,9 @@
 import XCTest
 @testable import WorkScribeCore
 
-/// The text models keep each prompt family's fixed head prefilled (`TextRequest.cacheablePrefix`).
-/// The heads are split out of the prompt builders, so every prompt must still start with its head
-/// and read exactly as one prompt where head and body meet.
+/// Each prompt family starts with a fixed head (its rules), then the data. A provider caches a
+/// repeated leading stretch of a prompt, so every prompt must still start with its head and read
+/// exactly as one prompt where head and body meet.
 final class PromptPrefixTests: XCTestCase {
     private let excerpt = PromptEvidence(id: "E1", chunk: TranscriptChunk(id: "c1", segmentID: "s1", speaker: "Speaker 1", start: 0, end: 4,
                                                                     text: "The ship date is <November> fourth."))

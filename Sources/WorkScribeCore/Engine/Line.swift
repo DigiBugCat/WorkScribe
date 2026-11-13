@@ -21,6 +21,15 @@ public struct Line: Codable, Equatable, Sendable {
     public mutating func reset() { guard state != .yours else { return }; let next = (revision ?? 0) + 1; self = Line(); revision = next }
     public mutating func takeOwnership() { state = .yours; revision = (revision ?? 0) + 1 }
     public mutating func resume() { if state == .settled || state == .quiet { state = text == nil ? .listening : .answered } }
+    /// What this line was answered from has changed (a picture's text arrived): look again. A line that has an
+    /// answer keeps showing it until a better one replaces it. Only a line with no text goes back to listening,
+    /// so "listening" never hides text (`formal/lean/Formal/Line.lean`, `WF`).
+    public mutating func recheck() {
+        guard state != .yours else { return }
+        // Both: the engine takes a jot up again only when its basis is gone (or new speech bears on it).
+        queryText = nil; basis = nil
+        if text == nil { state = .listening }
+    }
     public mutating func settle() { guard state != .yours else { return }; state = text == nil ? .quiet : .settled }
     public mutating func retract(remaining: [String], jot: String) {
         guard state != .yours, let text else { return }

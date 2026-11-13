@@ -213,8 +213,6 @@ public enum NotePrompt {
         End with </output>.
         """
     }
-    /// Gemma 4's turn format, as the title generator uses.
-    public static func gemma(_ instruction: String) -> String { "<|turn>user\n\(instruction)<turn|>\n<|turn>model\n" }
     /// Notes and transcript are data: they cannot open tags or chat-template delimiters.
     public static func escape(_ text: String) -> String {
         text.replacingOccurrences(of: "<", with: "‹").replacingOccurrences(of: ">", with: "›").replacingOccurrences(of: "\"", with: "'")

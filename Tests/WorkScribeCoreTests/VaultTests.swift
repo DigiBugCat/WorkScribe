@@ -235,6 +235,106 @@ final class VaultStoreTests: XCTestCase {
         XCTAssertEqual(store.notePath(forMeeting: writeUp.meetingID), renamed)
     }
 
+    // MARK: A save from Obsidian in the middle of a write (formal/tla/VaultNote.tla, NoLostSave)
+
+    /// What Obsidian does when the person's text is saved: the whole buffer, written in place.
+    private func save(_ text: String, to note: URL) { try! Data(text.utf8).write(to: note) }
+    private func leftovers(_ store: VaultStore) throws -> [String] {
+        try FileManager.default.contentsOfDirectory(atPath: store.url("Meetings").path).filter { $0.hasSuffix(".tmp") }
+    }
+
+    /// The note is compared, and then, while the new text is being written beside it, Obsidian saves. The rename
+    /// that followed replaced that save with a text that had never seen it.
+    func testASaveBetweenTheCompareAndTheReplacementIsNotLost() throws {
+        let store = try makeStore()
+        var writeUp = VaultWriterTests.sampleWriteUp()
+        let path = try store.writeMeeting(writeUp).path
+        let note = store.url(path)
+        var saved = false
+        store.beforeExchange = { [self] url in
+            guard !saved, url.lastPathComponent == note.lastPathComponent else { return }
+            saved = true
+            save(try! String(contentsOf: note, encoding: .utf8) + "\nMy own line, typed just now.\n", to: note)
+        }
+        writeUp.brief = "A newer brief."
+        let outcome = try store.writeMeeting(writeUp)
+
+        let after = try String(contentsOf: note, encoding: .utf8)
+        XCTAssertTrue(saved)
+        XCTAssertTrue(after.contains("My own line, typed just now."), "the save that landed mid-write is still in the note")
+        XCTAssertTrue(after.contains("A newer brief."), "and the update went in on the second attempt, on top of it")
+        XCTAssertEqual(outcome, .updated(path))
+        XCTAssertEqual(try leftovers(store), [])
+    }
+
+    /// The second-order case the model found in the first design of the fix: one save lands before the exchange,
+    /// and another while WorkScribe's text stands in the note's place. The newest of them is the one that stays.
+    func testASaveWhileWorkScribesTextStandsInTheNotesPlaceIsTheOneThatStays() throws {
+        let store = try makeStore()
+        var writeUp = VaultWriterTests.sampleWriteUp()
+        let path = try store.writeMeeting(writeUp).path
+        let note = store.url(path)
+        let original = try String(contentsOf: note, encoding: .utf8)
+        var first = false, second = false
+        store.beforeExchange = { [self] url in
+            guard !first, url.lastPathComponent == note.lastPathComponent else { return }
+            first = true
+            save(original + "\nFirst thought.\n", to: note)
+        }
+        store.afterExchange = { [self] url in
+            guard first, !second, url.lastPathComponent == note.lastPathComponent else { return }
+            second = true
+            save(original + "\nFirst thought.\nSecond thought, a moment later.\n", to: note)
+        }
+        writeUp.brief = "A newer brief."
+        _ = try store.writeMeeting(writeUp)
+
+        let after = try String(contentsOf: note, encoding: .utf8)
+        XCTAssertTrue(first && second)
+        XCTAssertTrue(after.contains("Second thought, a moment later."), "the latest save is the one in the note")
+        XCTAssertTrue(after.contains("A newer brief."), "with the update merged onto it")
+        XCTAssertEqual(try leftovers(store), [])
+    }
+
+    /// With nothing to merge again from, the write gives way: the person's text is put back as it was saved.
+    func testAWriteThatCannotBeRedoneLeavesTheNoteAsThePersonSavedIt() throws {
+        let store = try makeStore()
+        let path = try store.writeMeeting(VaultWriterTests.sampleWriteUp()).path
+        let note = store.url(path)
+        let original = try Data(contentsOf: note)
+        store.beforeExchange = { [self] _ in save("Rewritten by hand in Obsidian.\n", to: note) }
+        XCTAssertThrowsError(try store.replace(note, with: "WorkScribe's text.\n", expected: VaultWriter.sha256(original))) {
+            XCTAssertEqual($0 as? VaultStore.Failure, .changedDuringWrite)
+        }
+        XCTAssertEqual(try String(contentsOf: note, encoding: .utf8), "Rewritten by hand in Obsidian.\n")
+        XCTAssertEqual(try leftovers(store), [])
+    }
+
+    /// The rewrite that takes WorkScribe's markers out before a purge compared nothing at all.
+    func testTakingTheMarkersOutBeforeAPurgeKeepsASaveThatLandsMeanwhile() throws {
+        let store = try makeStore()
+        let path = try store.writeMeeting(VaultWriterTests.sampleWriteUp()).path
+        let note = store.url(path)
+        XCTAssertTrue(try String(contentsOf: note, encoding: .utf8).contains("<!-- workscribe:"), "the note has markers to take out")
+        var saved = false
+        store.beforeExchange = { [self] _ in
+            guard !saved else { return }
+            saved = true
+            save(try! String(contentsOf: note, encoding: .utf8) + "\nAdded while the meeting was being purged.\n", to: note)
+        }
+        XCTAssertTrue(store.removeMarkers(at: note))
+        let after = try String(contentsOf: note, encoding: .utf8)
+        XCTAssertTrue(after.contains("Added while the meeting was being purged."), "the person's save survived the rewrite")
+        XCTAssertFalse(after.contains("<!-- workscribe:"), "and the markers went on the second attempt")
+        XCTAssertEqual(try leftovers(store), [])
+
+        // A note that is not text is left exactly as it is, and does not stop a purge.
+        let bytes = Data([0xff, 0xfe, 0x00, 0x41])
+        try bytes.write(to: note)
+        XCTAssertFalse(store.removeMarkers(at: note))
+        XCTAssertEqual(try Data(contentsOf: note), bytes)
+    }
+
     func testRememberedBlockIDs() throws {
         let store = try makeStore()
         var meeting = VaultWriterTests.sampleMeeting()

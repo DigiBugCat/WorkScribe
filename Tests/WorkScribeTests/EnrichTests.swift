@@ -4,7 +4,6 @@ import WorkScribeCore
 
 private actor LineModel: TextModel {
     nonisolated let displayName = "Line fixture"
-    nonisolated let backend: TextBackend = .llama
     nonisolated let isAvailable = true
     var requests: [TextRequest] = []
     func generate(_ request: TextRequest) async throws -> TextGeneration {
@@ -12,7 +11,7 @@ private actor LineModel: TextModel {
         return TextGeneration(text: "* **Trial:** The trial lasts fourteen days for all beta accounts.</output>", stats: TextStats())
     }
     nonisolated func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
-    func prewarm(_ request: TextRequest?) async {}
+    func prewarm() async {}
     func release() async {}
 }
 final class EnrichTests: XCTestCase {
@@ -33,14 +32,13 @@ final class EnrichTests: XCTestCase {
         XCTAssertNil(repeatResult)
         let requests = await model.requests
         XCTAssertEqual(requests.count, 1); XCTAssertEqual(requests[0].maxTokens, 96)
-        XCTAssertEqual(requests[0].cacheablePrefix, LinePrompt.rules)
+        XCTAssertTrue(requests[0].instruction.hasPrefix(LinePrompt.rules), "the fixed rules lead the prompt, so the provider can cache them")
         XCTAssertEqual(CurrentNoteEngine.due(now: 1, lastRun: 0, firstLine: true), 1)
     }
 }
 
 private actor CorrectingLineModel: TextModel {
     nonisolated let displayName = "Corrective line fixture"
-    nonisolated let backend: TextBackend = .llama
     nonisolated let isAvailable = true
     let repairs: Bool
     var requests: [TextRequest] = []
@@ -52,7 +50,7 @@ private actor CorrectingLineModel: TextModel {
             : "* **Trial:** The trial lasts ninety days for all beta accounts.</output>", stats: TextStats())
     }
     nonisolated func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
-    func prewarm(_ request: TextRequest?) async {}
+    func prewarm() async {}
     func release() async {}
 }
 

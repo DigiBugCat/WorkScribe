@@ -26,18 +26,44 @@ def log(message):
 from runtime_doctor_download import download, copy_verified
 
 # Only product assets participate in migration, validation and checksum receipts.
-# Retired files already on disk are left untouched, but cannot become runtime requirements.
+# Other files already on disk cannot become runtime requirements and are left untouched.
 PRODUCT_FILES = {
-    'models/gemma-4-E4B-it-Q4_0.gguf',
-    'models/vision/mmproj-gemma-4-E4B-it-Q8_0.gguf',
     'models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf',
     'models/Nemotron-3-Diarization.q8_0.gguf',
 }
-PRODUCT_TREES = ('nemo', 'models/embeddinggemma-2-coreml', 'models/wespeaker_v2.mlmodelc',
-                 'models/vision/bin', 'models/vision/lib')
+PRODUCT_TREES = ('nemo', 'models/embeddinggemma-2-coreml', 'models/wespeaker_v2.mlmodelc')
+
+# Generated text now comes from Codex, so this version reads neither the local text model, its image
+# projector nor the image helper that lived beside it. They are NOT deleted by a repair run: the
+# runtime home is shared with every other checkout and installed copy of WorkScribe on this Mac, and
+# an older one still needs them. `--remove-retired` deletes exactly these paths, when asked.
+RETIRED = ('models/gemma-4-E4B-it-Q4_0.gguf', 'models/gemma-4-E4B-it-Q4_0.gguf.partial', 'models/vision')
 
 def product_asset(name):
     return name in PRODUCT_FILES or any(name == root or name.startswith(root + '/') for root in PRODUCT_TREES)
+
+def retired_present():
+    return [name for name in RETIRED if (HOME/name).is_symlink() or (HOME/name).exists()]
+
+def remove_retired():
+    """Delete RETIRED entries. Only the runtime home is touched: a link is unlinked, never followed."""
+    home = HOME.resolve()
+    for name in retired_present():
+        path = HOME/name
+        try:
+            if not path.parent.resolve().is_relative_to(home):
+                log(f'{name}: no longer used, but it is outside the runtime home; left in place')
+                continue
+            if path.is_symlink() or not path.is_dir():
+                size = path.lstat().st_size
+                path.unlink()
+            else:
+                # Neither the walk nor rmtree follows links inside the folder.
+                size = sum((Path(folder)/file).lstat().st_size for folder, _, files in os.walk(path) for file in files)
+                shutil.rmtree(path)
+            log(f'{name}: removed, no longer used ({size/1e9:.2f} GB)')
+        except OSError as e:
+            log(f'{name}: no longer used, but could not be removed: {e}')
 
 def local_candidates(name, sources):
     """Where a pinned file may already exist on this Mac: a model folder or a runtime-home copy."""
@@ -118,10 +144,6 @@ def install_nemo():
 def specs():
     result = []
     for name, repo, rev, digest in [
-        ('gemma-4-E4B-it-Q4_0.gguf','ggml-org/gemma-4-E4B-it-GGUF','b8093469224f83f5c38f691eb906c380e9e63114','a555b900214b477d8880e7832e0b8925e139b0159640036b09fe472b6f2097f2'),
-        ('vision/mmproj-gemma-4-E4B-it-Q8_0.gguf','ggml-org/gemma-4-E4B-it-GGUF','b8093469224f83f5c38f691eb906c380e9e63114','197f49a93027f9843772bd24a6a9e0be2a32a788de5a3def330e9c585d86edd1')]:
-        result.append(('models/'+name, digest, f'https://huggingface.co/{repo}/resolve/{rev}/{Path(name).name}'))
-    for name, repo, rev, digest in [
         ('nemotron-3.5-asr-streaming-0.6b.q8_0.gguf','nvidia/nemotron-3.5-asr-streaming-0.6b','1c8deaecc64b91f034d73e08dd8b64625eb3395d','a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae'),
         ('Nemotron-3-Diarization.q8_0.gguf','nvidia/Nemotron-3-Diarization','f667ed73aee57d40cc39428eb768b4fd87a0a29e','08456d9e22cd9a323c0364d98375f3746d6e68507ebb705cd46438c534c7a3a1')]:
         result.append(('models/'+name,digest,f'https://huggingface.co/{repo}/resolve/{rev}/{name}'))
@@ -140,6 +162,9 @@ def specs():
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--check', action='store_true')
+    parser.add_argument('--remove-retired', action='store_true',
+                        help='also delete files this version no longer uses (the local Gemma text model and image helper); '
+                             'an older WorkScribe sharing this runtime home would have to download them again')
     parser.add_argument('--source', action='append', default=[])
     parser.add_argument('--model-source', action='append', default=[], type=Path,
                         help='a folder holding pinned model files (e.g. an earlier download); each is installed only if its SHA-256 matches')
@@ -164,6 +189,11 @@ def main():
             if state(HOME/name, expected) != 'present':
                 corrupt.append(name)
                 log(f'{name}: {state(HOME/name, expected)}')
+        if args.remove_retired and not args.check:
+            remove_retired()
+        else:
+            for name in retired_present():
+                log(f'{name}: no longer used; `runtime-doctor.py --remove-retired` deletes it')
         if not args.check:
             # A corrupt compiled graph must be rebuilt from its pinned source package.
             for name in corrupt:
@@ -198,7 +228,7 @@ def main():
                     install_nemo()
                     receipts = {k:v for k,v in receipts.items() if not k.startswith('nemo/')}
                 except Exception as e: errors.append(str(e)); log(f'Native runtime repair failed: {e}')
-        model_sources = args.model_source + [Path('/private/tmp/claude-501/llm-models/gemma-4-e4b-gguf')] + [Path(p) for p in os.environ.get('WORKSCRIBE_MODEL_SOURCES', '').split(os.pathsep) if p]
+        model_sources = args.model_source + [Path(p) for p in os.environ.get('WORKSCRIBE_MODEL_SOURCES', '').split(os.pathsep) if p]
         for name, digest, url in specs():
             dest = HOME/name; status=state(dest,digest)
             log(f'{name}: {status}')
@@ -219,10 +249,7 @@ def main():
                     (embedding/folder/'workscribe-revision').unlink(missing_ok=True)
             try: subprocess.run([sys.executable,str(ROOT/'scripts/prepare-embedding-model.py'),'--audio','--vision'],check=True)
             except Exception as e: errors.append(str(e)); log(f'Embedding repair failed: {e}')
-        if not args.check and (state(HOME/'models/vision/bin/image-caption') != 'present' or any(n.startswith('models/vision/lib/') or n == 'models/vision/bin/image-caption' for n in corrupt)):
-            try: subprocess.run(['/bin/bash', str(ROOT/'scripts/prepare-image-model.sh')], check=True)
-            except Exception as e: errors.append(str(e)); log(f'Image helper repair failed: {e}')
-        for name in ['nemo','models/vision/bin/image-caption','models/vision/lib','models/vision','models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf','models/Nemotron-3-Diarization.q8_0.gguf']:
+        for name in ['nemo','models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf','models/Nemotron-3-Diarization.q8_0.gguf']:
             status=state(HOME/name); log(f'{name}: {status}')
             if status != 'present': errors.append(f'{name}: {status} (install native runtime using README)')
         if args.check:
@@ -238,7 +265,7 @@ def main():
             temporary = HOME/'checksums.json.partial'
             temporary.write_text(json.dumps(receipts,indent=2)+'\n')
             temporary.replace(receipt_file)
-        for name in ['models/gemma-4-E4B-it-Q4_0.gguf', 'models/vision', 'models/wespeaker_v2.mlmodelc', 'models/embeddinggemma-2-coreml']:
+        for name in ['models/wespeaker_v2.mlmodelc', 'models/embeddinggemma-2-coreml']:
             log(f'Final {name}: {state(HOME/name)}')
         log('Models ready' if not errors else 'Models need attention · '+ '; '.join(errors))
         return bool(errors)

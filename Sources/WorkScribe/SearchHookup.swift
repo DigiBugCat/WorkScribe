@@ -26,6 +26,8 @@ extension AppModel {
         case .file(let path, let page, let seconds):
             guard FileManager.default.fileExists(atPath: path) else { return }
             FileMomentViewer.open(URL(fileURLWithPath: path), page: page, seconds: seconds)
+        case .screen(let day, let seconds):
+            ScreenHistoryWindow.open(model: self, day: day, seconds: seconds)
         }
     }
 }
@@ -66,5 +68,10 @@ final class SearchHookup {
         }.store(in: &observations)
         Task { await service.meetingsChanged(); await service.foldersChanged() }
         model.onLibraryChanged = { Task { await service.meetingsChanged() } }
+        // Screen read outside meetings is searchable too: catch up when a stretch of the day ends, at once when
+        // a day is deleted.
+        model.onScreenDayChanged = { deleted in Task { await service.screenChanged(now: deleted) } }
+        let days = model.screenDays
+        Task { await service.useScreenDays(days); await service.screenChanged(now: true) }
     }
 }

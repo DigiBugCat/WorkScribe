@@ -4,9 +4,12 @@ import Foundation
 ///
 ///     workscribe://meeting/<meeting-uuid>?t=<seconds>&segment=<segment-id>
 ///     workscribe://file?path=<percent-encoded absolute path>&page=<n>&t=<seconds>
+///     workscribe://screen/<yyyy-MM-dd>?t=<seconds into that day>
 public enum WorkScribeLink: Equatable, Sendable {
     case meeting(id: String, seconds: Double?, segment: String?)
     case file(path: String, page: Int?, seconds: Double?)
+    /// A day of screen reading outside meetings, at a time of day.
+    case screen(day: String, seconds: Double?)
 
     public static let scheme = "workscribe"
 
@@ -24,6 +27,10 @@ public enum WorkScribeLink: Equatable, Sendable {
         case "file":
             guard let path = items["path"], path.hasPrefix("/"), !path.split(separator: "/").contains("..") else { return nil }
             self = .file(path: path, page: items["page"].flatMap(Int.init).flatMap { $0 > 0 ? $0 : nil }, seconds: seconds)
+        case "screen":
+            let day = components.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+            guard ScreenDayStore.isDay(day) else { return nil }
+            self = .screen(day: day, seconds: seconds)
         default: return nil
         }
     }
@@ -44,6 +51,9 @@ public enum WorkScribeLink: Equatable, Sendable {
             components.host = "file"
             items.append(URLQueryItem(name: "path", value: path))
             if let page { items.append(URLQueryItem(name: "page", value: String(page))) }
+            seconds(t)
+        case .screen(let day, let t):
+            components.host = "screen"; components.path = "/" + day
             seconds(t)
         }
         // queryItems leaves "&", "=" and "+" alone; a file name can hold any of them.

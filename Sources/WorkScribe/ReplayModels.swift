@@ -97,9 +97,8 @@ final class ReplayModels: @unchecked Sendable {
     }
     func missed(_ key: String) { lock.withLock { _ = misses.insert(key) } }
     func generate(_ request: TextRequest) async throws -> TextGeneration {
-        let template = LlamaTextEngine.template(.gemma4)
-        let hash = replayHash("<bos>" + template.head + request.instruction + template.tail)
-        let settings = "\(request.maxTokens)|\(request.stop ?? "")|\(request.firstLine)|\(request.cacheablePrefix ?? "")"
+        let hash = replayHash(request.instruction)
+        let settings = "\(request.maxTokens)|\(request.stop ?? "")|\(request.firstLine)"
         let key = cache.model + "/" + hash + "/" + replayHash(settings)
         let entry: Generation
         if real, let generator {
@@ -189,14 +188,18 @@ final class ReplayModels: @unchecked Sendable {
     }
 }
 
+extension ReplayModels {
+    /// What a cache of generations was recorded with. A cache from another generator is refused.
+    static let generatorID = "codex-app-server"
+}
+
 struct ReplayTextModel: TextModel {
     let journal: ReplayModels
     var displayName: String { journal.cache.model }
-    var backend: TextBackend { .llama }
     var isAvailable: Bool { true }
     func generate(_ request: TextRequest) async throws -> TextGeneration { try await journal.generate(request) }
     func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
-    func prewarm(_ request: TextRequest?) async {}
+    func prewarm() async {}
     func release() async {}
 }
 struct ReplayEmbedder: Embedder {

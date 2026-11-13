@@ -12,6 +12,9 @@ macos="$(sw_vers -productVersion)"
 for tool in git xcrun swift python3 node npm; do
   command -v "$tool" >/dev/null || fail "Missing $tool. See README.md → Requirements."
 done
+# Recording, transcription and search work without Codex; AI lines, titles and answers do not.
+command -v codex >/dev/null || [ -x /opt/homebrew/bin/codex ] || [ -x /usr/local/bin/codex ] \
+  || printf '\nNote: the Codex CLI was not found. Install it (brew install --cask codex) and run `codex login` to get AI lines, titles and answers.\n'
 xcrun --find coremlcompiler >/dev/null 2>&1 || fail 'Install full Xcode 26+, open it once, and select it with sudo xcode-select -s /Applications/Xcode.app/Contents/Developer.'
 xcode_version="$(xcodebuild -version 2>/dev/null)" || fail 'Xcode is not ready. Open it once to finish setup and accept its license.'
 swift_version="$(swift --version | head -n 1)"
@@ -43,7 +46,7 @@ for item in json.loads(pathlib.Path('Resources/runtime-downloads.json').read_tex
     target = home / name
     if state(target, item['sha256'] if not name.endswith('/') else None) != 'present':
         missing += item['bytes']
-# Native/Core ML compilation, dependencies, debug + release build workspace.
+# Core ML compilation, dependencies, debug + release build workspace.
 required = 6 + missing / 1024**3
 for target in sys.argv[1:]:
     p = pathlib.Path(target).expanduser()

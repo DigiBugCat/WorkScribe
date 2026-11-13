@@ -4,7 +4,6 @@ import WorkScribeCore
 
 private actor BackgroundModel: TextModel {
     nonisolated let displayName = "Fixture"
-    nonisolated let backend = TextBackend.llama
     nonisolated let isAvailable = true
     var prompts: [String] = []
     let invent: Bool
@@ -15,7 +14,7 @@ private actor BackgroundModel: TextModel {
             : "* **Budget:** The team will send the budget report on Monday.", stats: TextStats())
     }
     nonisolated func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
-    func prewarm(_ request: TextRequest?) async {}
+    func prewarm() async {}
     func release() async {}
 }
 final class NoteBackgroundTests: XCTestCase {

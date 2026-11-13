@@ -1,5 +1,7 @@
 # Public build verification
 
+> This report describes commit `86d8e27` (15 October 2026). It predates the move of generated text to Codex and the event-driven screen watcher: its download total, model list, image-helper build and "no cloud features" statements are true of that commit, not of the current tree. See `README.md` and `formal/README.md` for the current state.
+
 Date: 2026-10-15. Implementation verified at `86d8e2764f45dada95e04e497e6e73f3a5985500` (later documentation-only changes do not affect the products). Tested on an arm64 Mac, macOS 26.5.1 (25F80), Xcode 26.6
 (17F113), Apple Swift 6.3.3, Python 3.14.7, Node 26.3.1, npm 11.16.0.
 

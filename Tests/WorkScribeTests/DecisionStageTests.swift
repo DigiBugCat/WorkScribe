@@ -75,13 +75,13 @@ final class DecisionStageTests: XCTestCase {
     }
 
     struct PlainBulletModel: TextModel {
-        let displayName = "plain fixture", backend = TextBackend.llama, isAvailable = true
+        let displayName = "plain fixture", isAvailable = true
         func generate(_ request: TextRequest) async throws -> TextGeneration {
             XCTAssertFalse(request.instruction.hasPrefix(NotePrompt.topicsHead))
             return TextGeneration(text: "* The price is ten dollars per seat each month.", stats: TextStats())
         }
         func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
-        func prewarm(_ request: TextRequest?) async {}
+        func prewarm() async {}
         func release() async {}
     }
     func testSettleDoesNotStartOptionalSynthesis() async throws {

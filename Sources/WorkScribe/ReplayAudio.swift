@@ -60,7 +60,7 @@ final class FileCapture: AudioCapturing {
         let root = output.appendingPathComponent("audio-state-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         // Isolated from the person's settings: argument-domain values are never written to disk.
-        UserDefaults.standard.setVolatileDomain(["screenCaptureEnabled": false, "includeSystemAudio": true, "autoRecordCalls": false],
+        UserDefaults.standard.setVolatileDomain(["screenReadingMode": "off", "includeSystemAudio": true, "autoRecordCalls": false],
                                                 forName: UserDefaults.argumentDomain)
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
         let source = try decoder.decode(Meeting.self, from: Data(contentsOf: fixture.appendingPathComponent("transcript.json")))
@@ -92,7 +92,7 @@ final class FileCapture: AudioCapturing {
         let indexing = true
         let oldEmbedder = Enrich.embedderSource
         defer { Enrich.embedderSource = oldEmbedder }
-        let generator = ReplayAudioModel(wrapped: try GemmaEvaluation.model(runtime: "llama"))
+        let generator = ReplayAudioModel(wrapped: CodexTextModel())
         let oldEnhancer = NoteEnhancementScheduler.shared.enhancer
         NoteEnhancementScheduler.shared.enhancer = Enrich(textModel: generator)
         defer { NoteEnhancementScheduler.shared.enhancer = oldEnhancer }
@@ -249,7 +249,6 @@ final class ReplayAudioModel: TextModel, @unchecked Sendable {
     private var records: [ReplayModels.Call] = []
     init(wrapped: any TextModel) { self.wrapped = wrapped }
     var displayName: String { wrapped.displayName }
-    var backend: TextBackend { wrapped.backend }
     var isAvailable: Bool { wrapped.isAvailable }
     var receipts: [ReplayModels.Call] { lock.withLock { records } }
     var spans: [ClosedRange<Double>] { lock.withLock { intervals } }
@@ -269,7 +268,7 @@ final class ReplayAudioModel: TextModel, @unchecked Sendable {
         return value
     }
     func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { wrapped.stream(request) }
-    func prewarm(_ request: TextRequest?) async { await wrapped.prewarm(request) }
+    func prewarm() async { await wrapped.prewarm() }
     func release() async { await wrapped.release() }
 }
 

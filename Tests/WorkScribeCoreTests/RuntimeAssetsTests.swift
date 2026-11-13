@@ -29,11 +29,11 @@ final class RuntimeAssetsTests: XCTestCase {
         XCTAssertEqual(RuntimeAssets.inspect(root), .wrongHash)
         XCTAssertThrowsError(try RuntimeAssets.require(root))
     }
-    func testE4BAndProjectorRejectUnpinnedBytes() throws {
+    func testPinnedSpeechModelsRejectUnpinnedBytes() throws {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: root) }
-        for name in ["gemma-4-E4B-it-Q4_0.gguf", "mmproj-gemma-4-E4B-it-Q8_0.gguf"] {
+        for name in ["nemotron-3.5-asr-streaming-0.6b.q8_0.gguf", "Nemotron-3-Diarization.q8_0.gguf"] {
             let file = root.appendingPathComponent(name)
             try Data("not model bytes".utf8).write(to: file)
             XCTAssertEqual(RuntimeAssets.inspect(file), .wrongHash)

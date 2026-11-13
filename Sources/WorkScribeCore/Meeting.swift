@@ -107,7 +107,7 @@ public struct Meeting: Codable, Identifiable {
     public var orderedSegments: [Segment] { segments.sorted { $0.start < $1.start } }
 }
 
-public struct MeetingStore {
+public struct MeetingStore: Sendable {
     public let root: URL
     public init(root: URL? = nil) {
         self.root = root ?? ProcessInfo.processInfo.environment["WORKSCRIBE_DATA_DIR"].map { URL(fileURLWithPath: $0) }
@@ -144,6 +144,12 @@ public struct MeetingStore {
         var all = entries.compactMap { try? load($0.lastPathComponent) }
         for receipt in RetentionStore(meetings: self).list() where !all.contains(where: { $0.id == receipt.id }) { all.append(receipt.meeting) }
         return all.sorted { $0.startedAt > $1.startedAt }
+    }
+    /// The meeting's own data is on disk. False for a stand-in listed for a receipt whose meeting was purged
+    /// or moved to the Trash.
+    public func hasTranscript(_ id: String) -> Bool {
+        guard let folder = try? directory(id) else { return false }
+        return FileManager.default.fileExists(atPath: folder.appendingPathComponent("transcript.json").path)
     }
     /// No capture owner survives a process restart. Recover before exposing API/MCP state.
     /// Idempotent; preserve every received segment, and start the normal retention clock.

@@ -1,5 +1,11 @@
 # Making your own WorkScribe
 
+> Note, 11 November 2026: the "today's code" descriptions below were read from an older commit. Since then the note
+> and answer model is one backend, `CodexTextModel` and `CodexAnswerGenerator` over `codex app-server` (llama.cpp,
+> `LlamaAnswerGenerator` and the bundled Gemma text model are gone; the Apple Intelligence generator had already
+> been removed before that), and `ScreenRecorder` was replaced by `ScreenWatch`/`ScreenWatcher`, which
+> reads the front window on events and records no video. The seams this document proposes are unaffected.
+
 This is for a developer who wants WorkScribe to work somewhere it doesn't yet: a company that forbids recording, a team whose meetings all happen in one platform, a person who wants a different model or a different notes app. It describes the seams WorkScribe exposes for that, the contract each seam enforces, and how to keep a fork small enough that you can still merge upstream next month.
 
 The transcript is the main case. Some workplaces don't allow recording, but they do allow the meeting platform's own transcript. Others allow recording on this Mac but not anything that leaves it. WorkScribe should handle all of them without anyone editing the recorder. "If Zoom's captions are on, use them; otherwise take notes only" should be a few lines of config, and writing the piece that reads Zoom's captions should be a small program in whatever language you like.

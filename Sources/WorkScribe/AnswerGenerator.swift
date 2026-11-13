@@ -1,13 +1,13 @@
 import Foundation
 import WorkScribeCore
 
-/// Writes a short cited answer using the resident E4B model.
+/// Writes a short cited answer from the moments retrieval found.
 protocol AnswerGenerator: Sendable {
-    /// "Gemma 4 E4B · on this Mac": shown under answers and in the composer footer.
+    /// "Codex · gpt-6.1-sol": shown under answers and in the composer footer.
     var displayName: String { get }
-    /// "local" (for /v1/status). Every generator runs on this Mac.
+    /// "codex" (for /v1/status).
     var provider: String { get }
-    /// The model's name ("Gemma 4 E4B").
+    /// The model's name.
     var modelName: String { get }
     var isAvailable: Bool { get }
     func stream(_ prompt: AskPrompt) -> AsyncThrowingStream<String, Error>
@@ -32,40 +32,21 @@ extension AnswerGenerator {
 }
 
 enum AnswerGenerators {
-    /// Answers are written on this Mac only. There is no cloud model and no network fallback.
-    static func preferred() -> (any AnswerGenerator)? { onDevice() }
-
-    /// Existing preferences other than "none" now use E4B.
-    static func onDevice(setting: String = UserDefaults.standard.string(forKey: "answerEngine") ?? "auto") -> (any AnswerGenerator)? {
-        let bundled = LlamaAnswerGenerator()
-        return setting != "none" && bundled.isAvailable ? bundled : nil
+    /// Answers are written by Codex. "none" in the "answerEngine" setting lists the matching moments instead.
+    static func preferred(setting: String = UserDefaults.standard.string(forKey: "answerEngine") ?? "auto") -> (any AnswerGenerator)? {
+        setting == "none" ? nil : CodexAnswerGenerator()
     }
 }
 
-/// E4B on the resident llama.cpp engine
-/// (`TextModels.generator`): loaded once, kept between answers, released when idle or under memory
-/// pressure. `WORKSCRIBE_TEXT_MODEL` points at a GGUF for runs outside the app bundle.
-final class LlamaAnswerGenerator: AnswerGenerator, @unchecked Sendable {
-    let model: GeneratorModel
-    let path: String
-
-    init(model: GeneratorModel = .bundled, path: String? = nil) {
-        self.model = model
-        self.path = path ?? ProcessInfo.processInfo.environment["WORKSCRIBE_TEXT_MODEL"]
-            ?? RuntimeAssets.model(model.filename).path
-    }
-
-    var displayName: String { "\(model.displayName) · on this Mac" }
-    var provider: String { "local" }
-    var modelName: String { model.displayName }
-    var isAvailable: Bool { RuntimeAssets.inspect(URL(fileURLWithPath: path)) == .present }
-
+/// Answers through the text backend. The request carries the question and the retrieved excerpts
+/// (`AskPrompt`), never a whole transcript.
+struct CodexAnswerGenerator: AnswerGenerator {
+    var model: any TextModel = TextModels.model(for: .ask)
+    var displayName: String { model.displayName }
+    var provider: String { "codex" }
+    var modelName: String { CodexStatus.current.model ?? "Codex" }
+    var isAvailable: Bool { model.isAvailable }
     func stream(_ prompt: AskPrompt) -> AsyncThrowingStream<String, Error> {
-        let path = self.path
-        // The instruction and the "Sources:" heading are the same on every question.
-        let request = TextRequest(prompt.userText, cacheablePrefix: prompt.instruction + "\n\nSources:\n", maxTokens: 320)
-        do { try RuntimeAssets.require(URL(fileURLWithPath: path)) }
-        catch { return AsyncThrowingStream { $0.finish(throwing: error) } }
-        return TextModels.generator(model, path: path).stream(request)
+        model.stream(TextRequest(prompt.userText, maxTokens: 320))
     }
 }

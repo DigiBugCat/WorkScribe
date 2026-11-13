@@ -33,6 +33,40 @@ enum APIVerification {
             throw CaptureError.message("Unexpected statuses: no token \(unauthorized), status \(ok), meetings \(meetings)")
         }
         FileHandle.standardError.write(Data("port \(port) · no token → \(unauthorized) · foreign Host → \(wrongHost) · meetings → \(String(decoding: list, as: UTF8.self))\n".utf8))
+
+        // Screen history, through the same server: one day with two apps, asked for whole, by app, then deleted.
+        func post(_ path: String, _ json: [String: Any] = [:]) async throws -> (Int, Data) {
+            var request = URLRequest(url: URL(string: "http://127.0.0.1:\(port)\(path)")!)
+            request.httpMethod = "POST"; request.setValue("Bearer \(config.token)", forHTTPHeaderField: "Authorization")
+            request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+            request.httpBody = try JSONSerialization.data(withJSONObject: json)
+            let (data, response) = try await URLSession.shared.data(for: request)
+            return ((response as? HTTPURLResponse)?.statusCode ?? 0, data)
+        }
+        let today = ScreenDayStore.day(Date())
+        var day = ScreenDay(day: today.id, start: today.start)
+        day.moments = [ScreenMoment(start: 34_200, end: 34_260, text: "Team plan twelve dollars per seat", app: "Safari", bundleID: "com.apple.Safari", window: "Pricing"),
+                       ScreenMoment(start: 36_000, end: 36_100, text: "func start() async throws", app: "Xcode", bundleID: "com.apple.dt.Xcode", window: "AppModel.swift")]
+        day.usage = [AppSpan(bundleID: "com.apple.Safari", app: "Safari", category: "Browser", start: 34_200, end: 34_800, windows: ["Pricing"]),
+                     AppSpan(bundleID: "com.apple.dt.Xcode", app: "Xcode", category: "Developer tools", start: 36_000, end: 39_600, windows: ["AppModel.swift"])]
+        try model.screenDays.save(day)
+        let (daysStatus, daysBody) = try await get("/v1/screen/days", token: config.token)
+        let days = try APIJSON.decoder.decode(APIScreenDays.self, from: daysBody)
+        let (oneStatus, oneBody) = try await get("/v1/screen/days/today?app=safari", token: config.token)
+        let one = try APIJSON.decoder.decode(APIScreenDay.self, from: oneBody)
+        let (noToken, _) = try await get("/v1/screen/days", token: nil)
+        let (missing, _) = try await get("/v1/screen/days/2001-01-01", token: config.token)
+        let (traversal, _) = try await get("/v1/screen/days/..%2F..%2Fetc", token: config.token)
+        let (pause, _) = try await post("/v1/screen/pause", ["paused": true, "minutes": 1])
+        if pause == 200 { _ = try await post("/v1/screen/pause", ["paused": false]) }
+        let (deleted, _) = try await post("/v1/screen/days/\(today.id)/delete")
+        let (afterDelete, _) = try await get("/v1/screen/days/today", token: config.token)
+        guard daysStatus == 200, days.days.map(\.day) == [today.id], days.days.first?.apps.map(\.app) == ["Xcode", "Safari"],
+              oneStatus == 200, one.moments.map(\.window) == ["Pricing"], one.moments.first?.link == "workscribe://screen/\(today.id)?t=34200.0",
+              noToken == 401, missing == 404, traversal == 404, pause == 200 || pause == 409, deleted == 200, afterDelete == 404 else {
+            throw CaptureError.message("Screen history routes: days \(daysStatus) \(days.days.map(\.day)), one \(oneStatus) \(one.moments.map(\.window)), no token \(noToken), missing \(missing), traversal \(traversal), pause \(pause), delete \(deleted), after \(afterDelete)")
+        }
+        FileHandle.standardError.write(Data("screen history → days \(daysStatus) · by app \(oneStatus) (\(one.moments.count) of \(days.days.first?.moments ?? 0)) · no token \(noToken) · unknown day \(missing) · pause \(pause) · delete \(deleted) then \(afterDelete)\n".utf8))
         FileHandle.standardOutput.write(body)
         FileHandle.standardOutput.write(Data("\n".utf8))
     }

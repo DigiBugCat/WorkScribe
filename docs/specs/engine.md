@@ -1,5 +1,11 @@
 # WorkScribe engine — rebuild spec
 
+> Note, 11 November 2026: this is the design the engine was built from, kept as written. Two things it says are no
+> longer true of the code. Generated text now comes from `codex app-server` (`CodexSession`, `CodexAppServer`), so
+> every mention of llama.cpp, the resident E4B model, exact token counts and cached prompt prefixes is historical.
+> Screen context comes from the event-driven `ScreenWatch`, not `ScreenRecorder` and scene embeddings. `README.md`
+> and `formal/README.md` describe the current state.
+
 Status: design for Codex to implement in stages. Base: the merged `core` branch (stage 0, in progress at
 `/private/tmp/claude-501/ws-core`). Read `docs/research/core-merge.md` there for the seam list this spec resolves.
 

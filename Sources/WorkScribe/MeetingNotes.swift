@@ -118,7 +118,8 @@ final class NoteEnhancementScheduler {
     private var waits: [String: Int] = [:]
     var delay: UInt64 = UInt64(CurrentNoteEngine.debounceSeconds * 1e9)
     var minimumInterval: TimeInterval = CurrentNoteEngine.throttleSeconds
-    private var pending: [String: Task<Void, Never>] = [:]
+    /// The live pass waiting for its turn. Its token is how a task knows the entry is its own.
+    private var pending: [String: (token: UUID, task: Task<Void, Never>)] = [:]
     private var running: Set<String> = []
     private var finalizing: Set<String> = []
     private var draining: Set<String> = []
@@ -126,7 +127,7 @@ final class NoteEnhancementScheduler {
     private var lastRun: [String: Date] = [:]
     private var inputs: [String: String] = [:]
     /// The live pass in flight; Stop drains it before settling.
-    private var live: [String: Task<Void, Never>] = [:]
+    private var live: [String: (token: UUID, task: Task<Void, Never>)] = [:]
     /// Ticks on every model call of a final pass: proof of progress for the stall watchdog,
     /// whichever meeting is on screen.
     private var synthesis: [String: (id: UUID, task: Task<Void, Never>)] = [:]
@@ -136,7 +137,7 @@ final class NoteEnhancementScheduler {
     /// Finalized speech and jot changes wake selection; unchanged inputs do no work.
     func schedule(_ id: String, model: AppModel) {
         guard let snapshot = model.meetingSnapshot(id), !model.liveAIPaused else { return }
-        let input = Chunker.hash(snapshot.segments.map { $0.id + $0.text }.joined(separator: "|") + "|" + (snapshot.notes ?? []).map { $0.id + $0.text + String($0.queryRevision) + String($0.line.owned == true) + $0.imageEvidence }.joined(separator: "|"))
+        let input = Self.signature(snapshot)
         guard inputs[id] != input else { return }
         inputs[id] = input
         synthesis.removeValue(forKey: id)?.task.cancel()
@@ -144,14 +145,23 @@ final class NoteEnhancementScheduler {
         guard !finalizing.contains(id), !draining.contains(id) else { return }
         guard !model.liveAIPaused else { return }
         guard !running.contains(id), pending[id] == nil else { return }
+        let token = UUID()
         let task = Task { [weak self, weak model] in
             guard let self, let model else { return }
-            live[id] = pending.removeValue(forKey: id)
-            defer { live[id] = nil }
+            // A task only ever moves ITSELF from waiting to running. One that was cancelled and replaced
+            // before its turn used to take its replacement's entry, and the replacement then ran untracked:
+            // Stop did not wait for it, and the final pass found a pass "already running" (N6).
+            guard pending[id]?.token == token, let mine = pending.removeValue(forKey: id) else { return }
+            live[id] = mine
+            defer { if live[id]?.token == token { live[id] = nil } }
             guard !Task.isCancelled else { return }
             await run(id, model: model, final: false)
         }
-        pending[id] = task
+        pending[id] = (token, task)
+    }
+    /// What a pass reads: the settled speech and the notes as typed. Unchanged means there is nothing new to do.
+    private static func signature(_ snapshot: Meeting) -> String {
+        Chunker.hash(snapshot.segments.map { $0.id + $0.text }.joined(separator: "|") + "|" + (snapshot.notes ?? []).map { $0.id + $0.text + String($0.queryRevision) + String($0.line.owned == true) + $0.imageEvidence }.joined(separator: "|"))
     }
     func cancelSynthesis() {
         for job in synthesis.values { job.task.cancel() }
@@ -161,27 +171,29 @@ final class NoteEnhancementScheduler {
     /// live pass short. Its finished lines are kept and the rest run when AI lines resume.
     func yieldLive(_ id: String) {
         cancelSynthesis()
-        pending.removeValue(forKey: id)?.cancel()
-        if let task = live[id] { task.cancel(); dirty.insert(id) }; inputs[id] = nil
+        pending.removeValue(forKey: id)?.task.cancel()
+        if let running = live[id] { running.task.cancel(); dirty.insert(id) }; inputs[id] = nil
     }
     /// Stop admits no new live work while recognition drains, but keeps the current line.
     func beginStop(_ id: String) {
         draining.insert(id)
         cancelSynthesis()
-        pending.removeValue(forKey: id)?.cancel()
+        pending.removeValue(forKey: id)?.task.cancel()
     }
     @discardableResult func finish(_ id: String, model: AppModel) async -> Bool {
-        guard finalizing.insert(id).inserted else { return false }
+        // Before the guard: a second `finish` that is turned away must not leave the meeting marked as
+        // draining, which admits no live work, for ever (N5).
         draining.remove(id)
+        guard finalizing.insert(id).inserted else { return false }
         defer {
             finalizing.remove(id)
             if dirty.contains(id) { inputs[id] = nil; schedule(id, model: model) }
         }
         let endedAt = model.meetingSnapshot(id)?.endedAt
         warnings[id] = nil
-        pending.removeValue(forKey: id)?.cancel()
+        pending.removeValue(forKey: id)?.task.cancel()
         // Drain the active line instead of cancelling a nearly finished answer and regenerating it.
-        if let task = live[id] { await task.value }
+        if let running = live[id] { await running.task.value }
         guard !Task.isCancelled else { return false }
         guard !Task.isCancelled, model.meetingSnapshot(id)?.endedAt == endedAt else { return false }
         if model.meeting?.id == id, model.phase == "finalizing" { model.message = "Finishing your notes…" }
@@ -189,7 +201,7 @@ final class NoteEnhancementScheduler {
             try await RecordingDeadline.wait(stall: model.stallTimeout) { await model.finishNoteImages(id) }
         } catch { return false }
         guard model.meetingSnapshot(id)?.endedAt == endedAt else { return false }
-        pending.removeValue(forKey: id)?.cancel()
+        pending.removeValue(forKey: id)?.task.cancel()
         var success = false
         heartbeat[id] = 0
         do {
@@ -233,6 +245,9 @@ final class NoteEnhancementScheduler {
             try? model.mutateMeeting(id) { $0.notes = snapshot.notes }
             model.notesChanged(id)
         }
+        // The final pass has now seen this much. `schedule` after Stop then does nothing unless something
+        // changed while the pass was running, which is the case it is there for.
+        if final { inputs[id] = Self.signature(snapshot) }
         let generation = model.recordingGeneration
         let previousRun = lastRun[id]
         running.insert(id); dirty.remove(id); lastRun[id] = Date()
@@ -264,6 +279,13 @@ final class NoteEnhancementScheduler {
                 // After Stop, finding nothing settles a jot only if the search could see the transcript; an index
                 // still loading after launch is asked again shortly.
                 let searched = await enhancer.searched(id)
+                // The meeting may have been resumed while this pass was looking: then its lines are live again
+                // and must not be settled by a pass that belongs to the session before (N4).
+                // The work this pass had taken is owed again: nothing else would ask, because the inputs it
+                // was scheduled for have not changed (N7).
+                guard model.recordingGeneration == generation,
+                      model.meetingSnapshot(id)?.recordingSessions?.last?.id == snapshot.recordingSessions?.last?.id,
+                      model.meetingSnapshot(id)?.endedAt == snapshot.endedAt else { lastRun[id] = previousRun; dirty.insert(id); return false }
                 if final || stopped && searched { try model.mutateMeeting(id) { meeting in
                     for i in (meeting.notes ?? []).indices { meeting.notes![i].line.settle() }
                 } }
@@ -281,7 +303,7 @@ final class NoteEnhancementScheduler {
             }
             guard model.recordingGeneration == generation,
                   model.meetingSnapshot(id)?.recordingSessions?.last?.id == snapshot.recordingSessions?.last?.id,
-                  model.meetingSnapshot(id)?.endedAt == snapshot.endedAt else { return false }
+                  model.meetingSnapshot(id)?.endedAt == snapshot.endedAt else { dirty.insert(id); return false }
             // A live pass cut short still applies the lines it finished; they passed every check.
             if final { try Task.checkCancellation() }
             if final || stopped {

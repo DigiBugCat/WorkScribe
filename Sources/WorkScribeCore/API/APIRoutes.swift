@@ -16,6 +16,12 @@ public enum APIRoute: Equatable, Sendable {
     case ask
     case search
     case attachments
+    /// Screen reading outside meetings: the days there is history for, one day (optionally one app), deleting a
+    /// day, and pausing.
+    case screenDays
+    case screenDay(String)
+    case deleteScreenDay(String)
+    case pauseScreen
 
     /// The route for a method and path, or the HTTP status to answer with (404 unknown path, 405 wrong method).
     public static func match(method: String, path: String) -> Result<APIRoute, APIRouteError> {
@@ -42,6 +48,18 @@ public enum APIRoute: Equatable, Sendable {
             case "stop": return only("POST", .stopRecording)
             default: return .failure(.notFound)
             }
+        case 2 where rest[0] == "screen":
+            switch rest[1] {
+            case "days": return only("GET", .screenDays)
+            case "pause": return only("POST", .pauseScreen)
+            default: return .failure(.notFound)
+            }
+        case 3 where rest[0] == "screen" && rest[1] == "days":
+            guard rest[2] == "today" || ScreenDayStore.isDay(rest[2]) else { return .failure(.notFound) }
+            return only("GET", .screenDay(rest[2]))
+        case 4 where rest[0] == "screen" && rest[1] == "days" && rest[3] == "delete":
+            guard rest[2] == "today" || ScreenDayStore.isDay(rest[2]) else { return .failure(.notFound) }
+            return only("POST", .deleteScreenDay(rest[2]))
         case 2 where rest[0] == "meetings":
             return only("GET", .meeting(rest[1]))
         case 3 where rest[0] == "meetings" && rest[2] == "resume":
@@ -133,7 +151,7 @@ public struct APIStatus: Codable, Equatable, Sendable {
         public var screenRecording: Bool; public var microphone: Bool
         public init(screenRecording: Bool, microphone: Bool) { self.screenRecording = screenRecording; self.microphone = microphone }
     }
-    /// The answer model: provider "local" or "none" (moments only).
+    /// The answer model: provider "codex" or "none" (moments only).
     public struct Model: Codable, Equatable, Sendable {
         public var provider: String; public var name: String
         public init(provider: String, name: String) { self.provider = provider; self.name = name }
@@ -267,7 +285,7 @@ public struct APIMoment: Codable, Equatable, Sendable {
 
     public init(_ moment: AskMoment, number: Int? = nil) {
         kind = APIShapes.momentKind(moment); title = moment.title ?? moment.sourceName; snippet = moment.snippet ?? String(moment.text.prefix(240))
-        meetingId = moment.isMeeting ? moment.ref : nil; path = moment.isMeeting ? nil : moment.ref
+        meetingId = moment.isMeeting ? moment.ref : nil; path = moment.isMeeting || moment.screenDay != nil ? nil : moment.ref
         start = moment.start; end = moment.end; page = moment.page; speaker = moment.speakers.first
         thumbnail = moment.thumbnail; link = moment.obsidianLink ?? moment.link.url.absoluteString; attached = moment.attached; window = moment.window; self.number = number
     }
@@ -308,8 +326,99 @@ public struct APIAttachmentResult: Codable, Equatable, Sendable {
     public init(attachment: Attachment, owner: String, path: String?) { self.attachment = attachment; self.owner = owner; self.path = path }
 }
 
+// MARK: Screen history
+
+/// Whether the screen is being read, for `GET /v1/screen/days` and `POST /v1/screen/pause`.
+public struct APIScreenReading: Codable, Equatable, Sendable {
+    /// off · meetings · allDay
+    public var mode: String
+    /// What it is doing now, in words ("Reading screen text", "Screen reading paused", …).
+    public var state: String
+    public var paused: Bool
+    /// Days of history kept; 0 keeps everything.
+    public var historyDays: Int
+    public init(mode: String, state: String, paused: Bool, historyDays: Int) {
+        self.mode = mode; self.state = state; self.paused = paused; self.historyDays = historyDays
+    }
+}
+public struct APIScreenApp: Codable, Equatable, Sendable {
+    public var app: String; public var bundleId: String?; public var category: String?
+    /// Seconds in front.
+    public var seconds: Double
+    /// Stretches of text kept from it.
+    public var moments: Int
+    public var windows: [String]
+}
+public struct APIScreenDaySummary: Codable, Equatable, Sendable {
+    public var day: String; public var start: Date
+    public var seconds: Double; public var moments: Int
+    public var apps: [APIScreenApp]
+}
+public struct APIScreenDays: Codable, Equatable, Sendable {
+    public var reading: APIScreenReading
+    public var days: [APIScreenDaySummary]
+    public init(reading: APIScreenReading, days: [APIScreenDaySummary]) { self.reading = reading; self.days = days }
+}
+public struct APIScreenMoment: Codable, Equatable, Sendable {
+    public var id: String
+    /// Seconds into the day, and the same as a time.
+    public var start: Double; public var end: Double; public var startedAt: Date
+    public var app: String?; public var bundleId: String?; public var window: String?; public var url: String?
+    /// "accessibility" (the app's own text) or "ocr" (read off a picture of the window).
+    public var source: String?
+    public var text: String
+    public var link: String
+}
+public struct APIScreenSpan: Codable, Equatable, Sendable {
+    public var app: String; public var bundleId: String?; public var category: String?
+    public var start: Double; public var end: Double
+    public var windows: [String]
+    /// The meeting being recorded then; its screen text is in the meeting, not here.
+    public var meetingId: String?
+}
+public struct APIScreenDay: Codable, Equatable, Sendable {
+    public var day: String; public var start: Date
+    public var apps: [APIScreenApp]
+    public var moments: [APIScreenMoment]
+    public var usage: [APIScreenSpan]
+    /// More moments match than were returned.
+    public var truncated: Bool
+}
+public struct APIScreenPauseBody: Codable, Sendable {
+    /// false resumes. Absent means true.
+    public var paused: Bool?
+    /// Resume by itself after this many minutes.
+    public var minutes: Double?
+}
+
 /// Builds the JSON shapes from meetings and conversations. Pure, so it is tested without the app.
 public enum APIShapes {
+    static func screenApps(_ day: ScreenDay) -> [APIScreenApp] {
+        day.byApp().map { APIScreenApp(app: $0.app, bundleId: $0.bundleID, category: $0.category, seconds: ($0.seconds * 10).rounded() / 10,
+                                       moments: $0.moments, windows: $0.windows) }
+    }
+    public static func screenSummary(_ day: ScreenDay) -> APIScreenDaySummary {
+        APIScreenDaySummary(day: day.day, start: day.start, seconds: (day.usage.reduce(0) { $0 + $1.seconds } * 10).rounded() / 10,
+                            moments: day.moments.count, apps: screenApps(day))
+    }
+    /// One day, optionally only one app (bundle identifier, or part of its name) and only a span of the day.
+    public static func screenDay(_ day: ScreenDay, app: String? = nil, from: Double? = nil, to: Double? = nil, limit: Int = 200) -> APIScreenDay {
+        let wanted = app?.trimmingCharacters(in: .whitespaces) ?? ""
+        let within: (Double, Double) -> Bool = { start, end in end >= (from ?? -.infinity) && start <= (to ?? .infinity) }
+        let moments = (wanted.isEmpty ? day.moments : day.moments(app: wanted)).filter { within($0.start, $0.end) }
+        let usage = (wanted.isEmpty ? day.usage : day.usage(app: wanted)).filter { within($0.start, $0.end) }
+        return APIScreenDay(
+            day: day.day, start: day.start, apps: screenApps(day),
+            moments: moments.prefix(max(1, limit)).map { moment in
+                APIScreenMoment(id: moment.id, start: moment.start, end: moment.end, startedAt: day.start.addingTimeInterval(moment.start),
+                                app: moment.app, bundleId: moment.bundleID, window: moment.window, url: moment.url, source: moment.source,
+                                text: moment.text, link: WorkScribeLink.screen(day: day.day, seconds: moment.start).url.absoluteString)
+            },
+            usage: usage.map { APIScreenSpan(app: $0.app, bundleId: $0.bundleID, category: $0.category, start: $0.start, end: $0.end,
+                                             windows: $0.windows, meetingId: $0.meetingID) },
+            truncated: moments.count > max(1, limit))
+    }
+
     public static func momentKind(_ moment: AskMoment) -> String {
         if moment.isMeeting { return moment.kind == "screen" ? "screen" : "meeting" }
         if moment.kind == "clip" { return "clip" }

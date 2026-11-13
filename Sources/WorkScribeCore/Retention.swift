@@ -56,14 +56,8 @@ public struct RetentionStore {
         receipt.conversationIDs = Array(conversationsToDelete)
         receipt.state = "purging"; try save(receipt)
         let folder = try meetings.directory(id)
-        var refs = [id]
         let ownerRoots = Set([AttachmentOwner.meeting(id).indexRoot] + conversationsToDelete.map { AttachmentOwner.conversation($0).indexRoot })
-        if let index {
-            try index.setMeta("purged:" + id, "1")
-            for root in ownerRoots { try index.setMeta("purged:" + root, "1") }
-            for source in try [SourceKind.meeting, .file].flatMap({ try index.sources(kind: $0) }) where source.ref.hasPrefix(folder.path + "/") || source.root.map(ownerRoots.contains) == true { refs.append(source.ref) }
-            try index.purge(refs: refs)
-        }
+        if let index { try index.purge(meeting: id, folder: folder.path, roots: ownerRoots) }
         for var conversation in conversations.list() {
             if conversationsToDelete.contains(conversation.id) {
                 // Nothing from the raw Q&A survives outside text explicitly inserted into notes.

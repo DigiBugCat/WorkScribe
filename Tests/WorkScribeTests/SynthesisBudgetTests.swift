@@ -4,7 +4,6 @@ import WorkScribeCore
 
 private actor SynthesisModel: TextModel {
     nonisolated let displayName = "Synthesis fixture"
-    nonisolated let backend: TextBackend = .llama
     nonisolated let isAvailable = true
     var requests: [TextRequest] = []
     func generate(_ request: TextRequest) async throws -> TextGeneration {
@@ -12,7 +11,7 @@ private actor SynthesisModel: TextModel {
         return TextGeneration(text: "NOT DISCUSSED</output>", stats: TextStats())
     }
     nonisolated func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
-    func prewarm(_ request: TextRequest?) async {}
+    func prewarm() async {}
     func release() async {}
 }
 
@@ -27,6 +26,6 @@ final class SynthesisBudgetTests: XCTestCase {
         let requests = await model.requests
         XCTAssertFalse(requests.isEmpty)
         XCTAssertLessThanOrEqual(requests.count, EngineConstants.synthesisCalls)
-        for request in requests { XCTAssertTrue(try EvidenceBudget.synthesisFits(request.instruction)) }
+        for request in requests { XCTAssertTrue(EvidenceBudget.synthesisFits(request.instruction)) }
     }
 }

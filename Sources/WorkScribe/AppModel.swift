@@ -42,21 +42,43 @@ final class AppModel: ObservableObject {
         didSet { UserDefaults.standard.set(globalShortcut, forKey: "globalShortcut") }
     }
     @Published var speakerToast: SpeakerToast?
-    // Screen awareness (AppModel+Screen.swift). Opt-in; on by default only when Screen Recording is already allowed.
-    @Published var screenCaptureEnabled = UserDefaults.standard.object(forKey: "screenCaptureEnabled") as? Bool ?? CGPreflightScreenCaptureAccess() {
-        didSet { UserDefaults.standard.set(screenCaptureEnabled, forKey: "screenCaptureEnabled") }
+    // Screen reading (AppModel+Screen.swift). All day by default when this Mac already lets WorkScribe read
+    // windows (Accessibility, or Screen Recording); otherwise off until it is turned on.
+    @Published var screenMode = (UserDefaults.standard.string(forKey: "screenReadingMode").flatMap(ScreenReadingMode.init(rawValue:))
+                                 ?? (AXIsProcessTrusted() || CGPreflightScreenCaptureAccess() ? .allDay : .off)) {
+        didSet {
+            guard screenMode != oldValue else { return }
+            UserDefaults.standard.set(screenMode.rawValue, forKey: "screenReadingMode")
+            Task { await applyScreenMode() }
+        }
     }
-    /// "Pause screen capture" during a recording: nothing is written, read or indexed until resumed. Resets per recording.
-    @Published var screenCapturePaused = false { didSet { screenRecorder?.setPaused(screenCapturePaused) } }
-    @Published var screenCaptureTarget = ScreenCaptureTarget(rawValue: UserDefaults.standard.string(forKey: "screenCaptureTarget") ?? "") ?? .display {
-        didSet { UserDefaults.standard.set(screenCaptureTarget.rawValue, forKey: "screenCaptureTarget") }
-    }
+    /// "Pause screen reading": nothing is read, kept or indexed until resumed.
+    @Published var screenCapturePaused = false { didSet { screenWatcher?.setPaused(screenCapturePaused) } }
     @Published var screenState: ScreenCaptureState = .off
+    /// Today outside meetings, by application (all-day reading), and how many stretches of text it holds.
+    @Published var screenToday: [AppTotal] = []
+    @Published var screenTodayMoments = 0
+    /// Today's stretches of each app in front, for the day view.
+    @Published var screenUsage = DayUsage()
+    /// The app whose window was last read. (WorkScribe's own popover is never "the app in front".)
+    @Published var screenApp: ScreenAppRef?
+    /// The never-read app in front now, when there is one.
+    @Published var screenHiddenBundleID: String?
+    /// The journals of screen reading outside meetings, one per day.
+    let screenDays: ScreenDayStore
+    /// Set once by the app at launch. Until then (and in tests) the screen is never read, whatever the setting.
+    var screenReadingArmed = false
+    var screenPauseTask: Task<Void, Never>?
+    /// The stretch of the current meeting that the watcher is keeping, as `beginMeeting` named it.
+    var screenMeetingToken: UUID?
+    var nextScreenPrune = Date.distantPast
+    /// Called when the day journals changed and search should catch up; `true` when days were deleted.
+    var onScreenDayChanged: ((Bool) -> Void)?
     /// The current recording's screen moments so far.
     @Published var screenMoments: [ScreenMoment] = []
     @Published var finalizationProgress: Double = 0
-    var screenRecorder: ScreenRecorder?
-    /// The bundle ID of the call that triggered the current automatic recording (window-mode capture target).
+    var screenWatcher: ScreenWatcher?
+    /// The bundle ID of the call that triggered the current automatic recording.
     var callBundleID: String?
     /// Called after a meeting's files change outside recording (a screen recording deleted), to refresh search.
     var onLibraryChanged: (() -> Void)?
@@ -93,7 +115,12 @@ final class AppModel: ObservableObject {
     /// Verification only: extra time per second of audio before recognition, to simulate a busy Mac.
     var recognitionDelay: (() -> UInt64)?
     private(set) var recordingGeneration = UUID()
-    private var stopTask: Task<Void, Never>?
+    private var stopTask: (id: UUID, task: Task<Void, Never>)?
+    /// A `start` is between its first check and its return. Nothing suspends between the check and this being
+    /// set, so two starts can never both get past the check (formal/tla/Recording.tla, R3).
+    private var startClaimed = false
+    /// `prepareToQuit` is saving. Nothing may start recording behind it (R9).
+    private(set) var quitting = false
     // Injectable only to bound stalled work; ordinary backlog may drain as long as it progresses.
     var stallTimeout: TimeInterval = 30
 
@@ -125,6 +152,7 @@ final class AppModel: ObservableObject {
     var busy: Bool { phase == "starting" || phase == "recording" || phase == "finalizing" || phase == "preview" }
     init(store: MeetingStore = MeetingStore(), titleGenerator: any TitleGenerating = TitleGenerator(), voiceEngine: any VoiceExtracting = VoiceEngine()) {
         self.store = store; self.titleGenerator = titleGenerator
+        screenDays = ScreenDayStore(meetings: store)
         self.voiceEngine = voiceEngine; self.voiceStore = VoiceStore(root: store.root)
         do { voices = try voiceStore.load() }
         catch { voiceStatus = "Couldn’t read saved voices: \(error.localizedDescription)" }
@@ -150,6 +178,11 @@ final class AppModel: ObservableObject {
         monitor = Task { [weak self] in
             while !Task.isCancelled {
                 self?.checkCall()
+                // All-day screen reading starts as soon as the Mac allows it, and old days are let go hourly.
+                if let self, screenReadingArmed {
+                    if screenMode == .allDay, screenWatcher == nil { await applyScreenMode() }
+                    if Date() >= nextScreenPrune { pruneScreenHistory() }
+                }
                 do { try await Task.sleep(nanoseconds: 2_000_000_000) } catch { return }
             }
         }
@@ -174,7 +207,15 @@ final class AppModel: ObservableObject {
         switch autoPolicy.update(callActive: snapshot.signal != nil, enabled: true, busy: busy,
                                 automaticallyRecording: automatic, now: Date()) {
         case .start:
-            if let signal = snapshot.signal { callBundleID = signal.bundleID; Task { await start(trigger: signal.name) } }
+            if let signal = snapshot.signal {
+                callBundleID = signal.bundleID
+                Task {
+                    await start(trigger: signal.name)
+                    // Asked for, but no recording of this call came of it. A failed start has already
+                    // suppressed the call; anything else (another recording in the way) lets it ask again.
+                    if !(busy && meeting?.recordingTrigger == "call:\(signal.name)") { autoPolicy.startDidNotBegin() }
+                }
+            }
         case .stop: Task { await stop(userInitiated: false) }
         case .none: break
         }
@@ -195,7 +236,12 @@ final class AppModel: ObservableObject {
         }
     }
     func start(trigger: String? = nil, resuming id: String? = nil, source: String? = nil) async {
-        guard !busy || (phase == "finalizing" && finalizationProgress >= 0.35 && id == meeting?.id && meeting?.canResume() == true) else { return }
+        guard !startClaimed, !quitting,
+              !busy || (phase == "finalizing" && finalizationProgress >= 0.35 && id == meeting?.id && meeting?.canResume() == true) else { return }
+        startClaimed = true; defer { startClaimed = false }
+        // Whether `meeting` is this start's own. Until it is, a failure here must not be written into
+        // whatever meeting happens to be on screen (R7).
+        var installed = false
         // A call that a restart or crash cut off carries on in the same meeting and note. A meeting that
         // ended normally is never picked up again, so back-to-back calls stay separate.
         var id = id
@@ -204,7 +250,11 @@ final class AppModel: ObservableObject {
         }
         let chosen = source ?? transcriptSource
         var captionsChosen = chosen == "zoom-captions"
-        if chosen == "auto", ZoomCaptions.trusted { captionsChosen = await ZoomCaptions.read().inMeeting }
+        if chosen == "auto", ZoomCaptions.trusted {
+            captionsChosen = await ZoomCaptions.read().inMeeting
+            // A quit that began while Zoom was being read has already had its turn to stop things (R9).
+            guard !quitting else { return }
+        }
         if captionsChosen, id == nil || meetingSnapshot(id!)?.transcriptSource == "zoom-captions" {
             await startCaptions(trigger: trigger, resuming: id); return
         }
@@ -224,6 +274,7 @@ final class AppModel: ObservableObject {
         do {
             try await prepareSpeech()
             meeting = resumed ?? Meeting(title: "Recording · \(Date().formatted(date: .abbreviated, time: .shortened))", titleOrigin: "pending")
+            installed = true
             if meeting?.recordingSessions == nil { meeting?.recordingSessions = [RecordingSession(id: "initial", start: 0)] }
             meeting?.recordingTrigger = trigger.map { "call:\($0)" } ?? "manual"
             selectedID = meeting?.id
@@ -284,12 +335,16 @@ final class AppModel: ObservableObject {
             }
             echoCancelling = capture.echoCancelling
             await startScreen()
+            // A source may have failed while the screen was starting; `fail` only records it at that point (R8).
+            if let errorText { throw CaptureError.message(errorText) }
             phase = "recording"
+            // A resumed meeting may hold notes that were waiting while AI lines were paused (N1s).
+            if let id = meeting?.id { NoteEnhancementScheduler.shared.schedule(id, model: self) }
             message = microphoneIssue ?? trigger.map { "Automatically recording \($0) · saved on this Mac" } ?? "Recording on this Mac · title will appear automatically"
             startLevels()
             // The relevance check for notes matched by typing time needs EmbeddingGemma; load it now,
             // not when the first note is waiting.
-            Enrich.warmEmbedder()
+            Enrich.warmEmbedder(); Enrich.prewarmLineModel()
             let recordingID = meeting?.id
             Task { [weak self] in
                 try? await Task.sleep(nanoseconds: 10_000_000_000)
@@ -322,9 +377,15 @@ final class AppModel: ObservableObject {
             pumps.forEach { $0.cancel() }; pumps = []
             tracks.values.forEach { $0.finish(); $0.backlog.discard() }; tracks = [:]; voiceWindows = [:]
             connections.values.forEach { $0.close() }; connections = [:]
-            meeting?.status = "failed"; meeting?.endedAt = Date(); meeting?.failure = errorText
-            try? save(); phase = "error"; message = errorText!
-            await runtime.closeStreams(); library = store.list()
+            if installed { meeting?.status = "failed"; meeting?.endedAt = Date(); meeting?.failure = errorText; try? save() }
+            phase = "error"; message = errorText!
+            // A resume that failed leaves a meeting whose notes may have been waiting on it; the tail of the
+            // stop it interrupted never ran, so ask here (formal/tla/NoteScheduler.tla, N5).
+            if let id = meeting?.id { NoteEnhancementScheduler.shared.schedule(id, model: self) }
+            // Bounded: a recognizer queue that never answers must not keep this start, and its claim on the
+            // start slot, from ever returning (R10). The streams close whenever the queue comes back.
+            try? await RecordingDeadline.wait(stall: stallTimeout) { await self.runtime.closeStreams() }
+            library = store.list()
             if let trigger {
                 autoPolicy.suppressCurrentCall()
                 Notifier.post("Couldn’t record your \(trigger) call", FailureCallout.explain(errorText ?? "").title + ". Open WorkScribe to fix it.")
@@ -336,12 +397,22 @@ final class AppModel: ObservableObject {
     /// Takes the transcript from Zoom's live captions instead of this Mac's audio. No microphone,
     /// no system audio and no speech model: Zoom has already turned speech into text.
     private func startCaptions(trigger: String?, resuming id: String? = nil) async {
-        finalizationProgress = 0; errorText = nil
+        // A refusal is shown, but does not put "error" over a final pass that is still running, and an
+        // automatic start that was refused is not asked for again every few seconds for the same call.
+        func refuse(_ text: String) {
+            if !busy { phase = "error" }
+            message = text
+            if trigger != nil { autoPolicy.suppressCurrentCall() }
+        }
         guard ZoomCaptions.requestAccess() else {
-            phase = "error"; message = "WorkScribe needs Accessibility access to read Zoom’s captions. Allow it in System Settings › Privacy & Security › Accessibility."
+            refuse("WorkScribe needs Accessibility access to read Zoom’s captions. Allow it in System Settings › Privacy & Security › Accessibility.")
             return
         }
-        guard await ZoomCaptions.read().inMeeting else { phase = "error"; message = "Zoom isn’t in a meeting."; return }
+        guard await ZoomCaptions.read().inMeeting else { refuse("Zoom isn’t in a meeting."); return }
+        guard !quitting else { return }
+        // Only now is this start going ahead. Until here a final pass may still be running, and its
+        // progress and error are its own: a start that is refused must leave them alone.
+        finalizationProgress = 0; errorText = nil
         NoteEnhancementScheduler.shared.cancelSynthesis()
         await pauseImports()
         recordingGeneration = UUID(); recordingPressure = .normal; liveTranscript = LiveTranscript()
@@ -358,9 +429,10 @@ final class AppModel: ObservableObject {
         fresh.recordingTrigger = trigger.map { "call:\($0)" } ?? fresh.recordingTrigger ?? "manual"
         fresh.transcriptSource = "zoom-captions"
         meeting = fresh; selectedID = fresh.id
-        do { try save() } catch { phase = "error"; message = "Couldn’t save the meeting: \(error.localizedDescription)"; return }
+        do { try save() } catch { refuse("Couldn’t save the meeting: \(error.localizedDescription)"); return }
         phase = "recording"; message = "Reading Zoom’s captions · nothing is recorded"
-        Enrich.warmEmbedder()
+        NoteEnhancementScheduler.shared.schedule(fresh.id, model: self)
+        Enrich.warmEmbedder(); Enrich.prewarmLineModel()
         let generation = recordingGeneration, started = fresh.startedAt
         let trace: FileHandle? = UserDefaults.standard.string(forKey: "captionTrace").flatMap { path in
             FileManager.default.createFile(atPath: path, contents: nil); return FileHandle(forWritingAtPath: path)
@@ -396,13 +468,26 @@ final class AppModel: ObservableObject {
         }
         if current.speakerAssignments != meeting?.speakerAssignments { meeting = current; try? save() }
     }
-    func stop(userInitiated: Bool = true) async {
-        if let stopTask { await stopTask.value; return }
+    /// `whateverRecords` is for quitting, which stops any recording there is by the time it gets its turn.
+    func stop(userInitiated: Bool = true, whateverRecords: Bool = false) async {
+        // The session this Stop was asked of: the one recording right now, if any.
+        let asked = phase == "recording" ? recordingGeneration : nil
+        // A stop already under way is joined, not doubled. It may belong to an earlier session of this
+        // meeting (Stop, then Resume during the final pass); that one gives up when it sees the resume. So
+        // after joining, look again: if the session this Stop was asked of is still recording, stop it (R4).
+        while let running = stopTask {
+            await running.task.value
+            if stopTask?.id == running.id { stopTask = nil }
+        }
         guard phase == "recording" else { return }
+        // A Stop pressed while the earlier stop was finishing was not asked of a recording that was resumed
+        // since; it must not end that one (formal/tla/Recording.tla, R11).
+        guard whateverRecords || asked == recordingGeneration else { return }
+        let id = UUID()
         let task = Task { await self.finishRecording(userInitiated: userInitiated) }
-        stopTask = task
+        stopTask = (id, task)
         await task.value
-        stopTask = nil
+        if stopTask?.id == id { stopTask = nil }
     }
     private func finishRecording(userInitiated: Bool) async {
         if userInitiated { autoPolicy.suppressCurrentCall() }
@@ -469,9 +554,14 @@ final class AppModel: ObservableObject {
             // Resumed during the final pass: the new session owns the meeting now.
             guard recordingGeneration == stoppedGeneration, meeting?.id == id, meeting?.endedAt == stoppedAt else { return }
             finalizationProgress = 0.9
+            var finalizeFailure: String?
             do {
                 if meeting?.document == nil {
-                    try await RecordingDeadline.wait(stall: stallTimeout) { try await self.retentionService?.finalize(id) }
+                    try await RecordingDeadline.wait(stall: stallTimeout) {
+                        // A resume changes the generation before it does anything else.
+                        guard self.recordingGeneration == stoppedGeneration else { return }
+                        try await self.retentionService?.finalize(id)
+                    }
                 }
                 else {
                     try mutateMeeting(id) { $0.retention = "live"; $0.purgeAt = $0.endedAt?.addingTimeInterval(86_400) }
@@ -481,10 +571,17 @@ final class AppModel: ObservableObject {
                     }
                 }
             }
-            catch { errorText = "Couldn’t finalize notes: \(error.localizedDescription)" }
+            catch { finalizeFailure = "Couldn’t finalize notes: \(error.localizedDescription)" }
+            // Resumed while that last step was waiting: the new session owns the meeting and the phase (R5a),
+            // and the error it will be judged by: this stop's failure is not written over it (R5d).
+            guard recordingGeneration == stoppedGeneration, meeting?.id == id, meeting?.endedAt == stoppedAt else { return }
+            if let finalizeFailure { errorText = finalizeFailure }
         }
         finalizationProgress = 1
         recordingPressure = .normal
+        // Pressure is frozen while finalizing; a note edited meanwhile was refused by the scheduler and
+        // nothing else would ask again (formal/tla/NoteScheduler.tla, N1).
+        if let id = meeting?.id { NoteEnhancementScheduler.shared.schedule(id, model: self) }
         phase = errorText == nil ? "ready" : "error"
         message = errorText ?? finalPassWarning ?? "Recording saved on this Mac"
         library = store.list()
@@ -614,9 +711,11 @@ final class AppModel: ObservableObject {
         } catch { message = "Couldn’t save the title: \(error.localizedDescription)" }
     }
     func prepareToQuit() async {
+        quitting = true
         monitor?.cancel(); monitor = nil
         await pauseImports()
-        await stop()
+        await stop(whateverRecords: true)
+        await shutdownScreen()
         let jobs = Array(titleJobs.values)
         try? await RecordingDeadline.wait(stall: stallTimeout) { for job in jobs { await job.value } }
         titleJobs.values.forEach { $0.cancel() }
@@ -677,7 +776,7 @@ final class AppModel: ObservableObject {
         guard recordingPressure != next else { return }
         let wasPaused = liveAIPaused
         recordingPressure = next
-        screenRecorder?.setPressure(next)
+        screenWatcher?.setPressure(next)
         message = next == .normal ? "Recording on this Mac · transcript caught up" : next.message
         // AI lines resume the moment they are allowed again, not only at full recovery: under a
         // steady load the lag can settle between 2 and 6 s, and after the call goes quiet no new
@@ -697,6 +796,7 @@ final class AppModel: ObservableObject {
             if meeting?.id == id { meeting = nil }
             speakerUndo.removeValue(forKey: id)
             library = store.list(); message = "Recording moved to the Trash"
+            onLibraryChanged?()      // its transcript leaves the search index now, not at the next launch
         } catch { message = "Couldn’t move the recording to the Trash: \(error.localizedDescription)" }
     }
     func requestScreenAccess() {

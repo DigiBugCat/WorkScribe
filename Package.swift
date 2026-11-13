@@ -7,7 +7,7 @@ let sdkLibrary = runtimeHome + "/nemo/lib"
 let plaudFrameworks = ProcessInfo.processInfo.environment["WORKSCRIBE_PLAUD_FRAMEWORKS"] ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Caches/WorkScribe/PlaudNativeLab/Frameworks").path
 let plaudEnabled = ProcessInfo.processInfo.environment["WORKSCRIBE_PLAUD"] == "1"
 let plaudSwift: [SwiftSetting] = plaudEnabled ? [.define("WORKSCRIBE_PLAUD"), .unsafeFlags(["-F", plaudFrameworks])] : []
-let appDependencies: [Target.Dependency] = ["WorkScribeCore", "CNemo", "CTextGeneration", .product(name: "FluidAudio", package: "FluidAudio"), .product(name: "FluidUse", package: "FluidUse")] + (plaudEnabled ? ["WorkScribePlaud"] : [])
+let appDependencies: [Target.Dependency] = ["WorkScribeCore", "CNemo", .product(name: "FluidAudio", package: "FluidAudio"), .product(name: "FluidUse", package: "FluidUse")] + (plaudEnabled ? ["WorkScribePlaud"] : [])
 
 
 let package = Package(
@@ -22,9 +22,6 @@ let package = Package(
         .package(url: "https://github.com/FluidInference/FluidUse.git", revision: "d278e17df85e39e8c21bb64a467da81c39576fcd")
     ],
     targets: [
-        .target(name: "CTextGeneration", linkerSettings: [
-            .unsafeFlags(["-L", sdkLibrary]), .linkedLibrary("llama")
-        ]),
         .target(name: "CNemo", linkerSettings: [
             .unsafeFlags(["-L", sdkLibrary, "-Xlinker", "-rpath", "-Xlinker", "@executable_path/../Frameworks",
                           "-Xlinker", "-rpath", "-Xlinker", sdkLibrary]),
