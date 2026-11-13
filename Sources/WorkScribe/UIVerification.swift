@@ -92,7 +92,10 @@ enum UIVerification {
             ScreenMoment(id: "b", start: 430, end: 760, text: "New checkout flow", lines: nil, app: "Keynote", bundleID: "com.apple.iWork.Keynote", window: "Checkout flow.key", thumbnail: nil),
         ]
         try await snapshot(popover(), "7-recording", folder)
-        model.phase = "ready"; model.meeting = nil
+        model.meeting = nil; model.screenMoments = []
+        model.phase = "error"; model.message = "Zoom isn’t in a meeting."
+        try await snapshot(popover(), "8-could-not-record", folder)
+        model.phase = "ready"
         FileHandle.standardOutput.write(Data("Wrote the popover's states to \(folder.path)\n".utf8))
     }
 

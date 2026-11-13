@@ -139,7 +139,8 @@ struct SensorHeader: View {
             }
         case "starting", "finalizing": Text(model.message)
         case "preview": Text("Caption preview · no audio device is recording")
-        case "error": Text("Couldn’t record")
+        // Why, in the app's own words ("Zoom isn’t in a meeting."): a tooltip alone left the person guessing.
+        case "error": Text(model.message.isEmpty ? "Couldn’t record" : model.message).foregroundStyle(.primary)
         default: Text(model.speechReady ? model.autoStatus : "Getting speech ready, about 15 seconds")
         }
     }
