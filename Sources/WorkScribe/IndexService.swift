@@ -14,6 +14,12 @@ actor IndexService {
     private var running: Task<Void, Never>?
     private var pendingMeetings = false
     private var pendingFolders = false
+    /// Screen reading outside meetings (`ScreenDay`), when the app keeps any.
+    private var screenDays: ScreenDayStore?
+    private var pendingScreen = false
+    private var lastScreenSync = Date.distantPast
+    private var screenDelay: Task<Void, Never>?
+    private(set) var lastScreenReport: IndexReport?
     /// The vault being indexed, and what changed in it since the last pass (nil paths = full rescan).
     private var vaultRoot: URL?
     private var pendingVault: (paths: Set<String>?, checkpoint: VaultWatcher.Checkpoint?)?
@@ -83,6 +89,22 @@ actor IndexService {
     func meetingsChanged() { pendingMeetings = true; kick() }
     func foldersChanged() { pendingFolders = true; kick() }
 
+    func useScreenDays(_ store: ScreenDayStore) { screenDays = store }
+    /// The day's journal changed. Reading goes on all day, so the index follows at most every two minutes;
+    /// `now` (a day was deleted, the app just launched) does not wait.
+    func screenChanged(now: Bool = false) {
+        guard screenDays != nil else { return }
+        let wait = now ? 0 : 120 - Date().timeIntervalSince(lastScreenSync)
+        if wait <= 0 { screenDelay?.cancel(); screenDelay = nil; pendingScreen = true; kick(); return }
+        guard screenDelay == nil else { return }
+        screenDelay = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: UInt64(wait * 1_000_000_000))
+            guard !Task.isCancelled else { return }
+            await self?.screenDue()
+        }
+    }
+    private func screenDue() { screenDelay = nil; pendingScreen = true; kick() }
+
     func addFolder(_ url: URL) throws {
         try index.addFolder(url.standardizedFileURL.path); foldersChanged()
     }
@@ -131,7 +153,14 @@ actor IndexService {
 
     private func drain() async {
         let gate: @Sendable () async -> Void = { await Task.yield() }
-        while pendingMeetings || pendingFolders || pendingVault != nil {
+        while pendingMeetings || pendingFolders || pendingVault != nil || pendingScreen {
+            if pendingScreen {
+                pendingScreen = false; lastScreenSync = Date()
+                if let screenDays {
+                    status = "Indexing screen history…"
+                    lastScreenReport = try? await ScreenDayIndexer(index: index, embedder: backlogEmbedder, gate: gate).sync(store: screenDays)
+                }
+            }
             if pendingMeetings {
                 pendingMeetings = false
                 status = "Indexing meetings…"
@@ -162,6 +191,7 @@ actor IndexService {
     func shutdown() async {
         running?.cancel()
         pendingMeetings = false; pendingFolders = false; pendingVault = nil
+        pendingScreen = false; screenDelay?.cancel(); screenDelay = nil
         await running?.value
         await finishLive()
     }
@@ -184,17 +214,10 @@ actor IndexService {
 }
 
 extension IndexService {
+    /// The meeting's transcript, the files in its folder, and what was attached to it or to `conversationIDs`.
     func purgeMeeting(_ id: String, folder: URL, conversationIDs: [String] = []) throws {
-        var refs = [id]
         let roots = Set([AttachmentOwner.meeting(id).indexRoot] + conversationIDs.map { AttachmentOwner.conversation($0).indexRoot })
-        for kind in [SourceKind.meeting, .file] {
-            for source in try index.sources(kind: kind) where source.ref.hasPrefix(folder.path + "/") || source.root.map(roots.contains) == true {
-                refs.append(source.ref)
-            }
-        }
-        try index.setMeta("purged:" + id, "1")
-        for root in roots { try index.setMeta("purged:" + root, "1") }
-        try index.purge(refs: refs)
+        try index.purge(meeting: id, folder: folder.path, roots: roots)
     }
     func indexFinalNote(_ url: URL, vault: URL) async {
         guard ProcessInfo.processInfo.environment["WORKSCRIBE_INDEX_DISABLED"] != "1" else { return }

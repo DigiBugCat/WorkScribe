@@ -44,7 +44,9 @@ public struct MeetingIndexer: Sendable {
         if let embedder { try index.adopt(modelID: embedder.modelID) }
         var report = IndexReport()
         let meetings = store.list()
-        let live = Set(meetings.map(\.id))
+        // `list` also returns a stand-in for every retention receipt. A receipt is not a meeting: one whose
+        // meeting was moved to the Trash must not keep its transcript searchable until the deadline.
+        let live = Set(meetings.map(\.id).filter(store.hasTranscript))
         for source in try index.sources(kind: .meeting) where !live.contains(source.ref) {
             try index.remove(ref: source.ref); report.removed += 1
         }

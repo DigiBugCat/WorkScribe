@@ -134,10 +134,12 @@ struct MomentRow: View {
         }
         .buttonStyle(.plain)
         .onHover { hovering = $0 }
-        .help(moment.isMeeting ? "Open the meeting at this moment" : "Open the file here")
+        .help(moment.isMeeting ? "Open the meeting at this moment" : moment.screenDay != nil ? "Open that day’s screen history here" : "Open the file here")
     }
 
     private func icon(_ moment: AskMoment) -> String {
+        // Read from a window, in a meeting or outside one.
+        if moment.kind == "screen" { return "macwindow" }
         switch ChunkKind(rawValue: moment.kind) {
         case .meetingSegment: return "person.wave.2"
         case .audio: return "waveform"

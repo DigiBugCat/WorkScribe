@@ -230,15 +230,15 @@ enum Replay {
         }
         let cacheURL = URL(fileURLWithPath: try value("--cache", fallback: out.appendingPathComponent("models.json").path))
         guard input.resolvingSymlinksInPath() != cacheURL.resolvingSymlinksInPath() else { throw CaptureError.message("Cache must not overwrite replay cases") }
-        let native = mode == "real" ? try GemmaEvaluation.model(runtime: "llama") : nil
+        let native: (any TextModel)? = mode == "real" ? CodexTextModel() : nil
         let embedding = mode == "real" ? CoreMLEmbedder.bundled() : nil
         var cache: ReplayModels.Cache
         if FileManager.default.fileExists(atPath: cacheURL.path) { cache = try JSONDecoder().decode(ReplayModels.Cache.self, from: Data(contentsOf: cacheURL)) }
         else {
             guard let embedding else { throw CaptureError.message("Cached replay needs --cache from a real run") }
-            cache = .init(model: "gemma4-e4b@" + GemmaEvaluation.ggufSHA256, embedding: RetrievalEmbeddingCache(modelID: embedding.modelID, dimension: embedding.dimension))
+            cache = .init(model: ReplayModels.generatorID, embedding: RetrievalEmbeddingCache(modelID: embedding.modelID, dimension: embedding.dimension))
         }
-        guard cache.model == "gemma4-e4b@" + GemmaEvaluation.ggufSHA256 else { throw CaptureError.message("Generator cache/model identity mismatch") }
+        guard cache.model == ReplayModels.generatorID else { throw CaptureError.message("Generator cache/model identity mismatch") }
         if let embedding, cache.embedding.modelID != embedding.modelID || cache.embedding.dimension != embedding.dimension { throw CaptureError.message("Embedding cache/model identity mismatch") }
         if args.contains("--embed-cache") {
             let imported = try JSONDecoder().decode(RetrievalEmbeddingCache.self, from: Data(contentsOf: URL(fileURLWithPath: try value("--embed-cache"))))

@@ -102,10 +102,30 @@ final class LocalAPI {
                                               vaultPath: vaultPath(id), obsidianLink: obsidianLink(id),
                                               clips: VaultHookup.shared?.clips(for: id) ?? [],
                                               blockIDs: VaultHookup.shared?.store.blockIDs(forMeeting: id) ?? [:]))
+            case .screenDays:
+                let store = model.screenDays
+                let days = await Task.detached(priority: .userInitiated) { store.days().compactMap(store.load) }.value
+                return .json(APIScreenDays(reading: screenReading(), days: days.map(APIShapes.screenSummary)))
+            case .screenDay(let name):
+                let store = model.screenDays, id = name == "today" ? ScreenDayStore.day(Date()).id : name
+                guard let day = await Task.detached(priority: .userInitiated, operation: { store.load(id) }).value else {
+                    throw APIFailure(404, "No screen history for \(id)")
+                }
+                let limit = request.query["limit"].flatMap(Int.init).map { max(1, min($0, 1_000)) } ?? 200
+                return .json(APIShapes.screenDay(day, app: request.query["app"], from: request.query["from"].flatMap(Double.init),
+                                                 to: request.query["to"].flatMap(Double.init), limit: limit))
+            case .deleteScreenDay(let name):
+                await model.deleteScreenDay(name == "today" ? ScreenDayStore.day(Date()).id : name)
+                return .json(screenReading())
+            case .pauseScreen:
+                let pause = try body(APIScreenPauseBody.self, request)
+                guard model.screenMode != .off else { throw APIFailure(409, "Screen reading is off") }
+                if pause.paused == false { model.resumeScreen() } else { model.pauseScreen(minutes: pause.minutes.flatMap { $0 > 0 ? $0 : nil }) }
+                return .json(screenReading())
             case .grabMoment(let id):
                 guard model.phase == "recording", model.meeting?.id == id,
-                      let recorder = model.screenRecorder else { throw APIFailure(409, "Screen awareness is not recording this meeting") }
-                do { return .json(try await Task.detached(priority: .utility) { try recorder.grabMoment() }.value) }
+                      let watcher = model.screenWatcher else { throw APIFailure(409, "Screen awareness is not recording this meeting") }
+                do { return .json(try await watcher.grabMoment()) }
                 catch { throw APIFailure(409, error.localizedDescription) }
             case .openDocument(let id):
                 guard let meeting = model.meetingSnapshot(id) else { throw APIFailure(404, "No such meeting") }
@@ -218,6 +238,11 @@ final class LocalAPI {
         } catch {
             return .error(422, error.localizedDescription)
         }
+    }
+
+    func screenReading() -> APIScreenReading {
+        APIScreenReading(mode: model.screenMode.rawValue, state: model.screenMode == .off ? "Screen reading off" : model.screenState.label,
+                         paused: model.screenCapturePaused, historyDays: model.screenHistoryDays)
     }
 
     func status() -> APIStatus {
@@ -421,7 +446,7 @@ final class EventHub {
 
     private struct EngineStatus: Encodable { var model: String; var paused: String? }
     private func engineStatus() -> EngineStatus {
-        EngineStatus(model: TextModels.model(for: .line).isAvailable ? textModelState : "missing",
+        EngineStatus(model: CodexStatus.current.engineState,
                      paused: model?.liveAIPaused == true ? "Catching up with the conversation" : nil)
     }
     private func lines(_ meeting: Meeting) -> [APILine] {

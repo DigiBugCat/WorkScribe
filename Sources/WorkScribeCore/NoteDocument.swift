@@ -67,8 +67,11 @@ public struct NoteDocument: Codable, Equatable, Sendable {
                 return n.images?.first { $0.target == target && $0.path == path } ?? NoteImage(target: target, path: path)
             }
             if (n.images ?? []) != images {
-                n.images = images; n.line.queryText = nil; n.line.state = n.line.owned == true ? .yours : .listening
-                if n.line.owned != true { n.line.text = nil }
+                n.images = images
+                // The pictures this line was written from changed: start it over. `reset` raises the revision,
+                // so a draft written for the old pictures is not applied, and forgets the history, so the same
+                // sentence can be written again. An owned line keeps its text; it is only looked at afresh.
+                if n.line.owned == true { n.line.queryText = nil } else { n.line.reset() }
             }
             // Minor edits keep typing time; a changed subject starts a new moment window.
             if let owned = b.owned {

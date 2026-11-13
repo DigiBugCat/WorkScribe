@@ -39,15 +39,19 @@ actor EmbeddingGemmaVision {
             guard loadedPositions.count == 2 * 1024 * 768 * 2, loadedTable.count == 262144 * 512 * 2 else { throw EmbedderError.badVector("image tables") }
             vision = loadedVision; text = loadedText; positions = loadedPositions; table = loadedTable
         }
-        let (input, count) = try Self.preprocess(image, positions: positions!)
-        let output = try await vision!.prediction(from: input)
+        // This actor is re-entrant at every await below, and `release()` may run there (the idle timer, or
+        // an attachment being indexed). Hold the models for the length of this call: a release then frees
+        // them when the call ends, instead of pulling them out from under it.
+        guard let vision, let text, let positions, let table else { throw EmbedderError.badVector("image model unavailable") }
+        let (input, count) = try Self.preprocess(image, positions: positions)
+        let output = try await vision.prediction(from: input)
         guard let tokens = output.featureValue(for: "image_tokens")?.multiArrayValue else { throw EmbedderError.badVector("image tokens") }
         let embeds = try MLMultiArray(shape: [1,128,512], dataType: .float16)
         let mask = try MLMultiArray(shape: [1,128], dataType: .float16)
         let dest = embeds.dataPointer.assumingMemoryBound(to: Float16.self)
         dest.initialize(repeating: 0, count: embeds.count)
         func word(_ id: Int, at row: Int) {
-            table!.withUnsafeBytes { raw in
+            table.withUnsafeBytes { raw in
                 let source = raw.bindMemory(to: UInt16.self)
                 for c in 0..<512 { dest[row * 512 + c] = Float16(Float(bitPattern: UInt32(source[id * 512 + c]) << 16) * sqrt(512)) }
             }
@@ -58,7 +62,7 @@ actor EmbeddingGemmaVision {
         } }
         word(258882, at: count+2); word(1, at: count+3)
         for i in 0..<128 { mask[i] = NSNumber(value: i < count+4 ? 1 : 0) }
-        let result = try await text!.prediction(from: MLDictionaryFeatureProvider(dictionary: ["inputs_embeds": embeds, "attention_mask": mask]))
+        let result = try await text.prediction(from: MLDictionaryFeatureProvider(dictionary: ["inputs_embeds": embeds, "attention_mask": mask]))
         guard let values = result.featureValue(for: "embedding")?.multiArrayValue,
               let vector = VectorMath.normalized((0..<values.count).map { values[$0].floatValue }), vector.count == 768 else { throw EmbedderError.badVector("image embedding") }
         return vector

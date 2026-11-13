@@ -86,7 +86,12 @@ public final class MCPServer {
              required: ["query"]),
         tool("get_screen_moments", "Read what was on screen during a meeting: OCR'd text per time span, the app and window, and a thumbnail path. Times are meeting seconds, like transcript segments. With at_seconds, returns the moment on screen at that time.",
              ["meeting_id": ["type": "string"], "at_seconds": ["type": "number", "minimum": 0],
-              "offset": ["type": "integer", "minimum": 0], "limit": ["type": "integer", "minimum": 1, "maximum": 100]], required: ["meeting_id"])
+              "offset": ["type": "integer", "minimum": 0], "limit": ["type": "integer", "minimum": 1, "maximum": 100]], required: ["meeting_id"]),
+        tool("get_screen_history", "Read what was on screen outside meetings, by application: for one day, how long each app was in front (with its window titles) and the text read from its windows. Times are seconds into that day. Screen text from during a recorded meeting is in that meeting (get_screen_moments), not here. Without day, lists the days there is history for.",
+             ["day": ["type": "string", "description": "YYYY-MM-DD, or \"today\""],
+              "app": ["type": "string", "description": "Only this app: a bundle identifier, or part of its name"],
+              "from_seconds": ["type": "number", "minimum": 0], "to_seconds": ["type": "number", "minimum": 0],
+              "limit": ["type": "integer", "minimum": 1, "maximum": 200]], required: [])
     ]
     func summary(_ m: Meeting) -> [String: Any] {
         ["meeting_id": m.id, "title": m.title, "started_at": ISO8601DateFormatter().string(from: m.startedAt),
@@ -133,6 +138,28 @@ public final class MCPServer {
             let rows = Array(moments.dropFirst(offset).prefix(limit))
             return ["meeting": summary(m), "screen": screenInfo(m), "moments": rows.map { screenMoment($0, meeting: m) },
                     "next_offset": offset + rows.count < moments.count ? offset + rows.count as Any : NSNull()] as [String: Any]
+        case "get_screen_history":
+            let days = ScreenDayStore(meetings: store)
+            guard let wanted = args["day"] as? String else {
+                return ["days": days.days().compactMap(days.load).map { day in
+                    ["day": day.day, "moments": day.moments.count,
+                     "apps": day.byApp().map { ["app": $0.app, "seconds": ($0.seconds * 10).rounded() / 10, "category": $0.category as Any? ?? NSNull()] as [String: Any] }] as [String: Any]
+                }] as [String: Any]
+            }
+            let id = wanted == "today" ? ScreenDayStore.day(Date()).id : wanted
+            guard ScreenDayStore.isDay(id) else { throw MCPError.invalid("day must be YYYY-MM-DD or \"today\"") }
+            guard let day = days.load(id) else { return ["day": id, "apps": [Any](), "moments": [Any]()] as [String: Any] }
+            let limit = args["limit"] as? Int ?? 50
+            guard (1...200).contains(limit) else { throw MCPError.invalid("limit must be 1...200") }
+            let shaped = APIShapes.screenDay(day, app: args["app"] as? String, from: (args["from_seconds"] as? NSNumber)?.doubleValue,
+                                             to: (args["to_seconds"] as? NSNumber)?.doubleValue, limit: limit)
+            return ["day": shaped.day, "day_start": ISO8601DateFormatter().string(from: shaped.start),
+                    "apps": shaped.apps.map { ["app": $0.app, "bundle_id": $0.bundleId as Any? ?? NSNull(), "category": $0.category as Any? ?? NSNull(),
+                                                "seconds": $0.seconds, "moments": $0.moments, "windows": $0.windows] as [String: Any] },
+                    "moments": shaped.moments.map { ["moment_id": $0.id, "start_seconds": $0.start, "end_seconds": $0.end,
+                                                      "app": $0.app as Any? ?? NSNull(), "window_title": $0.window as Any? ?? NSNull(),
+                                                      "url": $0.url as Any? ?? NSNull(), "text": $0.text, "link": $0.link] as [String: Any] },
+                    "truncated": shaped.truncated] as [String: Any]
         case "get_transcript":
             guard let id = args["meeting_id"] as? String else { throw MCPError.invalid("meeting_id is required") }
             let m = try store.load(id)
@@ -217,6 +244,10 @@ public final class MCPServer {
             out["vault_path"] = hit.meta["path"] as Any? ?? NSNull()
             if let url = hit.obsidianURL { out["obsidian_url"] = url.absoluteString }
             for key in ["url", "site", "clipped", "highlights", "meeting_id"] { if let value = hit.meta[key] { out[key] = value } }
+        case .screen:
+            // Read off the screen outside a meeting: the day, and the app and window it was in.
+            out["day"] = ScreenDaySource.day(ref: hit.ref) as Any? ?? NSNull()
+            out["window"] = hit.window as Any? ?? NSNull()
         }
         return out
     }

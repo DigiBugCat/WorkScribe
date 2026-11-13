@@ -91,9 +91,7 @@ public enum RuntimeAssets {
     }
     private static let pinned = [
         "nemotron-3.5-asr-streaming-0.6b.q8_0.gguf": "a5c435f294eea8f88ce68dd27b8c3bfea7f777cb2fbba04fcd30eaa555f429ae",
-        "Nemotron-3-Diarization.q8_0.gguf": "08456d9e22cd9a323c0364d98375f3746d6e68507ebb705cd46438c534c7a3a1",
-        "gemma-4-E4B-it-Q4_0.gguf": "a555b900214b477d8880e7832e0b8925e139b0159640036b09fe472b6f2097f2",
-        "mmproj-gemma-4-E4B-it-Q8_0.gguf": "197f49a93027f9843772bd24a6a9e0be2a32a788de5a3def330e9c585d86edd1"
+        "Nemotron-3-Diarization.q8_0.gguf": "08456d9e22cd9a323c0364d98375f3746d6e68507ebb705cd46438c534c7a3a1"
     ]
     private static func sourceDigest(for url: URL) -> String? {
         // Hashes of downloaded files, separate from receipts for locally compiled graphs.

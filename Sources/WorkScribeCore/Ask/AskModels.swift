@@ -5,9 +5,9 @@ import Foundation
 public struct AskMoment: Codable, Equatable, Sendable, Identifiable {
     /// Stable identity for de-duplication: "chunk:<id>" for index hits, "live:<segment>" for the live meeting.
     public var id: String
-    /// "meeting" or "file" (`SourceKind`).
+    /// "meeting", "file", "vault" or "screen" (`SourceKind`).
     public var sourceKind: String
-    /// Meeting ID or absolute file path.
+    /// Meeting ID, absolute file path, or "screen-day:<yyyy-MM-dd>" for screen read outside meetings.
     public var ref: String
     public var title: String?
     /// `ChunkKind` raw value.
@@ -46,10 +46,14 @@ public struct AskMoment: Codable, Equatable, Sendable, Identifiable {
     }
 
     public var isMeeting: Bool { sourceKind == SourceKind.meeting.rawValue }
+    /// The day this was on screen, for screen read outside meetings.
+    public var screenDay: String? { sourceKind == SourceKind.screen.rawValue ? ScreenDaySource.day(ref: ref) : nil }
 
-    /// Where a citation row opens: the meeting at the moment, or the file at its page or time.
+    /// Where a citation row opens: the meeting at the moment, the day's screen history at the time, or the file
+    /// at its page or time.
     public var link: WorkScribeLink {
-        isMeeting ? .meeting(id: ref, seconds: start, segment: anchorSegment) : .file(path: ref, page: page, seconds: start)
+        if let screenDay { return .screen(day: screenDay, seconds: start) }
+        return isMeeting ? .meeting(id: ref, seconds: start, segment: anchorSegment) : .file(path: ref, page: page, seconds: start)
     }
 
     /// "Priya · 27:30", "p.14", "at 03:05": what locates the moment inside its source.
@@ -57,13 +61,19 @@ public struct AskMoment: Codable, Equatable, Sendable, Identifiable {
         var parts: [String] = []
         if isMeeting, !speakers.isEmpty { parts.append(speakers.joined(separator: ", ")) }
         if let page { parts.append("p.\(page)") }
-        if let start { parts.append((isMeeting ? "" : "at ") + Self.clock(start)) }
+        if let start {
+            // Seconds into a day are a time of day.
+            if screenDay != nil { let value = max(0, Int(start)); parts.append(String(format: "%02d:%02d", value / 3600 % 24, value / 60 % 60)) }
+            else { parts.append((isMeeting ? "" : "at ") + Self.clock(start)) }
+        }
+        if screenDay != nil, let window, !window.isEmpty { parts.append(window) }
         return parts.joined(separator: " · ")
     }
 
     /// The source's display name: the meeting title, or the file name.
     public var sourceName: String {
         if let title, !title.isEmpty { return title }
+        if screenDay != nil { return "Screen" }
         return isMeeting ? "Meeting" : (ref as NSString).lastPathComponent
     }
 
@@ -101,7 +111,7 @@ public struct AskMessage: Codable, Equatable, Sendable, Identifiable {
     public var createdAt: Date
     public var state: State
     public var citations: [AskCitation]
-    /// Why there's no answer, or which model wrote it ("Gemma 4 E4B · on this Mac").
+    /// Why there's no answer, or which model wrote it ("Codex · gpt-6.1-sol").
     public var detail: String?
     public var trace: AITrace?
 
@@ -112,6 +122,30 @@ public struct AskMessage: Codable, Equatable, Sendable, Identifiable {
     }
 }
 
+/// Which kind of source a question is asked of.
+public enum AskScope: String, Codable, CaseIterable, Sendable, Identifiable {
+    case everything, meetings, screen, notes
+    public var id: String { rawValue }
+    public var label: String {
+        switch self {
+        case .everything: "Everything"
+        case .meetings: "Meetings"
+        case .screen: "Screen"
+        case .notes: "Notes"
+        }
+    }
+    /// Meetings: what was said, and what was on screen while it was. Screen: what was read from windows, in
+    /// a meeting or outside one. Notes: the vault and attached files.
+    public func includes(_ moment: AskMoment) -> Bool {
+        switch self {
+        case .everything: true
+        case .meetings: moment.isMeeting
+        case .screen: moment.sourceKind == SourceKind.screen.rawValue || moment.kind == "screen"
+        case .notes: moment.sourceKind == SourceKind.vault.rawValue || moment.sourceKind == SourceKind.file.rawValue
+        }
+    }
+}
+
 /// A chat over meetings and files, with what was attached to it.
 public struct Conversation: Codable, Equatable, Sendable, Identifiable {
     public var id: String
@@ -119,10 +153,12 @@ public struct Conversation: Codable, Equatable, Sendable, Identifiable {
     public var createdAt: Date
     public var updatedAt: Date
     public var pinned: Bool
-    /// "main" or "quick" (started from the quick-ask panel).
+    /// "main", "quick" (the quick-ask panel) or "popover".
     public var origin: String
     /// Retrieval looks in this meeting first (set when asked during a recording, or from a meeting page).
     public var scopeMeetingID: String?
+    /// Only this kind of source is searched; nil searches everything.
+    public var scope: AskScope?
     public var messages: [AskMessage]
     public var attachments: [Attachment]
 

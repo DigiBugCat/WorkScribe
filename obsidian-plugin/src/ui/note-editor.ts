@@ -7,7 +7,9 @@ import { editorInfoField, MarkdownView, MarkdownRenderer, Menu, Modal, normalize
 import { EditorView } from '@codemirror/view';
 import { Transaction, type EditorState } from '@codemirror/state';
 import { aiRefresh, inkLines, clearOwnedIndents, rememberOwnedIndent, meetingEditor, ownBlock, setDocument, type EditorSession } from '../lib/editor-extension';
-import { reconcile, type Block } from '../lib/anchors';
+import { reconcile, ownedRange, type Block, type NoteDocument } from '../lib/anchors';
+import { ApiError } from '../lib/client';
+import { changedRegion, mergeFinalized } from '../lib/finalize-merge';
 import { imageInsertion, placeImage, imageBytes } from '../lib/image-insert';
 import type WorkScribePlugin from '../main';
 import type { Note } from '../lib/types';
@@ -27,8 +29,12 @@ export class NoteEditor {
   private lanes = new Map<string, Promise<void>>();
   private opening = new Map<string, Promise<TFile | null>>();
   private dirty = new Set<string>();
+  /** Consecutive failed syncs per meeting (the delay before the next try), and whether their error was shown. */
+  private failures = new Map<string, number>(); private reported = new Set<string>();
   private stopped = false;
   private finalizing = new Set<string>();
+  private finalizeRuns = new Map<string, { run: Promise<void>; started: number }>();
+  private pollStarted = 0;
   private dismissed = new Set<string>();
   private headers = new Map<MarkdownView,HTMLElement>();
   private confirmDelete=false;
@@ -43,7 +49,12 @@ export class NoteEditor {
   private makes = new Map<string,{requestId?:string;token:object;source:string}>();
   readonly editor;
   constructor(private p: WorkScribePlugin) {
-    for (const [id, document] of Object.entries(p.documentLedgers)) this.sessions.set(id, { id, document, notes: new Map() });
+    for (const [id, document] of Object.entries(p.documentLedgers)) {
+      // A meeting's ledger is kept under its id. An earlier version also saved ordinary notes, under their
+      // path (after a rename): those are not ours to keep.
+      if (/^(?:\/|[A-Za-z]:[\\/])/.test(id)) { delete p.documentLedgers[id]; continue; }
+      this.sessions.set(id, { id, document, notes: new Map() });
+    }
     p.registerDomEvent(window.document,'keydown',event=>{if(event.key==='Escape'&&this.confirmDelete){this.confirmDelete=false;this.renderHeaders();}});
     this.editor = meetingEditor({
       surfaces: state => this.surfaceHost(state),
@@ -98,7 +109,9 @@ export class NoteEditor {
     if(existing)return existing;
     if(!path)return null;
     const document={path,source:state.doc.toString(),revision:0,blocks:reconcile(state.doc.toString(),[],this.p.recording?this.p.elapsed():undefined)};
-    const session={id:path,document,notes:new Map<string,Note>()};this.sessions.set(path,session);return session;
+    // Not a meeting's note: it gets a session so the editor can decorate it, and nothing else. It is never
+    // queued, synced, polled or saved in the ledger (`ordinary`).
+    const session:EditorSession={id:path,document,notes:new Map<string,Note>(),ordinary:true};this.sessions.set(path,session);return session;
   }
   private adaptLoadedNotes(): void {
     for(const note of this.p.live.notes.values())if(note.line)this.p.surfaces.apply(note.line);
@@ -124,12 +137,24 @@ export class NoteEditor {
     catch{if(this.makes.get(key)===request)this.makes.delete(key);this.p.surfaces.status={...this.p.surfaces.status,paused:'Diagram unavailable'};}
     this.p.notify(new Set(['status']));this.refresh(true);
   }
+  private handingBack=new Set<string>();
   private async handBack(view:EditorView,block:Block):Promise<void> {
     const session=this.session(view.state);if(!session||!block.owned)return;
-    try{await this.p.client.rewriteLine(session.id,block.id);}
-    catch{try{await this.p.client.patchNote(session.id,block.id,{rewrite:true});}catch{this.p.surfaces.status={...this.p.surfaces.status,paused:'Rewrite unavailable'};this.p.notify(new Set(['status']));return;}}
-    // Explicitly requested handback is one normal undoable edit.
-    view.dispatch({changes:{from:block.owned.from-1,to:block.owned.to,insert:''},effects:ownBlock.of({id:block.id,owned:undefined}),annotations:isolateHistory.of('full'),userEvent:'input.rewrite'});
+    // One hand-back per line at a time. `block` may be minutes old (the margin button keeps the one it was
+    // drawn with), so a second click must not run a second delete.
+    const key=session.id+'/'+block.id;
+    if(this.handingBack.has(key))return;
+    this.handingBack.add(key);
+    try{
+      try{await this.p.client.rewriteLine(session.id,block.id);}
+      catch{try{await this.p.client.patchNote(session.id,block.id,{rewrite:true});}catch{this.p.surfaces.status={...this.p.surfaces.status,paused:'Rewrite unavailable'};this.p.notify(new Set(['status']));return;}}
+      // The note may have been edited while the app answered. Remove what this line owns NOW, found again by
+      // id, and only while it is still exactly that text: never a range remembered from before the request.
+      const range=ownedRange(this.session(view.state)?.document.blocks??[],block.id,view.state.doc.toString());
+      if(!range)return;
+      // Explicitly requested handback is one normal undoable edit.
+      view.dispatch({changes:{from:range.from,to:range.to,insert:''},effects:ownBlock.of({id:block.id,owned:undefined}),annotations:isolateHistory.of('full'),userEvent:'input.rewrite'});
+    }finally{this.handingBack.delete(key);}
   }
   openSources(sources:SurfaceSource[]):void {
     sources=sources.filter(s=>!this.p.surfaces.isPurged(s.meetingId??(s.kind==='meeting'?this.p.live.meetingId??'':'')));
@@ -293,8 +318,15 @@ export class NoteEditor {
     if (!(file instanceof TFile)) throw new Error('Waiting for Obsidian to discover the meeting note. Try Open meeting note again.');
     const local = this.p.documentLedgers[id];
     const old = local && local.revision === document.revision && !document.finalized ? local : document;
-    const source = await this.p.app.vault.read(file);
-    const blocks = document.finalized ? [] : reconcile(source, old.blocks, this.p.recording ? this.p.elapsed() : undefined);
+    // An editor that is open on the note is the note: the file can be an autosave behind it, and syncing the
+    // file's text would take lines away from the app that it already has.
+    const open = [...this.views].find(v => v.state.field(editorInfoField, false)?.file?.path === file.path);
+    const source = open ? open.state.doc.toString() : await this.p.app.vault.read(file);
+    // Purged while we waited: there is no meeting to open, and nothing of it may be sent again.
+    if (this.p.surfaces.isPurged(id)) return null;
+    const ledger = open?.state.field(this.editor.field, false);
+    const blocks = document.finalized ? [] : ledger && ledger.id === id ? ledger.blocks
+      : reconcile(source, old.blocks, this.p.recording ? this.p.elapsed() : undefined);
     this.sessions.set(id, { id, document: { ...document, source, blocks }, notes: this.p.live.notes });
     if (!document.finalized) this.queue(id);
     if (reveal) {
@@ -309,15 +341,16 @@ export class NoteEditor {
     const s = this.session(view.state);
     if (!s || s.document.finalized) return;
     s.document = { ...s.document, source: view.state.doc.toString(), blocks };
-    if(s.id!==s.document.path)this.queue(s.id);
+    if(!s.ordinary)this.queue(s.id);
     this.refresh();
     clearTimeout(this.typingTimers.get(view));
     this.typingTimers.set(view,setTimeout(()=>{if(!this.stopped)this.refresh(true);},4100));
   }
   private queue(id: string): void {
+    // Only a meeting's note is synced. A rename, an outside change or a picture must not send any other note.
+    if (this.sessions.get(id)?.ordinary) return;
     this.dirty.add(id);
-    clearTimeout(this.timers.get(id));
-    this.timers.set(id, setTimeout(() => void this.flush(id).catch(e => this.p.showError(e)), 650));
+    this.arm(id, 650);
     // Persist IDs/timestamps before network, for restart while WorkScribe is down.
     const d = this.sessions.get(id)?.document;
     if (d) {
@@ -326,20 +359,37 @@ export class NoteEditor {
       this.saveTimer = setTimeout(() => void this.p.saveSettings(), 250);
     }
   }
+  /** (Re)start the one timer that runs the next flush of this meeting. */
+  private arm(id: string, ms: number): void {
+    clearTimeout(this.timers.get(id));
+    this.timers.set(id, setTimeout(() => void this.flush(id).catch(e => this.syncFailed(id, e)), ms));
+  }
+  /** A failed background sync is tried again by flush itself. Say so once, not on every attempt; and a 409 that
+   *  the next attempt resolves (the app was one revision ahead) is not something to show at all. */
+  private syncFailed(id: string, e: unknown): void {
+    const resolvable = (this.failures.get(id) ?? 1) === 1 && e instanceof ApiError && e.status === 409;
+    if (!resolvable && !this.reported.has(id)) { this.reported.add(id); this.p.showError(e); }
+  }
   async flush(id = this.p.live.meetingId ?? ''): Promise<void> {
     clearTimeout(this.timers.get(id));
     const prior = this.lanes.get(id) ?? Promise.resolve();
     const op = prior.catch(() => {}).then(async () => {
       if (this.stopped || !this.dirty.has(id)) return;
-      const s = this.sessions.get(id); if (!s || s.document.finalized) return;
+      const s = this.sessions.get(id);
+      // A note that is gone, finalized or not a meeting's has nothing left to send: it is not dirty any more.
+      // (Left dirty, the tail below would run this again every 650 ms for ever.)
+      if (!s || s.ordinary || s.document.finalized) { this.dirty.delete(id); return; }
       if ([...this.views].some(v => this.session(v.state) === s && v.composing)) return;
       const before = s.document;
+      // After every wait: open() may have replaced this session, or a purge removed it. Then this flush has
+      // nothing more to say or to write; whatever replaced the session queues its own.
+      const gone = () => this.sessions.get(id) !== s;
       // Save through Obsidian, so its editor state and file watcher agree.
       for (const leaf of this.p.app.workspace.getLeavesOfType('markdown')) {
         const v = leaf.view as MarkdownView;
         if (v.file && this.p.absolutePath(v.file.path) === before.path) await v.save();
       }
-      if (this.p.connState.kind !== 'online') return;
+      if (gone() || this.p.connState.kind !== 'online') return;
       try {
         const relative = this.relative(before.path) ?? '';
         const resolved = { ...before, blocks: before.blocks.map(b => ({ ...b, images: b.images?.map(image => {
@@ -347,22 +397,39 @@ export class NoteEditor {
           return { target: image.target, ...(file ? { path: this.p.absolutePath(file.path) ?? undefined } : {}) };
         }) })) };
         const next = await this.p.client.syncDocument(id, resolved);
+        if (gone()) return;
         if (s.document === before) { s.document = next; this.dirty.delete(id); }
         else s.document = { ...s.document, revision: next.revision };
+        this.failures.delete(id); this.reported.delete(id);
         this.p.documentLedgers[id] = s.document; await this.p.saveSettings();
       } catch (e) {
-        // A second editor may have advanced the server. Keep our local source, adopt the revision, and retry.
-        if (e instanceof Error && e.message.includes('(409)')) {
+        if (gone()) return;
+        const status = e instanceof ApiError ? e.status : undefined;
+        // The app is ahead of us: an answer that never arrived, or a second editor. Keep our local source and
+        // adopt the revision; the retry below sends it again.
+        if (status === 409 || (status === undefined && e instanceof Error && e.message.includes('(409)'))) {
           const remote = await this.p.client.openDocument(id);
+          if (gone()) return;
           if (remote.finalized) { s.document = remote; this.dirty.delete(id); this.refresh(); return; }
           s.document = { ...s.document, revision: remote.revision };
         }
+        // The app has no document for this meeting. If it purged the meeting while we could not hear about it,
+        // the session ends here instead of asking again for ever.
+        else if (status === 404 && await this.purgedMeanwhile(id)) return;
         throw e;
       }
     });
     this.lanes.set(id, op);
-    await op;
-    if (this.dirty.has(id) && this.p.connState.kind === 'online') this.queue(id);
+    try { await op; }
+    catch (e) {
+      // Still dirty with the app reachable: nothing else would try again before the next keystroke.
+      if (!this.stopped && this.dirty.has(id) && this.p.connState.kind === 'online') {
+        const n = (this.failures.get(id) ?? 0) + 1; this.failures.set(id, n);
+        this.arm(id, Math.min(30000, 650 * 2 ** (n - 1)));
+      }
+      throw e;
+    }
+    if (!this.stopped && this.dirty.has(id) && this.p.connState.kind === 'online') this.queue(id);
   }
   private imageChanged(file: TFile): void {
     if (!/^(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(file.extension)) return;
@@ -381,16 +448,33 @@ export class NoteEditor {
     s.document = { ...s.document, source, blocks: reconcile(source, s.document.blocks, this.p.recording ? this.p.elapsed() : undefined) };
     this.queue(s.id);
   }
+  /** Has the app purged this meeting (or begun to) without `meeting.purged` reaching us: Obsidian was closed,
+   *  or the events connection was down? Then it is handled here as that event would have been. */
+  private async purgedMeanwhile(id: string): Promise<boolean> {
+    let retention: string | undefined;
+    try { retention = (await this.p.client.meeting(id)).retention; } catch { return false; }
+    if (retention !== 'purged' && retention !== 'purging') return false;
+    this.p.meetingPurged(id);
+    return true;
+  }
   private async checkFinalized(): Promise<void> {
-    for (const [id,s] of this.sessions) if (!s.document.finalized && !this.dirty.has(id) && !this.finalizing.has(id)) {
-      try {
-        const m = await this.p.client.meeting(id);
-        await this.retitle(id, m.title, m.status);
-        if (m.document?.finalized) {
-          s.document = m.document; delete this.p.documentLedgers[id]; await this.p.saveSettings(); this.refresh();
-        }
-      } catch { /* Normal offline state: the vault remains editable. */ }
-    }
+    // One round at a time, however slow the app is (but a round that never returns does not end the polling).
+    if (Date.now() - this.pollStarted < 30000) return;
+    this.pollStarted = Date.now();
+    try {
+      for (const [id,s] of this.sessions) if (!s.ordinary && !s.document.finalized && !this.dirty.has(id) && !this.finalizing.has(id)) {
+        try {
+          const m = await this.p.client.meeting(id);
+          if (m.retention === 'purged' || m.retention === 'purging') { this.p.meetingPurged(id); continue; }
+          await this.retitle(id, m.title, m.status);
+          if (m.document?.finalized && this.sessions.get(id) === s) {
+            // Whatever was typed while we asked stays in the note; there is nothing left to sync it to.
+            s.document = m.document; this.dirty.delete(id); clearTimeout(this.timers.get(id));
+            delete this.p.documentLedgers[id]; await this.p.saveSettings(); this.refresh();
+          }
+        } catch { /* Normal offline state: the vault remains editable. */ }
+      }
+    } finally { this.pollStarted = 0; }
   }
   /** Once a meeting has stopped, its note takes WorkScribe's title in place of the placeholder
    *  ("2026-10-18 Zoom meeting · …"), and a later, better title replaces one WorkScribe gave earlier.
@@ -418,13 +502,23 @@ export class NoteEditor {
     this.refresh();
   }
   isFinalized(): boolean { return !!this.sessions.get(this.p.live.meetingId ?? "")?.document.finalized; }
-  async finalize(): Promise<void> {
-    const id = this.p.live.meetingId; if (!id) return;
+  /** One finalize per meeting at a time: a second Cmd+Return or click joins the one in flight instead of
+   *  sending a second request. When it ends, whether it worked or not, the next press starts a new one. */
+  finalize(): Promise<void> {
+    const id = this.p.live.meetingId; if (!id) return Promise.resolve();
+    const running = this.finalizeRuns.get(id);
+    // (A run that has had no answer for two minutes no longer holds the next press back.)
+    if (running && Date.now() - running.started < 120000) return running.run.catch(() => {});   // the first press reports the error
+    const run: Promise<void> = this.finalizeOnce(id).finally(() => { if (this.finalizeRuns.get(id)?.run === run) this.finalizeRuns.delete(id); });
+    this.finalizeRuns.set(id, { run, started: Date.now() });
+    return run;
+  }
+  private async finalizeOnce(id: string): Promise<void> {
     await this.flush(id);
     const session=this.sessions.get(id); if(!session)return;
     const before={...session.document};
     const view=[...this.views].find(v=>this.session(v.state)?.id===id);
-    const selection=view?.state.selection, savedScroll=view?.scrollDOM.scrollTop;
+    const savedScroll=view?.scrollDOM.scrollTop;
     this.finalizing.add(id);
     let d;
     try { d=await this.p.client.finalizeDocument(id); } finally { this.finalizing.delete(id); }
@@ -432,27 +526,40 @@ export class NoteEditor {
     const source=file instanceof TFile?await this.p.app.vault.adapter.read(file.path):d.source;
     if(d.path!==before.path) {
       session.document={...d,source};
+      // Finalized, beside this file: nothing of the meeting is left to sync.
+      this.dirty.delete(id);clearTimeout(this.timers.get(id));
       if(file instanceof TFile) await this.p.app.workspace.getLeaf('tab').openFile(file);
       new Notice('Your note changed. The finalized version is beside it: '+(relative ?? d.path));
       this.refresh();return;
     }
-    if(view) {
-      // A disk watcher can deliver our own atomic write before the API response.
-      // Restore the known preimage without history, then commit the same insertions once.
-      if(view.state.doc.toString()===source && source!==before.source){
-        view.dispatch({changes:{from:0,to:view.state.doc.length,insert:before.source},selection:selection?{anchor:Math.min(selection.main.anchor,before.source.length),head:Math.min(selection.main.head,before.source.length)}:undefined,annotations:Transaction.addToHistory.of(false)});
+    if(view&&this.views.has(view)) {
+      // The answer took a while. The person may have typed since, and Obsidian may have loaded the app's write
+      // of the file into this editor already. What the editor holds now is the note: the insertions are added
+      // to it (or found in it), and no character of it is replaced by the file's copy.
+      const current=view.state.doc.toString(),insertions=d.insertions??[];
+      let rows:number[]=[];
+      if(!insertions.length&&source!==d.source&&(current===d.source||current===source)) {
+        // An app that changed the file without saying what it inserted, and nothing typed since: take the
+        // file's text. (The editor showing it already is put back first, so that Undo restores the pencil note.)
+        if(current===source) view.dispatch({changes:{from:0,to:current.length,insert:d.source},annotations:Transaction.addToHistory.of(false)});
+        const r=changedRegion(d.source,source);
+        view.dispatch({changes:{from:r.from,to:r.to,insert:source.slice(r.from,r.end)},
+          effects:setDocument.of({document:{...d,source},previous:this.pencil(view,before)}),
+          annotations:isolateHistory.of('full'),userEvent:'input.finalize'});
+        rows=this.lineStarts(view,r.from,r.end);
+      } else {
+        const merge=mergeFinalized(current,d.source,insertions);
+        // Insertions the editor already shows are taken out without history and put back in the one undoable
+        // change below, which also retires the pencil ledger; its inverse restores both.
+        if(merge.restore.length) view.dispatch({changes:merge.restore,annotations:Transaction.addToHistory.of(false)});
+        view.dispatch({changes:merge.insert,
+          effects:setDocument.of({document:{...d,source:merge.text},previous:this.pencil(view,before)}),
+          annotations:isolateHistory.of('full'),userEvent:'input.finalize'});
+        let shift=0;
+        for(const i of merge.insert){rows.push(...this.lineStarts(view,i.from+shift,i.from+shift+i.insert.length));shift+=i.insert.length;}
       }
-      // One isolated transaction includes text and pencil ownership; inverse restores both.
-      const old=view.state.doc.toString();let from=0,end=old.length,nextEnd=source.length;
-      while(from<end&&from<nextEnd&&old[from]===source[from])from++;
-      while(end>from&&nextEnd>from&&old[end-1]===source[nextEnd-1]){end--;nextEnd--;}
       const scroll=savedScroll??view.scrollDOM.scrollTop;
-      const insertions=d.insertions;let check=old;if(insertions)for(const i of [...insertions].sort((a,b)=>b.at-a.at))check=check.slice(0,i.at)+i.text+check.slice(i.at);
-      view.dispatch({changes:insertions&&check===source?insertions.map(i=>({from:i.at,insert:i.text})):{from,to:end,insert:source.slice(from,nextEnd)},
-        effects:setDocument.of({document:{...d,source},previous:before}),
-        annotations:isolateHistory.of('full'),userEvent:'input.finalize'});
       view.requestMeasure({read:()=>scroll,write:y=>{view.scrollDOM.scrollTop=y;}});
-      const rows:number[]=[];for(let i=from;i<=Math.min(view.state.doc.length,source.length);){const line=view.state.doc.lineAt(i);rows.push(line.from);if(line.to>=view.state.doc.length)break;i=line.to+1;}
       view.dispatch({effects:inkLines.of(rows)});
       window.setTimeout(()=>{if(this.views.has(view))view.dispatch({effects:inkLines.of([])});},300+rows.length*45);
     } else session.document={...d,source};
@@ -465,6 +572,17 @@ export class NoteEditor {
       for(const delay of [0,60,200])window.setTimeout(()=>{if(active&&this.views.has(view))view.scrollDOM.scrollTop=savedScroll;},delay);
       window.setTimeout(()=>view.scrollDOM.removeEventListener('wheel',stop),250);
     }
+  }
+  /** The pencil document Undo of a finalize goes back to: the editor's own, as it is now, unless that one is
+   *  already finalized (the app got there first), in which case the one taken before the request. */
+  private pencil(view: EditorView, before: NoteDocument): NoteDocument {
+    const live=this.session(view.state)?.document;
+    return live&&!live.finalized?live:before;
+  }
+  private lineStarts(view: EditorView, from: number, to: number): number[] {
+    const rows:number[]=[],doc=view.state.doc;
+    for(let i=Math.min(from,doc.length);i<=Math.min(to,doc.length);){const line=doc.lineAt(i);rows.push(line.from);if(line.to>=doc.length)break;i=line.to+1;}
+    return rows;
   }
   private takeOver(view: EditorView, block: Block, text: string, offset=text.length): void {
     if(block.owned)return;
@@ -527,7 +645,9 @@ export class NoteEditor {
   purge(id: string): void {
     this.actionMenu?.hide(); this.actionMenu = undefined;
     if (this.evidenceId === id || this.focusedSources.some(s=>s.meetingId===id)) {this.focusedSources=[]; this.evidenceModal?.close(); this.evidenceModal = undefined; this.evidenceId = undefined; }
-    this.sessions.delete(id); delete this.p.documentLedgers[id]; this.dirty.delete(id); for(const key of this.makes.keys())if(key.startsWith(id+"/"))this.makes.delete(key); this.refresh(true); void this.p.saveSettings();
+    this.sessions.delete(id); delete this.p.documentLedgers[id]; this.dirty.delete(id);
+    clearTimeout(this.timers.get(id)); this.timers.delete(id); this.failures.delete(id); this.reported.delete(id);
+    for(const key of this.makes.keys())if(key.startsWith(id+"/"))this.makes.delete(key); this.refresh(true); void this.p.saveSettings();
   }
 
 }

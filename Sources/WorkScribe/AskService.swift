@@ -47,6 +47,8 @@ final class AskService: ObservableObject {
     private(set) var providers: [any AskMomentProvider] = []
     private var generator: (any AnswerGenerator)?
     private var tasks: [String: Task<Void, Never>] = [:]
+    /// Which answer currently owns a conversation's `tasks` and `working` entries.
+    private var answering: [String: String] = [:]
     /// Attachments indexed by words only while recording; embedded once the recording ends.
     private var needsEmbedding: [(URL, AttachmentOwner, String)] = []
     private var phaseObservation: AnyCancellable?
@@ -116,7 +118,16 @@ final class AskService: ObservableObject {
         if let index { Task { _ = await index.pruneAttachments() } }
     }
 
-    func cancel(_ id: String) { tasks.removeValue(forKey: id)?.cancel(); working.remove(id) }
+    func cancel(_ id: String) {
+        tasks.removeValue(forKey: id)?.cancel(); working.remove(id)
+        // An answer that was cut off says so, instead of looking as if it were still being written.
+        if let answerID = answering.removeValue(forKey: id) {
+            update(id) { conversation in
+                guard let index = conversation.messages.firstIndex(where: { $0.id == answerID && $0.state == .working }) else { return }
+                conversation.messages[index].state = conversation.messages[index].text.isEmpty ? .empty : .answered
+            }
+        }
+    }
 
     private func put(_ conversation: Conversation) {
         if let index = conversations.firstIndex(where: { $0.id == conversation.id }) { conversations[index] = conversation }
@@ -141,10 +152,12 @@ final class AskService: ObservableObject {
     /// Adds the question and its answer to `conversationID` (a new conversation when nil). Returns the conversation
     /// and the answer message IDs (follow the answer through `events`).
     @discardableResult
-    func ask(_ question: String, in conversationID: String?, origin: String = "main", scopeMeetingID: String? = nil) -> (conversation: String, message: String) {
+    func ask(_ question: String, in conversationID: String?, origin: String = "main", scopeMeetingID: String? = nil,
+             scope: AskScope? = nil) -> (conversation: String, message: String) {
         let text = question.trimmingCharacters(in: .whitespacesAndNewlines)
         let id = ensureConversation(conversationID, origin: origin)
         if let scopeMeetingID { update(id) { $0.scopeMeetingID = scopeMeetingID } }
+        if let scope { update(id) { $0.scope = scope == .everything ? nil : scope } }
         guard !text.isEmpty else { return (id, "") }
         cancel(id)
         let answerID = UUID().uuidString
@@ -154,9 +167,12 @@ final class AskService: ObservableObject {
             conversation.messages.append(AskMessage(id: answerID, role: .assistant, text: "", state: .working))
         }
         working.insert(id)
+        answering[id] = answerID
         tasks[id] = Task { [weak self] in
             await self?.answer(text, conversationID: id, messageID: answerID)
-            self?.working.remove(id); self?.tasks.removeValue(forKey: id)
+            // A newer question in this conversation owns the bookkeeping now: an answer that was
+            // cancelled for it must not clear the newer one's task as it winds down.
+            if let self, answering[id] == answerID { working.remove(id); tasks.removeValue(forKey: id); answering.removeValue(forKey: id) }
             if let self, let message = conversation(id)?.messages.first(where: { $0.id == answerID }) {
                 events.send(.finished(conversationID: id, messageID: answerID, question: text, message: message))
             }
@@ -194,12 +210,12 @@ final class AskService: ObservableObject {
             updateMessage(conversationID, messageID) {
                 $0.state = .momentsOnly
                 $0.citations = CitationMapper.momentsOnly(moments)
-                $0.detail = "No answer model on this Mac, so here are the moments that match."
+                $0.detail = "Codex isn’t available, so here are the moments that match."
             }
             return
         }
         trace.model = generator.displayName
-        trace.location = generator.provider == "local" ? "On this Mac" : generator.provider
+        trace.location = generator.provider == "codex" ? "Codex" : generator.provider
         let prompt = AskPrompt.build(question: question, moments: moments, history: history)
         trace.steps.append(TraceStep("Selected evidence", detail: "\(prompt.moments.count) moments supplied to the model"))
         trace.sources = prompt.moments.map { TraceSource(kind: $0.kind, title: $0.sourceName, text: $0.snippet ?? $0.text, link: $0.link.url.absoluteString, thumbnail: $0.thumbnail, start: $0.start, end: $0.end) }
@@ -224,7 +240,7 @@ final class AskService: ObservableObject {
             if Task.isCancelled { return }
             trace.steps.removeAll { $0.status == "running" }
             let used = provenance.snapshot()
-            trace.model = used.model; trace.location = "On this Mac"
+            trace.model = used.model; trace.location = used.provider == "codex" ? "Codex" : used.provider
             trace.steps.append(TraceStep("Wrote answer", detail: used.model))
             let mapped = CitationMapper.map(written, moments: prompt.moments)
             updateMessage(conversationID, messageID) {
@@ -298,14 +314,17 @@ final class AskService: ObservableObject {
             }
         }
         var general: [AskMoment] = []
+        // Asked of one kind of source: look further, since most of what is found will be of another kind.
+        let only = conversation.scope
         if let index {
-            general = await index.moments(SearchRequest(question, limit: 12, perSource: 2), attached: false, keywordsOnly: keywordsOnly)
+            general = await index.moments(SearchRequest(question, limit: only == nil ? 12 : 48, perSource: 2), attached: false, keywordsOnly: keywordsOnly)
         }
         let context = AskContext(conversationID: conversation.id, scopeMeetingID: scope, recording: recording)
         for provider in providers {
             let extra = await provider.moments(for: question, context: context)
             priority += extra.filter(\.attached); general += extra.filter { !$0.attached }
         }
+        if let only { priority = priority.filter(only.includes); general = general.filter(only.includes) }
         let usable: (AskMoment) -> Bool = { moment in
             guard moment.isMeeting, let state = self.model.meetingSnapshot(moment.ref)?.retention else { return true }
             return state != "purged" && state != "purging"
@@ -315,8 +334,7 @@ final class AskService: ObservableObject {
             let hit = merged[i]
             if let meeting = model.meetingSnapshot(hit.ref),
                let scene = model.store.loadScreenMoments(hit.ref).first(where: { $0.start == hit.start }) {
-                let read = await model.readScene(scene, meetingID: hit.ref)
-                merged[i] = Self.sceneMoment(read, meeting: meeting, folder: try? model.store.directory(hit.ref))
+                merged[i] = Self.sceneMoment(scene, meeting: meeting, folder: try? model.store.directory(hit.ref))
             }
         }
         var seen = Set<String>()

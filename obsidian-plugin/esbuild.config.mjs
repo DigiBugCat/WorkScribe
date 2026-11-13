@@ -5,7 +5,7 @@ import { builtinModules } from "node:module";
 const mode = process.argv[2] ?? "production";
 
 if (mode === "tests") {
-  // Bundle each test file (pure logic only, no `obsidian` import) for node:test.
+  // Bundle each test file for node:test. Most are pure logic; `obsidian` resolves to test/support/obsidian.ts.
   rmSync(".test-build", { recursive: true, force: true });
   const entries = readdirSync("test").filter((f) => f.endsWith(".test.ts")).map((f) => `test/${f}`);
   await esbuild.build({
@@ -19,6 +19,8 @@ if (mode === "tests") {
     // Keep the mock server as a real module: bundled, its CLI guard would see itself as the entry point.
     // (.test-build/ sits beside dev/, so the relative import still resolves.)
     external: ["../dev/*", ...builtinModules, ...builtinModules.map((m) => `node:${m}`)],
+    // `obsidian` exists only inside Obsidian. Tests that load src/ui/*.ts get a stand-in for it.
+    alias: { obsidian: "./test/support/obsidian.ts" },
     logLevel: "warning",
   });
 } else {

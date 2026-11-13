@@ -73,9 +73,9 @@ private final class MemoryCapture: AudioCapturing {
         }
         let voice = LiveVoiceFixture(), speech = MemorySpeech()
         let model = AppModel(store: MeetingStore(root: root), titleGenerator: NoAudioTitle(), voiceEngine: voice)
-        let oldSettings = (model.includeSystemAudio, model.screenCaptureEnabled)
-        defer { model.includeSystemAudio = oldSettings.0; model.screenCaptureEnabled = oldSettings.1 }
-        model.speechReady = true; model.includeSystemAudio = false; model.screenCaptureEnabled = false
+        let oldSettings = (model.includeSystemAudio, model.screenMode)
+        defer { model.includeSystemAudio = oldSettings.0; model.screenMode = oldSettings.1 }
+        model.speechReady = true; model.includeSystemAudio = false; model.screenMode = .off
         model.makeCapture = { MemoryCapture() }; model.makeConnection = { speech }
         await model.start()
         for _ in 0..<200 where model.meeting?.voiceEmbeddings?.isEmpty != false {

@@ -70,13 +70,13 @@ enum Entry {
             } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
         }
         else if CommandLine.arguments.contains("--mcp") { MCPServer(embedder: CoreMLEmbedder.bundled()).run() }
-        else if let i = CommandLine.arguments.firstIndex(of: "--bench-scenes"), CommandLine.arguments.count > i + 2 {
-            do { try await ScreenSceneBenchmark.run(directory: URL(fileURLWithPath: CommandLine.arguments[i+1]), output: URL(fileURLWithPath: CommandLine.arguments[i+2])) }
-            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
-        }
         else if CommandLine.arguments.contains("--verify-image-note") {
             do { try await ImageVerification.note() }
             catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if CommandLine.arguments.contains("--verify-codex") {
+            do { try await CodexVerification.run() }
+            catch { FileHandle.standardError.write(Data("\(error.localizedDescription)\n".utf8)); exit(1) }
         }
         else if CommandLine.arguments.contains("--verify-images") {
             do { try await ImageVerification.run() }
@@ -108,6 +108,10 @@ enum Entry {
         else if let index = CommandLine.arguments.firstIndex(of: "--verify-screen") {
             let seconds = index + 1 < CommandLine.arguments.count ? Double(CommandLine.arguments[index + 1]) ?? 10 : 10
             do { try await ScreenVerification.run(seconds: min(max(seconds, 1), 120)) }
+            catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
+        }
+        else if let index = CommandLine.arguments.firstIndex(of: "--render-ui"), index + 1 < CommandLine.arguments.count {
+            do { try await UIVerification.run(folder: URL(fileURLWithPath: CommandLine.arguments[index + 1])) }
             catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
         }
         else if CommandLine.arguments.contains("--serve-api-for-tests") {
@@ -170,15 +174,7 @@ enum Entry {
         else if let index = CommandLine.arguments.firstIndex(of: "--verify-title"), index + 1 < CommandLine.arguments.count {
             do {
                 let started = Date()
-                func argument(_ key: String) -> String? {
-                    guard let index = CommandLine.arguments.firstIndex(of: key), index + 1 < CommandLine.arguments.count else { return nil }
-                    return CommandLine.arguments[index + 1]
-                }
-                if let name = argument("--title-model"), GeneratorModel(rawValue: name) == nil {
-                    throw CaptureError.message("Only the bundled Gemma 4 E4B model is supported")
-                }
-                let selected = GeneratorModel.bundled
-                let result = try await TitleGenerator().generate(transcript: CommandLine.arguments[index + 1], model: selected, modelPath: argument("--model-path"))
+                let result = try await TitleGenerator().generate(transcript: CommandLine.arguments[index + 1])
                 let data = try JSONSerialization.data(withJSONObject: ["title": result, "seconds": Date().timeIntervalSince(started)])
                 FileHandle.standardOutput.write(data)
             } catch { FileHandle.standardError.write(Data("\(error)\n".utf8)); exit(1) }
@@ -200,6 +196,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     private var statusItem: NSStatusItem!
     private let popover = NSPopover()
     private var phaseObservation: AnyCancellable?
+    private var screenObservation: AnyCancellable?
     private var elapsedTimer: Timer?
     // Owned here, not by a view, so a transfer survives the popover closing.
     #if WORKSCRIBE_PLAUD
@@ -223,7 +220,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         // Stable capture surface for synthetic UI testing; never enabled in the app bundle.
         if ProcessInfo.processInfo.environment["WORKSCRIBE_QA_WINDOW"] == "1" {
             let controller = NSHostingController(rootView: RecorderView(model: model, openPlaud: { [weak self] in self?.showPlaud() },
-                                                                         openWindow: { [weak self] in self?.showTranscriptWindow() }))
+                                                                         openWindow: { [weak self] in self?.showTranscriptWindow() },
+                                                                         ask: ask, openLink: { [weak self] in self?.openLink($0) }))
             let window = NSWindow(contentViewController: controller)
             window.title = "WorkScribe QA"; window.styleMask = [.titled, .closable]
             window.center(); window.makeKeyAndOrderFront(nil); qaWindow = window
@@ -238,7 +236,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
             button.action = #selector(togglePopover)
         }
         let hosting = NSHostingController(rootView: RecorderView(model: model, openPlaud: { [weak self] in self?.showPlaud() },
-                                                                  openWindow: { [weak self] in self?.showTranscriptWindow() }))
+                                                                  openWindow: { [weak self] in self?.showTranscriptWindow() },
+                                                                  ask: ask, openLink: { [weak self] in self?.openLink($0) }))
         hosting.sizingOptions = [.preferredContentSize]
         popover.contentViewController = hosting
         popover.contentSize = hosting.view.fittingSize
@@ -263,6 +262,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         phaseObservation = Publishers.CombineLatest4(model.$phase, model.$speechReady, model.$screenAccess, model.$includeSystemAudio)
             .receive(on: RunLoop.main)
             .sink { [weak self] _, _, _, _ in DispatchQueue.main.async { self?.refreshStatusItem() } }
+        screenObservation = Publishers.CombineLatest3(model.$screenState, model.$screenCapturePaused, model.$screenMode)
+            .receive(on: RunLoop.main)
+            .sink { [weak self] _, _, _ in DispatchQueue.main.async { self?.refreshStatusItem() } }
         elapsedTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { if self?.model.phase == "recording" { self?.refreshStatusItem() } }
         }
@@ -306,6 +308,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
             model.retentionService = retention
             retention.start()
         }
+        // Reading the screen is the running app's to do, not a test's or a verification command's.
+        // The model then starts it, and keeps trying every few seconds until the Mac allows reading windows.
+        if ProcessInfo.processInfo.environment["WORKSCRIBE_SCREEN_READING"] != "0" {
+            model.screenReadingArmed = true
+            Task { await model.applyScreenMode() }
+        }
         // The local API for the Obsidian plugin (docs/api/local-api.md).
         if ProcessInfo.processInfo.environment["WORKSCRIBE_DISABLE_API"] != "1" {
             Task { [weak self] in
@@ -330,7 +338,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     func application(_ application: NSApplication, open urls: [URL]) {
         for link in urls.compactMap(WorkScribeLink.init(url:)) { openLink(link) }
     }
-    /// The popover is usually closed, so the icon has to say whether WorkScribe is recording.
+    /// The popover is usually closed, so the icon has to say whether WorkScribe is recording, and whether
+    /// reading the screen has been paused.
     private func refreshStatusItem() {
         guard let button = statusItem?.button else { return }
         let symbol: String, description: String
@@ -339,7 +348,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
         case "error": symbol = "exclamationmark.triangle"; description = "WorkScribe couldn’t record"
         case _ where model.includeSystemAudio && !model.screenAccess:
             symbol = "exclamationmark.triangle"; description = "WorkScribe needs Screen Recording permission for system audio"
-        default: symbol = "waveform"; description = model.speechReady ? "WorkScribe" : "WorkScribe is getting ready"
+        case _ where model.screenCapturePaused && model.screenMode != .off:
+            symbol = "waveform.slash"; description = "WorkScribe · screen reading is paused"
+        default:
+            symbol = "waveform"
+            description = !model.speechReady ? "WorkScribe is getting ready"
+                : model.screenState == .recording ? "WorkScribe · reading the screen" : "WorkScribe"
         }
         let image = NSImage(systemSymbolName: symbol, accessibilityDescription: description)
         let attention = symbol == "exclamationmark.triangle"
@@ -407,7 +421,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate, NSPo
     /// A resizable panel that floats above the call, for following along.
     func showTranscriptWindow() {
         if transcriptWindow == nil {
-            let view = RecorderView(model: model, openPlaud: { [weak self] in self?.showPlaud() }, openWindow: nil, inWindow: true)
+            let view = RecorderView(model: model, openPlaud: { [weak self] in self?.showPlaud() }, openWindow: nil, inWindow: true,
+                                    ask: ask, openLink: { [weak self] in self?.openLink($0) })
             let panel = NSPanel(contentViewController: NSHostingController(rootView: view))
             panel.title = "WorkScribe"
             panel.styleMask = [.titled, .closable, .resizable, .miniaturizable]

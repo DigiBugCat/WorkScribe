@@ -4,7 +4,6 @@ import WorkScribeCore
 
 private actor RetryModel: TextModel {
     nonisolated var displayName: String { "Retry fixture" }
-    nonisolated var backend: TextBackend { .llama }
     nonisolated var isAvailable: Bool { true }
     var count = 0
     func generate(_ request: TextRequest) async throws -> TextGeneration {
@@ -12,7 +11,7 @@ private actor RetryModel: TextModel {
         return TextGeneration(text: count == 1 ? "not discussed" : "* **Budget:** The budget report will be sent on Monday.", stats: TextStats())
     }
     nonisolated func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
-    func prewarm(_ request: TextRequest?) async {}
+    func prewarm() async {}
     func release() async {}
 }
 

@@ -219,7 +219,7 @@ export function parseNote(raw: unknown): Note {
   if(images.length) {
     n.trace ??= {steps:[],revisions:[]};
     n.trace.sources=[...(n.trace.sources??[]),...images.map(i=>({kind:'image',title:str(i.target)!,
-      text:[str(i.caption),str(i.text),str(i.method)?`Read on this Mac · ${str(i.method)?.includes('gemma')?'Gemma + OCR':str(i.method)}`:undefined, typeof i.seconds === 'number' ? `${i.seconds.toFixed(1)} s` : undefined].filter(Boolean).join('\n'),
+      text:[str(i.caption),str(i.text),str(i.method)?`${str(i.method)?.includes('codex')?'Described by Codex · read on this Mac':'Read on this Mac · '+str(i.method)}`:undefined, typeof i.seconds === 'number' ? `${i.seconds.toFixed(1)} s` : undefined].filter(Boolean).join('\n'),
       link:'obsidian://open?file='+encodeURIComponent(str(i.target)!)}))];
   }
   if (isObj(raw.fromAnswer)) {

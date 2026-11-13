@@ -70,23 +70,50 @@ final class ScreenTests: XCTestCase {
         XCTAssertEqual(ramp.dHash.nonzeroBitCount, 64)
     }
 
-    func testKeyframeSamplerPacesAndKeepsOnlyChanges() throws {
-        var sampler = KeyframeSampler(interval: 2.5)
+    /// The watcher reads a window's picture again only when it changed (`ScreenWatcher.PictureMemory`).
+    func testAnUnchangedPictureIsNotWorthReadingAgain() throws {
+        let detector = FrameChangeDetector()
         let a = try signature(slide(bullets: 2)), b = try signature(slide(bullets: 5))
-        XCTAssertTrue(sampler.isDue(0))
-        XCTAssertTrue(sampler.consider(a, at: 0))
-        XCTAssertFalse(sampler.isDue(1.0))
-        XCTAssertTrue(sampler.isDue(2.5))
-        XCTAssertFalse(sampler.consider(a, at: 2.5), "unchanged")
-        XCTAssertTrue(sampler.consider(b, at: 5))
-        XCTAssertFalse(sampler.consider(b, at: 7.5))
-        sampler.reset()
-        XCTAssertTrue(sampler.consider(b, at: 10), "after a pause the next frame is read again")
+        XCTAssertTrue(detector.isMeaningful(from: nil, to: a), "the first picture is always read")
+        XCTAssertFalse(detector.isMeaningful(from: a, to: a), "unchanged")
+        XCTAssertTrue(detector.isMeaningful(from: a, to: b))
     }
 
     // MARK: Moments
 
     let agenda = "Q3 Marketing Budget Review\nCut advertising spend by a third\nHire a product designer"
+
+    /// A window with nothing to read is still a moment when there is a picture of it to search by, and it is
+    /// indexed as an image, so it can be found by meaning. Without a picture it is nothing, as before.
+    func testAWordlessWindowIsAMomentOnlyWithAnImageVector() throws {
+        let vector = [Float](repeating: 0.03, count: 768)
+        var builder = ScreenMomentBuilder()
+        guard case .ignored = builder.add(.init(time: 5, text: "", app: "Zoom", bundleID: "us.zoom.xos", window: "Zoom Meeting")) else {
+            return XCTFail("no words and no picture: nothing to find it with")
+        }
+        guard case .started(let id, nil) = builder.add(.init(time: 10, text: "", app: "Zoom", bundleID: "us.zoom.xos", window: "Zoom Meeting",
+                                                            source: "ocr", embedding: vector, embeddingModelID: "eg2")) else {
+            return XCTFail("a pictured window starts a moment")
+        }
+        // The same window again extends it; another window of the same app, equally wordless, is a new moment.
+        XCTAssertEqual(builder.add(.init(time: 30, text: "", app: "Zoom", bundleID: "us.zoom.xos", window: "Zoom Meeting", embedding: vector, embeddingModelID: "eg2")), .extended(id: id))
+        guard case .started(_, let closed?) = builder.add(.init(time: 40, text: "", app: "Zoom", bundleID: "us.zoom.xos", window: "Whiteboard", embedding: vector, embeddingModelID: "eg2")) else {
+            return XCTFail("a different window is a different moment")
+        }
+        XCTAssertEqual(closed.id, id); XCTAssertEqual(closed.embedding, vector); XCTAssertEqual(closed.embeddingModelID, "eg2")
+        XCTAssertEqual(closed.representativeTime, 10); XCTAssertEqual(closed.end, 40)
+
+        // A moment that began with words gets its picture when one arrives.
+        var worded = ScreenMomentBuilder()
+        worded.add(.init(time: 0, text: agenda, app: "Keynote", bundleID: "com.apple.iWork.Keynote", window: "Plan"))
+        worded.add(.init(time: 4, text: agenda, app: "Keynote", bundleID: "com.apple.iWork.Keynote", window: "Plan", embedding: vector, embeddingModelID: "eg2"))
+        XCTAssertEqual(worded.open?.embedding, vector); XCTAssertEqual(worded.open?.representativeTime, 4)
+
+        let meeting = Meeting(title: "Visual")
+        let passages = ScreenSource.passages([closed], meeting: meeting, folder: nil)
+        XCTAssertEqual(passages.map(\.modality), [.image]); XCTAssertEqual(passages.first?.vector, vector)
+        XCTAssertEqual(passages.first?.kind, .screen)
+    }
 
     func testBuilderMergesSameScreenAndSplitsOnChange() {
         var builder = ScreenMomentBuilder()

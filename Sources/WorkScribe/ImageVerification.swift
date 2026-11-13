@@ -4,8 +4,8 @@ import WorkScribeCore
 enum ImageVerification {
     static func note() async throws {
         let args = CommandLine.arguments
-        guard let i = args.firstIndex(of: "--verify-image-note"), args.count > i+2 else { throw CaptureError.message("--verify-image-note MODEL IMAGE") }
-        let url = URL(fileURLWithPath:args[i+2]).standardizedFileURL
+        guard let i = args.firstIndex(of: "--verify-image-note"), args.count > i+1 else { throw CaptureError.message("--verify-image-note IMAGE") }
+        let url = URL(fileURLWithPath:args[i+1]).standardizedFileURL
         let started = Date()
         let ocr = await NoteImageUnderstanding.shared.read(.init(target:url.lastPathComponent,path:url.path),note:url,vault:url.deletingLastPathComponent())
         let ocrAt = Date().timeIntervalSince(started)
@@ -14,7 +14,7 @@ enum ImageVerification {
         var note = Note(text:"![[" + url.lastPathComponent + "]]",createdAt:760); note.images=[image]
         var meeting=Meeting(title:"Mobile launch review"); meeting.notes=[note]
         meeting.segments=[Segment(source:"system",speaker:"Marcus",start:750,end:770,text:"Marcus walked through the chart. The high spike is the 12 mini stall during image decoding. We need to move image decode off the main thread.")]
-        guard let result = try await Enrich(textModel: TextModels.generator(.gemma4, path: args[i+1])).enhance(meeting,incremental:true) else { throw CaptureError.message("No note plan") }
+        guard let result = try await Enrich().enhance(meeting,incremental:true) else { throw CaptureError.message("No note plan") }
         CurrentNoteEngine.apply(result, to: &meeting, final: false)
         let notes=meeting.notes ?? []
         let report: [String:Any] = ["ocr_ready_seconds":ocrAt,"caption_ready_seconds":captionAt,"useful_line_seconds_without_scheduler":Date().timeIntervalSince(started),"ocr":ocr.text ?? "","caption":image.caption ?? "","ai_line":notes.first?.line.text ?? ""]

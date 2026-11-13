@@ -40,15 +40,31 @@ test("real Swift API: discovery, wrapped detail, notes, streaming identity, cita
     const events: LiveEvent[] = [];
     const state = emptyLive();
     const { done } = await client.events((e) => { events.push(e); applyEvent(state, e); }, ac.signal);
-    const wait = async (f: () => boolean) => {
+    // Every state a note's line was reported in, in order: from `line` events and from the note inside `note` /
+    // `notes` events. The log misses nothing, however briefly a state lasted.
+    const seen = (id: string): string[] => events.flatMap((e) =>
+      e.type === "line" && e.blockId === id ? ["line:" + e.state]
+      : e.type === "note" && e.note.id === id ? ["note:" + e.note.state]
+      : e.type === "notes" ? e.notes.filter((x) => x.id === id).map((x) => "note:" + x.state) : []);
+    const wait = async (f: () => boolean, what: () => string = () => "an event") => {
       const until = Date.now() + 5000;
-      while (!f()) { if (Date.now() > until) throw new Error("Event timeout"); await new Promise((r) => setTimeout(r, 10)); }
+      while (!f()) { if (Date.now() > until) throw new Error(`Timed out waiting for ${what()}`); await new Promise((r) => setTimeout(r, 10)); }
+    };
+    // The fixture meeting has ended. There an answered line settles in the same pass (docs/specs/engine.md §4:
+    // "Outside meetings there is no listening phase: ladder → answered → settled"; Line.settle), so "answered"
+    // lasts a few milliseconds and a poll can miss it. Wait for the state the line rests in, and read from the
+    // event log that it was answered on the way.
+    const answeredThenSettled = async (id: string, since = 0) => {
+      await wait(() => state.notes.get(id)?.state === "settled", () => `"settled"; the stream reported ${seen(id).slice(since).join(", ")}`);
+      const lines = seen(id).slice(since).filter((x) => x.startsWith("line:"));
+      assert.ok(lines.includes("line:answered") && lines.lastIndexOf("line:answered") < lines.lastIndexOf("line:settled"),
+        `the line was answered and then settled; the stream reported ${lines.join(", ")}`);
     };
     const n = await client.addNote(c.meetingId, "release", 2);
     assert.equal(n.state, "listening");
     assert.equal(n.line?.blockId, n.id);
     assert.equal(n.line?.documentId, c.meetingId);
-    await wait(() => state.notes.get(n.id)?.state === "answered");
+    await answeredThenSettled(n.id);
     await wait(() => events.some(e => e.type === 'line' && e.blockId === n.id && e.state === 'answered'));
     assert.ok(events.some(e => e.type === 'status' && 'model' in e && e.model === 'ready'));
     await client.patchNote(c.meetingId, n.id, { enhanced: { topic: "My release.", text: "User owns this." } });
@@ -57,7 +73,7 @@ test("real Swift API: discovery, wrapped detail, notes, streaming identity, cita
     assert.equal(state.notes.get(n.id)!.enhanced?.text, "User owns this.");
     const edited = await client.addNote(c.meetingId, "draft", 3);
     await client.patchNote(c.meetingId, edited.id, { text: "release Friday" });
-    await wait(() => state.notes.get(edited.id)?.state === "answered");
+    await answeredThenSettled(edited.id);                 // as above: the edited jot is answered, then settles
     const from = { answerId: "answer-1", question: "When?", askedBy: "Alex" };
     const answerNote = await client.addNote(c.meetingId, "Friday", 4, { fromAnswer: from });
     assert.deepEqual(answerNote.fromAnswer, from);
@@ -99,9 +115,10 @@ test("real Swift API: discovery, wrapped detail, notes, streaming identity, cita
     assert.equal(denied.status, 401);
     const owned = await client.patchNote(c.meetingId, n.id, { enhanced: { topic: "Mine", text: "Keep this wording" } });
     assert.equal(owned.userEdited, true);
+    const beforeHandBack = seen(n.id).length;
     const handedBack = await client.patchNote(c.meetingId, n.id, { rewrite: true });
     assert.equal(handedBack.userEdited, false);
-    await wait(() => state.notes.get(n.id)?.state === "answered");
+    await answeredThenSettled(n.id, beforeHandBack);      // as above: answered again, then settled
     await client.done(c.meetingId);
     await wait(() => events.some(e => e.type === "purged" && e.meetingId === c.meetingId));
     const purged = await client.meeting(c.meetingId);

@@ -48,7 +48,7 @@ Wall-clock dates are ISO 8601 UTC. Numeric times are seconds from meeting start.
 Status contains `recording`, `phase`, `meetingId?`, `title?`, `startedAt?`, `elapsed`,
 `sources:{mic,system,screen}`, `permissions:{screenRecording,microphone}`, `warming`, `message?`,
 and `model:{provider,name}`, plus optional `finalizationProgress` (0–1, completed lifecycle stages rather than elapsed time). Phase is ready, starting, recording, finalizing, error or preview.
-Provider is local or none: every model runs on this Mac. Warming means the speech engine is loading.
+Provider is `codex` or `none`: note lines, titles, briefs and answers are written by Codex (`codex app-server`), which receives the question or note and the excerpts retrieved for it; speech recognition, search and screen reading run on this Mac. Warming means the speech engine is loading.
 
 Summary contains `id,title,startedAt,duration?,speakers,status,vaultPath?,obsidianLink?`.
 Duration is absent while recording. Status is recording, finalizing, complete, interrupted or failed.
@@ -95,6 +95,25 @@ window?,link,attached,number?`. `number` appears in citations and starts at 1.
 `path` and local `thumbnail` are absolute paths. `link` is a `workscribe://` deep link or a canonical
 `obsidian://` link when the source is in a vault. Meeting links preserve their time and segment anchors.
 While recording, search uses words only and includes the live screen moments.
+
+A `screen` moment is either from a meeting (`meetingId` set; `start` is meeting seconds) or from the day's
+screen history outside meetings (no `meetingId`, no `path`; `start` is seconds into that day, `window` is
+"App — Window", and `link` is `workscribe://screen/<yyyy-MM-dd>?t=<seconds>`, which opens that day's history).
+
+### Screen history
+
+Screen reading outside meetings, by application. Times are seconds into the day; `start` on a day is its
+local midnight.
+
+| Request | Answer |
+| --- | --- |
+| `GET /v1/screen/days` | `{reading:{mode,state,paused,historyDays}, days:[{day,start,seconds,moments,apps:[{app,bundleId?,category?,seconds,moments,windows}]}]}`. `mode` is `off`, `meetings` or `allDay`; `historyDays` 0 keeps everything. |
+| `GET /v1/screen/days/{yyyy-MM-dd or today}?app=&from=&to=&limit=` | `{day,start,apps,moments:[{id,start,end,startedAt,app?,bundleId?,window?,url?,source?,text,link}],usage:[{app,bundleId?,category?,start,end,windows,meetingId?}],truncated}`. `app` is a bundle identifier or part of an app's name; `from`/`to` are seconds into the day; `limit` is 1…1000 (default 200). `usage` is which app was in front, including during a recorded meeting (`meetingId`); the text read during a meeting is in the meeting, not here. 404 when there is no history for that day. |
+| `POST /v1/screen/days/{day}/delete` | Deletes that day's history, here and in the search index. Answers with `reading`. |
+| `POST /v1/screen/pause` `{paused?:bool, minutes?:number}` | Pauses reading (until resumed, or for `minutes`); `{"paused":false}` resumes. 409 when screen reading is off. Answers with `reading`. |
+
+An app on the never-read list, a private browser window, and anything on screen while reading is paused or the
+Mac is locked do not appear at all, in `moments` or in `usage`.
 
 Attachments require path or text. `meetingId` takes precedence; otherwise the app creates or uses a
 conversation. `owner` is `meeting:<id>` or `conversation:<id>`. Files up to 200 MB are copied; larger files
@@ -170,7 +189,7 @@ There is no accept/dismiss state for AI lines.
 Summaries include `retention: live|finalized|purging|purged` and optional `purgeAt` (ISO UTC).
 For legacy meetings, after Stop and final enhancement the vault receives title, date, attendees, original and AI lines,
 a brief, action items and missed topics. The finalized write-up has no transcript URLs, evidence links or
-`^eN` anchors. The brief is one or two plain sentences written on this Mac from the finished AI lines,
+`^eN` anchors. The brief is one or two plain sentences written by Codex from the finished AI lines,
 "Also discussed" topics and action items, and checked before use (`BriefPolicy`): no markup, no glued note
 lines, no number the notes do not state. When no brief passes, the note has none.
 An edited vault region remains protected; a conflicting finalized version is saved alongside it.
@@ -263,7 +282,7 @@ emits `event: trace` as retrieval/generation steps advance. Its JSON body is the
 
 ```json
 {"steps":[{"title":"Selected evidence","status":"complete","detail":"3 moments supplied to the model"}],
- "model":"Qwen 3.5", "location":"On this Mac", "durationMs":420,
+ "model":"Codex · gpt-6.1-sol", "location":"Codex", "durationMs":4200,
  "sources":[{"kind":"document","title":"Scope","text":"Quoted source text","link":"workscribe://file?..."}],
  "revisions":[{"version":2,"text":"The updated line","reason":"New transcript evidence","at":"2026-10-15T03:00:00Z"}]}
 ```
@@ -303,7 +322,7 @@ The original Markdown, identity, first-pasted time, ownership, undo, and finaliz
 
 `APINote.images` optionally returns image evidence: `target`, `path`, `fingerprint`, `text` (OCR),
 `caption`, `method`, `seconds`. The client ignores unrecognized fields. Text/captions are
-untrusted evidence, never instructions. `method` is `vision-ocr`, `gemma4+vision-ocr`,
+untrusted evidence, never instructions. `method` is `vision-ocr`, `codex+vision-ocr`,
 `no-readable-text`, or `unavailable`. `seconds` measures analysis, excluding the normal note
 scheduler/debounce. This evidence is private to the meeting's retention window; an independent
 vault image index remains while the file remains in the vault. The shared Why? trace renders one image
@@ -350,6 +369,9 @@ and the brief are completed from that transcript. Completed AI lines are preserv
 Each audio source has at most 30 seconds of unacknowledged PCM plus a 60-second rolling voice
 window. Capture fails explicitly if the recognizer cannot keep up; it never spills audio to disk.
 WeSpeaker reads short live crops and stores only derived vectors for later speaker naming.
-Screen awareness uses transient frames for scene embeddings and OCR; only text and scene
-metadata are persisted. Explicit Grab this moment attachments remain durable user content.
+Screen reading takes the front window's accessibility text, and a picture of that one window
+(never the display) only when the text is thin; the picture is used for OCR and one image
+vector and is not kept. Only text, the vector and window metadata are persisted: with the meeting while one
+is being recorded (and deleted with it), otherwise in the day's screen history, which is kept for the number of
+days chosen in Settings. Explicit Grab this moment attachments remain durable user content.
 Legacy media may still be read by import/verification tools and removed by normal retention.

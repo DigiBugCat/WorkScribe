@@ -277,17 +277,7 @@ export default class WorkScribePlugin extends Plugin {
 
     if (ev.type === "notes" && ev.documentFinalized) this.noteEditor.markFinalized(ev.meetingId);
     if (ev.type === "purged") {
-      this.lastPurgedMeetingId=ev.meetingId;
-      this.surfaces.purge(ev.meetingId);
-      this.noteEditor.purge(ev.meetingId);
-      if (this.live.meetingId === ev.meetingId) {
-        this.live.retention="purged"; this.live.purgeAt=undefined; this.live.notes.clear(); this.live.segments = []; this.live.answer = null; this.live.screens = []; this.live.pending = [];
-      }
-      for (const leaf of this.app.workspace.getLeavesOfType(ENHANCED_VIEW)) {
-        const view = leaf.view as EnhancedNotesView;
-        if (view.currentMeetingId === ev.meetingId) void view.fetchMeeting();
-      }
-      this.notify(new Set(["purged","meeting","notes","segments","answer"]));
+      this.meetingPurged(ev.meetingId);
       return;
     }
     if (ev.type === "clip") {
@@ -316,6 +306,22 @@ export default class WorkScribePlugin extends Plugin {
       }
     }
     this.notify(changes);
+  }
+
+  /** The app has deleted a meeting's raw material: on `meeting.purged`, or when the note editor finds out later
+   *  (the purge happened while Obsidian was closed or disconnected). The note stays; everything else goes. */
+  meetingPurged(id: string): void {
+    this.lastPurgedMeetingId=id;
+    this.surfaces.purge(id);
+    this.noteEditor.purge(id);
+    if (this.live.meetingId === id) {
+      this.live.retention="purged"; this.live.purgeAt=undefined; this.live.notes.clear(); this.live.segments = []; this.live.answer = null; this.live.screens = []; this.live.pending = [];
+    }
+    for (const leaf of this.app.workspace.getLeavesOfType(ENHANCED_VIEW)) {
+      const view = leaf.view as EnhancedNotesView;
+      if (view.currentMeetingId === id) void view.fetchMeeting();
+    }
+    this.notify(new Set(["purged","meeting","notes","segments","answer"]));
   }
 
   /** Fill the live state from GET /v1/meetings/:id (opening mid-call, or reconnecting). */

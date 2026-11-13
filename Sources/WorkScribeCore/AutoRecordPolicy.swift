@@ -17,6 +17,13 @@ public struct AutoRecordPolicy {
     public mutating func reset() {
         candidateSince = nil; absentSince = nil; requestedStart = false; suppressed = false
     }
+    /// A start that was asked for did not begin a recording, and not because it failed (something else was
+    /// recording, or it was refused before trying). Without this the call is never asked for again
+    /// (`formal/lean/Formal/AutoRecord.lean`, `stuck_latch`). The call must settle anew first.
+    public mutating func startDidNotBegin() {
+        guard !suppressed else { return }
+        requestedStart = false; candidateSince = nil
+    }
     public mutating func update(callActive: Bool, enabled: Bool, busy: Bool, automaticallyRecording: Bool, now: Date) -> Action {
         guard enabled else { reset(); return .none }
         if callActive {

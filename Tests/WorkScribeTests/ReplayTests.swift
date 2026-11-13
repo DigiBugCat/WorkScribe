@@ -4,14 +4,14 @@ import XCTest
 
 private struct ReplayFixtureModel: TextModel {
     var line = "* **Budget:** The team will send the budget report on Monday."
-    let displayName = "fixture", backend = TextBackend.llama, isAvailable = true
+    let displayName = "fixture", isAvailable = true
     func generate(_ request: TextRequest) async throws -> TextGeneration {
         let text = request.instruction.hasPrefix(NotePrompt.topicsHead) ? ""
             : line
         return TextGeneration(text: text, stats: TextStats(promptTokens: 50, generatedTokens: 12, totalMs: 100))
     }
     func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
-    func prewarm(_ request: TextRequest?) async {}
+    func prewarm() async {}
     func release() async {}
 }
 

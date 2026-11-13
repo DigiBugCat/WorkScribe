@@ -10,7 +10,8 @@ public enum ChunkKind: String, Sendable, CaseIterable {
 }
 
 /// `vault` is a Markdown note in the user's vault (or WorkScribe's notes folder), indexed structurally.
-public enum SourceKind: String, Sendable { case meeting, file, vault }
+/// `screen` is a day of screen reading outside meetings (`ScreenDay`); its ref is "screen-day:<yyyy-MM-dd>".
+public enum SourceKind: String, Sendable { case meeting, file, vault, screen }
 
 /// One searchable moment: a span of a meeting, a page or passage of a document, a window of a recording.
 public struct Chunk: Sendable, Equatable {
@@ -114,6 +115,7 @@ public struct SearchHit: Sendable {
         switch sourceKind {
         case .meeting: .meeting(id: ref, seconds: start, segment: anchorSegment)
         case .file, .vault: .file(path: ref, page: page, seconds: start)
+        case .screen: .screen(day: ScreenDaySource.day(ref: ref) ?? ref, seconds: start)
         }
     }
     /// Opens the note in Obsidian, for vault notes in a folder Obsidian knows as a vault.

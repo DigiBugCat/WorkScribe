@@ -7,7 +7,8 @@ public struct SourceID: Hashable, Sendable {
     public init(_ kind: Kind, _ ref: String) { self.kind = kind; self.ref = ref }
     var key: String { kind.rawValue + ":" + ref }
     var storageKind: SourceKind {
-        switch kind { case .meeting, .screen: .meeting; case .vault, .clip: .vault; case .folder, .attachment: .file }
+        // `.screen` is a day of screen reading outside meetings; what a meeting showed is part of the meeting.
+        switch kind { case .meeting: .meeting; case .screen: .screen; case .vault, .clip: .vault; case .folder, .attachment: .file }
     }
 }
 

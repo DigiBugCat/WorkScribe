@@ -2,8 +2,10 @@ import AppKit
 import Foundation
 import WorkScribeCore
 
-/// `WorkScribe --verify-screen <seconds>`: reads a rendered test slide (no permission needed), then reads the screen
-/// for `seconds` into a throwaway meeting, prints its moments as JSON, and deletes everything it wrote.
+/// `WorkScribe --verify-screen <seconds>`: reads a rendered test slide (no permission needed), then watches the
+/// screen for `seconds` the way the app does all day: the first third into the day's journal, the middle third
+/// into a throwaway meeting, the last third into the day again. Prints what it kept as JSON (by application, and
+/// where each reading went) and deletes everything it wrote. Switch between a few windows while it runs.
 enum ScreenVerification {
     @MainActor
     static func run(seconds: Double) async throws {
@@ -12,9 +14,10 @@ enum ScreenVerification {
         let started = Date()
         let read = await ScreenOCR.read(slide)
         report["synthetic_ocr"] = ["text": read.text, "lines": read.lines.count, "seconds": Date().timeIntervalSince(started)]
-        report["screen_permission"] = CGPreflightScreenCaptureAccess()
-        guard CGPreflightScreenCaptureAccess() else {
-            report["capture"] = ["skipped": "Screen Recording permission unavailable; synthetic OCR only"]
+        report["accessibility_permission"] = ScreenReader.accessibilityAllowed
+        report["screen_recording_permission"] = ScreenReader.picturesAllowed
+        guard ScreenReader.accessibilityAllowed || ScreenReader.picturesAllowed else {
+            report["capture"] = ["skipped": "Neither Accessibility nor Screen Recording is allowed for this process; synthetic OCR only"]
             FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]))
             FileHandle.standardOutput.write(Data([10]))
             return
@@ -23,36 +26,53 @@ enum ScreenVerification {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("workscribe-screen-" + UUID().uuidString)
         defer { try? FileManager.default.removeItem(at: root) }
         let store = MeetingStore(root: root)
+        let days = ScreenDayStore(meetings: store)
         let meeting = Meeting(title: "Screen verification")
         try store.save(meeting)
-        var settings = ScreenCaptureSettings()
-        if CommandLine.arguments.contains("--window") { settings.target = .window }
-        let recorder = ScreenRecorder(folder: try store.directory(meeting.id), meetingID: meeting.id, meetingStart: meeting.startedAt,
-                                      store: store, settings: settings)
+        let watcher = ScreenWatcher(dayStore: days)
         var states: [String] = []
-        recorder.onState = { states.append($0.label) }
+        watcher.onState = { states.append($0.label) }
+        func rows(_ moments: [ScreenMoment]) -> [[String: Any]] {
+            moments.map { moment in
+                var row: [String: Any] = ["start": (moment.start * 10).rounded() / 10, "end": (moment.end * 10).rounded() / 10]
+                row["readings"] = moment.frames; row["app"] = moment.app ?? ""; row["window"] = moment.window ?? ""
+                row["source"] = moment.source ?? ""; row["url"] = moment.url ?? ""; row["picture_vector"] = moment.embedding != nil
+                row["words"] = ScreenMomentBuilder.words(moment.text).count; row["text"] = String(moment.text.prefix(200))
+                return row
+            }
+        }
         do {
-            let info = try await recorder.start()
-            report["target"] = info.target
-            try await Task.sleep(nanoseconds: UInt64(seconds * 1_000_000_000))
+            try watcher.start()
+            let third = UInt64(seconds / 3 * 1_000_000_000)
+            try await Task.sleep(nanoseconds: third)
+            let begun = await watcher.beginMeeting(id: meeting.id, timeline: MeetingScreenTimeline(store: store, meetingID: meeting.id, start: meeting.startedAt))
+            report["target"] = begun.info.target
+            try await Task.sleep(nanoseconds: third)
             let live = ScreenContext.current()
-            let result = await recorder.stop()
-            let folder = try store.directory(meeting.id)
-            let video = folder.appendingPathComponent(ScreenFiles.video)
-            let thumbnails = (try? FileManager.default.contentsOfDirectory(atPath: folder.appendingPathComponent(ScreenFiles.thumbnails).path)) ?? []
+            let ended = await watcher.endMeeting(begun.token)
+            try await Task.sleep(nanoseconds: third)
+            await watcher.stop()
+            // Text only: no picture, video or sound may be left behind.
             let media = FileManager.default.enumerator(at: root, includingPropertiesForKeys: nil)!.compactMap { $0 as? URL }
-                .filter { ["wav", "pcm", "mov", "mp4", "jpg", "png"].contains($0.pathExtension.lowercased()) }
+                .filter { ["wav", "pcm", "mov", "mp4", "jpg", "jpeg", "png", "heic"].contains($0.pathExtension.lowercased()) }
             guard media.isEmpty else { throw CaptureError.message("Screen capture persisted media") }
-            report["capture"] = [
-                "recorded_media_files": media.map(\.path),
-                "state": result.info.state, "failure": result.info.failure as Any? ?? NSNull(),
-                "video_offset_seconds": result.info.offset as Any? ?? NSNull(),
-                "video_bytes": (try? FileManager.default.attributesOfItem(atPath: video.path)[.size] as? Int) ?? 0,
-                "thumbnails": thumbnails.count,
-                "live_context_app": live?.app as Any? ?? NSNull(),
-                "moments": result.moments.map { ["start": $0.start, "end": $0.end, "frames": $0.frames, "app": $0.app ?? "",
-                                                 "window": $0.window ?? "", "text": String($0.text.prefix(300))] },
-            ]
+            var capture: [String: Any] = ["recorded_media_files": media.map(\.path), "state": ended?.info.state ?? "", "moments": rows(ended?.moments ?? [])]
+            capture["failure"] = ended?.info.failure ?? ""; capture["live_context_app"] = live?.app ?? ""
+            report["meeting"] = capture
+            let day = days.load(ScreenDayStore.day(Date()).id)
+            let meetingStart = meeting.startedAt.timeIntervalSince(day?.start ?? Date())
+            var journal: [String: Any] = ["moments": rows(day?.moments ?? [])]
+            journal["by_application"] = (day?.byApp() ?? []).map { total -> [String: Any] in
+                ["app": total.app, "bundle_id": total.bundleID ?? "", "category": total.category ?? "", "seconds": (total.seconds * 10).rounded() / 10,
+                 "moments": total.moments, "windows": total.windows]
+            }
+            journal["spans_during_the_meeting"] = (day?.usage ?? []).filter { $0.meetingID == meeting.id }.count
+            // Each reading has one home: nothing in the day's journal may have been read while the meeting was recording.
+            let window = (ended?.moments ?? []).reduce((Double.infinity, -Double.infinity)) { (min($0.0, $1.start), max($0.1, $1.end)) }
+            let overlapping = (day?.moments ?? []).filter { $0.end - meetingStart > window.0 + 1 && $0.start - meetingStart < window.1 - 1 }
+            journal["moments_overlapping_the_meeting"] = overlapping.count
+            report["day"] = journal
+            guard overlapping.isEmpty else { throw CaptureError.message("The day's journal kept text read during the meeting") }
         } catch {
             report["capture"] = ["error": error.localizedDescription]
         }

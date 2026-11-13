@@ -83,33 +83,7 @@ public struct FrameChangeDetector: Sendable {
     }
 }
 
-/// Paces keyframes: look at most every `interval` seconds, keep a frame only when it changed meaningfully since the
-/// last kept one. Pure state, so the capture queue can own it.
-public struct KeyframeSampler: Sendable {
-    public var interval: Double
-    public var detector: FrameChangeDetector
-    public private(set) var lastLooked: Double?
-    public private(set) var lastKept: FrameSignature?
-    public init(interval: Double = 2.5, detector: FrameChangeDetector = FrameChangeDetector()) {
-        self.interval = interval; self.detector = detector
-    }
-
-    /// Whether a frame arriving at `time` should be looked at (converted and hashed) at all.
-    public func isDue(_ time: Double) -> Bool { lastLooked.map { time - $0 >= interval } ?? true }
-
-    /// Records the look; true when the frame should be considered for embedding.
-    public mutating func consider(_ signature: FrameSignature, at time: Double) -> Bool {
-        lastLooked = time
-        guard detector.isMeaningful(from: lastKept, to: signature) else { return false }
-        lastKept = signature
-        return true
-    }
-
-    /// Forget the last kept frame (after a pause or a private app), so the next frame is kept and read again.
-    public mutating func reset() { lastKept = nil }
-}
-
-/// One OCR'd keyframe.
+/// One reading of a window.
 public struct ScreenObservation: Sendable {
     public var time: Double
     public var text: String
@@ -117,8 +91,15 @@ public struct ScreenObservation: Sendable {
     public var app: String?
     public var bundleID: String?
     public var window: String?
-    public init(time: Double, text: String, lines: [ScreenTextLine]? = nil, app: String? = nil, bundleID: String? = nil, window: String? = nil) {
+    public var url: String?
+    public var source: String?
+    /// An image embedding of the window, when a picture of it was taken.
+    public var embedding: [Float]?
+    public var embeddingModelID: String?
+    public init(time: Double, text: String, lines: [ScreenTextLine]? = nil, app: String? = nil, bundleID: String? = nil, window: String? = nil,
+                url: String? = nil, source: String? = nil, embedding: [Float]? = nil, embeddingModelID: String? = nil) {
         self.time = time; self.text = text; self.lines = lines; self.app = app; self.bundleID = bundleID; self.window = window
+        self.url = url; self.source = source; self.embedding = embedding; self.embeddingModelID = embeddingModelID
     }
 }
 
@@ -149,20 +130,33 @@ public struct ScreenMomentBuilder: Sendable {
     @discardableResult
     public mutating func add(_ observation: ScreenObservation, id: String = UUID().uuidString, thumbnail: String? = nil) -> Outcome {
         let text = Self.clean(observation.text)
-        guard Self.words(text).count >= minimumWords else { return .ignored(closed: close(at: observation.time)) }
+        let wordless = Self.words(text).count < minimumWords
+        // A window with nothing to read (a chart, a video call) is still a moment when there is a picture of
+        // it to search by. Without one there is nothing to find it with.
+        guard !wordless || observation.embedding != nil else { return .ignored(closed: close(at: observation.time)) }
         if var current = open, current.bundleID == observation.bundleID,
            observation.time - current.start < maximumDuration,
-           Self.similarity(current.text, text) >= sameThreshold {
+           Self.similarity(current.text, text) >= sameThreshold,
+           // Two wordless readings are "the same text"; then only the same window is the same moment.
+           !wordless || current.window == observation.window {
             current.end = max(current.end, observation.time)
             current.frames += 1
             if text.count > current.text.count { current.text = text; current.lines = observation.lines }
             if current.window == nil { current.window = observation.window }
+            if current.url == nil { current.url = observation.url }
+            if current.embedding == nil, let vector = observation.embedding {
+                current.embedding = vector; current.embeddingModelID = observation.embeddingModelID; current.representativeTime = observation.time
+            }
             open = current
             return .extended(id: current.id)
         }
         let previous = close(at: observation.time)
         open = ScreenMoment(id: id, start: observation.time, end: observation.time, text: text, lines: observation.lines,
                             app: observation.app, bundleID: observation.bundleID, window: observation.window, thumbnail: thumbnail)
+        open?.url = observation.url; open?.source = observation.source
+        if let vector = observation.embedding {
+            open?.embedding = vector; open?.embeddingModelID = observation.embeddingModelID; open?.representativeTime = observation.time
+        }
         return .started(id: id, closed: previous)
     }
 
@@ -193,7 +187,7 @@ public struct ScreenMomentBuilder: Sendable {
             .joined(separator: "\n")
     }
 
-    static func words(_ text: String) -> [String] {
+    public static func words(_ text: String) -> [String] {
         text.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted).filter { $0.count >= 2 }
     }
 

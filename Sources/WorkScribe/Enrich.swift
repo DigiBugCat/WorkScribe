@@ -45,7 +45,7 @@ actor Enrich: Enriching {
         Task.detached(priority: .utility) {
             let model = TextModels.model(for: .line)
             guard model.isAvailable else { return }
-            await model.prewarm(TextRequest(LinePrompt.rules + "<note>warm up</note>\n", cacheablePrefix: LinePrompt.rules, maxTokens: 1))
+            await model.prewarm()
         }
     }
     init(constants: EngineConstants = EngineConstants(), textModel: (any TextModel)? = nil,
@@ -106,8 +106,8 @@ actor Enrich: Enriching {
         }
         guard !plan.targets.isEmpty else { return nil }
         let model = modelOverride ?? TextModels.model(for: .line)
-        guard model.isAvailable else { throw CaptureError.message("AI lines need the Gemma model · run WorkScribe --doctor") }
-        var result = Enrichment(plan: plan, model: model.displayName, location: "On this Mac")
+        guard model.isAvailable else { throw CaptureError.message("AI lines need Codex · " + CodexStatus.current.summary) }
+        var result = Enrichment(plan: plan, model: model.displayName, location: "Codex")
         await didProduce(result)
         let targets = plan.targets.sorted(by: {
             if ($0.previous == nil) != ($1.previous == nil) { return $0.previous == nil }
@@ -125,7 +125,7 @@ actor Enrich: Enriching {
             for attempt in 0..<2 {
                 do {
                     let generated = try await model.generate(TextRequest(LinePrompt.build(target, excerpts: evidence, background: target.background, correction: correction),
-                        cacheablePrefix: LinePrompt.rules, maxTokens: EngineConstants.lineTokens, stop: NotePrompt.endMarker, noteID: target.note.id))
+                        maxTokens: EngineConstants.lineTokens, stop: NotePrompt.endMarker, noteID: target.note.id))
                     outcome = LineCheck.accept(generated.text, request: target, evidence: evidence)
                     if short == nil, outcome == .quiet(.tooShort), case .line = LineCheck.accept(generated.text, request: target, evidence: evidence, allowShort: true) {
                         short = LineCheck.accept(generated.text, request: target, evidence: evidence, allowShort: true)

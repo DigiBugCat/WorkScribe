@@ -34,6 +34,9 @@ ditto "$runtime_home/nemo"/lib "$app/Contents/Frameworks"
 # CMake package files are build metadata, not code. Inside Frameworks their signatures live in
 # extended attributes, which disk images and downloads drop, breaking the app's signature.
 rm -rf "$app/Contents/Frameworks/cmake" "$app/Contents/Frameworks/pkgconfig"
+# The app links only the speech-recognition library, which needs ggml and text normalization.
+# libllama serves the archive's translation library alone; neither is loaded, so neither ships.
+rm -f "$app/Contents/Frameworks"/libllama*.dylib "$app/Contents/Frameworks"/libnemo_speech_nmt*.dylib
 if [ "${WORKSCRIBE_PLAUD:-0}" = 1 ]; then
 ditto "$plaud_frameworks/PlaudBleSDK.framework" "$app/Contents/Frameworks/PlaudBleSDK.framework"
 ditto "$plaud_frameworks/PlaudDeviceBasicSDK.framework" "$app/Contents/Frameworks/PlaudDeviceBasicSDK.framework"
@@ -41,7 +44,6 @@ install_name_tool -delete_rpath "$plaud_frameworks" "$app/Contents/MacOS/WorkScr
 fi
 ditto "$runtime_home/nemo"/share/licenses "$app/Contents/Resources/licenses"
 install_name_tool -delete_rpath "$runtime_home/nemo/lib" "$app/Contents/MacOS/WorkScribe"
-title_model=gemma4
 ditto Resources/licenses "$app/Contents/Resources/licenses"
 ditto Resources/licenses/fluidaudio "$app/Contents/Resources/licenses/fluidaudio"
 cp .build/checkouts/FluidAudio/LICENSE "$app/Contents/Resources/licenses/fluidaudio/FluidAudio-LICENSE"
@@ -50,15 +52,10 @@ for resource_bundle in .build/release/FluidAudio_*.bundle .build/release/FluidUs
 done
 # Models stay in the non-synced runtime home. The app carries repair metadata/scripts.
 mkdir -p "$app/Contents/Resources/runtime/scripts" "$app/Contents/Resources/runtime/Resources"
-cp scripts/runtime-doctor.py scripts/runtime_home.py scripts/runtime_doctor_download.py scripts/prepare-embedding-model.py scripts/prepare-image-model.sh scripts/download-title-model.sh scripts/image-caption.cpp scripts/cmake-requirements.txt "$app/Contents/Resources/runtime/scripts/"
+cp scripts/runtime-doctor.py scripts/runtime_home.py scripts/runtime_doctor_download.py scripts/prepare-embedding-model.py "$app/Contents/Resources/runtime/scripts/"
 ditto Resources/licenses "$app/Contents/Resources/runtime/Resources/licenses"
-ditto Resources/licenses/image-understanding "$app/Contents/Resources/licenses/image-understanding"
 ditto Resources/licenses/embeddinggemma2 "$app/Contents/Resources/licenses/embeddinggemma2"
 ditto Resources/licenses/digup "$app/Contents/Resources/licenses/digup"
-printf '%s\n' "$title_model" > "$app/Contents/Resources/title-model.txt"
-mkdir -p "$app/Contents/Resources/licenses/title-model"
-cp Sources/CTextGeneration/vendor/LICENSE "$app/Contents/Resources/licenses/title-model/llama.cpp-LICENSE"
-cp Sources/CTextGeneration/vendor/MODEL-LICENSE-2.0.txt Sources/CTextGeneration/vendor/MODEL-NOTICE.txt "$app/Contents/Resources/licenses/title-model/"
 cat > "$app/Contents/Info.plist" <<'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -80,7 +77,7 @@ cat > "$app/Contents/Info.plist" <<'PLIST'
 </dict></array>
 <key>NSMicrophoneUsageDescription</key><string>WorkScribe records your microphone for local meeting transcription.</string>
 <key>NSBluetoothAlwaysUsageDescription</key><string>WorkScribe saves your Plaud recordings and releases the recorder when you choose to move it to the Plaud iPhone app.</string>
-<key>NSScreenCaptureUsageDescription</key><string>WorkScribe captures system audio to transcribe meeting participants playing through your Mac.</string>
+<key>NSScreenCaptureUsageDescription</key><string>WorkScribe captures system audio to transcribe meeting participants playing through your Mac. If you turn on screen reading, it also takes a picture of the front window when that window's text can't be read directly; the picture is not kept.</string>
 </dict></plist>
 PLIST
 if [ "${WORKSCRIBE_PLAUD:-0}" != 1 ]; then

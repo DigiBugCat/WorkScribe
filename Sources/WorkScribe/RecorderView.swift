@@ -2,8 +2,8 @@ import AppKit
 import SwiftUI
 import WorkScribeCore
 
-/// The popover changes shape for each job: idle (start + recent recordings),
-/// live (proof of capture + transcript), and reviewing one recording.
+/// The popover. Always: the two sensors (screen, calls) and the box to ask of everything, then what the
+/// moment calls for: the day or the list of meetings, the transcript being recorded, or one recording.
 struct RecorderView: View {
     @ObservedObject var model: AppModel
     var openPlaud: () -> Void = {}
@@ -14,9 +14,22 @@ struct RecorderView: View {
     /// window's meeting page uses it. `embedded` drops the status header and the back button, which the page owns.
     var meetingID: String? = nil
     var embedded = false
+    /// Ask, for the box at the top; nil where there is nothing to ask of (synthetic UI checks).
+    var ask: AskService? = nil
+    /// Opens a cited moment.
+    var openLink: ((WorkScribeLink) -> Void)? = nil
+    /// Opens on this question and its answer (`--render-ui`).
+    var showing: (question: String, conversation: String)? = nil
     @State private var followLive = true
     @State private var showingVoices = false
-    @State private var query = ""
+    /// "day" or "meetings": what the home view lists.
+    @AppStorage("popoverLens") private var lens = "day"
+    @State private var askDraft = ""
+    /// The conversation whose answer is showing.
+    @State private var askConversation: String?
+    @State private var askScope = AskScope.everything
+    /// What is typed in the box also narrows the list of meetings.
+    private var query: String { askDraft }
     @State private var pendingDelete: Meeting?
     @State private var editingTitle = false
     @State private var titleDraft = ""
@@ -45,23 +58,34 @@ struct RecorderView: View {
     var body: some View {
         VStack(spacing: 0) {
             if !embedded {
-                StatusHeader(model: model, showingVoices: $showingVoices, openPlaud: openPlaud, openWindow: openWindow)
-                    .padding(.horizontal, 16).padding(.vertical, 12)
+                SensorHeader(model: model).padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 9)
                 Divider()
+                if let ask { askField(ask).padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 2) }
             }
             Group {
-                switch mode {
-                case .idle: idle
-                case .live(let meeting): live(meeting)
-                case .review(let meeting): review(meeting)
+                if let ask, let id = askConversation, !embedded {
+                    AskResults(ask: ask, conversationID: id, scope: askScope, open: { openLink?($0) }, rescope: { send(ask, scope: $0) })
+                } else {
+                    switch mode {
+                    case .idle: idle
+                    case .live(let meeting): live(meeting)
+                    case .review(let meeting): review(meeting)
+                    }
                 }
             }.frame(maxHeight: .infinity, alignment: .top)
+            if !embedded {
+                Divider()
+                PopoverFooter(model: model, openWindow: openWindow) {
+                    SettingsMenu(model: model, showingVoices: $showingVoices, openPlaud: openPlaud)
+                }
+            }
         }
         .frame(minWidth: embedded ? 320 : inWindow ? 360 : 400, idealWidth: 400, maxWidth: inWindow || embedded ? .infinity : 400,
-               minHeight: embedded ? 300 : inWindow ? 420 : 580, idealHeight: 580, maxHeight: inWindow || embedded ? .infinity : 580)
+               minHeight: embedded ? 300 : inWindow ? 420 : 620, idealHeight: 620, maxHeight: inWindow || embedded ? .infinity : 620)
         .overlay(alignment: .bottom) { toast }
         .sheet(isPresented: $showingVoices) { RememberedVoicesView(model: model) }
         .onChange(of: model.selectedID) { _, _ in editingTitle = false }
+        .onAppear { if let showing { askDraft = showing.question; askConversation = showing.conversation } }
         .confirmationDialog("Move “\(pendingDelete?.title ?? "")” to the Trash?", isPresented: Binding(
             get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }), titleVisibility: .visible) {
             Button("Move to Trash", role: .destructive) { if let entry = pendingDelete { model.deleteRecording(id: entry.id) }; pendingDelete = nil }
@@ -114,90 +138,102 @@ struct RecorderView: View {
         }
     }
 
-    // MARK: Idle
+    // MARK: Ask
 
-    private var idle: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 8) {
-                Button { Task { await model.start() } } label: {
-                    HStack(spacing: 8) {
-                        if !model.speechReady && model.phase != "error" || model.phase == "starting" {
-                            ProgressView().controlSize(.small)
-                        } else {
-                            Image(systemName: "record.circle")
-                        }
-                        Text(startLabel)
-                    }.frame(maxWidth: .infinity).padding(.vertical, 6)
-                }
-                .buttonStyle(.borderedProminent).tint(.teal).controlSize(.large)
-                .keyboardShortcut("r", modifiers: .command)
-                .disabled(model.phase == "starting" || (!model.speechReady && model.phase != "error"))
-                if model.globalShortcut && model.speechReady {
-                    Text("Or press ⌥⌘R from any app").font(.caption2).foregroundStyle(.tertiary)
-                        .frame(maxWidth: .infinity)
-                }
-                if let note = transientNote {
-                    Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }
-                screenAccessBanner
-            }.padding(.horizontal, 16).padding(.top, 14)
-
-            if model.library.isEmpty {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("No recordings yet").font(.headline)
-                    Text("Start a recording, or join a call with Auto-record on. Transcripts are saved on this Mac.")
-                        .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                }.padding(.horizontal, 16)
-            } else {
-                VStack(alignment: .leading, spacing: 6) {
-                    HStack(spacing: 8) {
-                        Text("RECENT").font(.caption2.weight(.semibold)).tracking(0.6).foregroundStyle(.secondary)
-                        Spacer()
-                        HStack(spacing: 4) {
-                            Image(systemName: "magnifyingglass").font(.caption).foregroundStyle(.secondary)
-                            TextField("Search transcripts", text: $query).textFieldStyle(.plain).font(.caption)
-                                .accessibilityLabel("Search recordings and transcripts")
-                            if !query.isEmpty {
-                                Button { query = "" } label: { Image(systemName: "xmark.circle.fill") }
-                                    .buttonStyle(.borderless).foregroundStyle(.secondary).accessibilityLabel("Clear search")
-                            }
-                        }
-                        .padding(.horizontal, 7).padding(.vertical, 4).frame(width: 190)
-                        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 6))
-                    }.padding(.horizontal, 16)
-                    ScrollView {
-                        LazyVStack(spacing: 2) {
-                            if let status = model.importStatus, model.importActive {
-                                HStack(spacing: 8) {
-                                    ProgressView().controlSize(.small)
-                                    Text(status).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                                    Spacer(minLength: 0)
-                                }.padding(.horizontal, 8).padding(.vertical, 7)
-                            }
-                            ForEach(filteredLibrary) { entry in
-                                RecordingRow(entry: entry, naming: model.namingIDs.contains(entry.id), query: query) {
-                                    model.selectedID = entry.id
-                                }
-                                .contextMenu {
-                                    Button("Open") { model.selectedID = entry.id }
-                                    Button("Move to Trash…", role: .destructive) { pendingDelete = entry }
-                                }
-                            }
-                            if filteredLibrary.isEmpty {
-                                Text("No recordings mention “\(query)”.").font(.callout).foregroundStyle(.secondary)
-                                    .frame(maxWidth: .infinity, alignment: .leading).padding(8)
-                            }
-                        }.padding(.horizontal, 8).padding(.bottom, 8)
-                    }
-                }
-            }
+    private var askPlaceholder: String {
+        switch mode {
+        case .live: "Ask about this call…"
+        case .review: "Ask about this meeting…"
+        case .idle: "Ask about today, a meeting, an app…"
         }
     }
 
-    private var startLabel: String {
-        if model.phase == "starting" { return model.message }
-        if !model.speechReady && model.phase != "error" { return "Getting speech ready…" }
-        return "Start recording"
+    /// One box over meetings, the screen and notes. Return asks; what is typed also narrows the meetings list.
+    private func askField(_ ask: AskService) -> some View {
+        HStack(spacing: 7) {
+            Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
+            TextField(askPlaceholder, text: $askDraft).textFieldStyle(.plain)
+                .onSubmit { send(ask) }
+                .onExitCommand { askConversation = nil; askDraft = "" }
+                .accessibilityLabel("Ask WorkScribe")
+            if askConversation != nil || !askDraft.isEmpty {
+                Button { askConversation = nil; askDraft = "" } label: { Image(systemName: "xmark.circle.fill") }
+                    .buttonStyle(.borderless).foregroundStyle(.secondary).accessibilityLabel("Clear")
+            } else {
+                Text("⌥⌘K").font(.caption2).foregroundStyle(.tertiary).help("Ask from any app")
+            }
+        }
+        .padding(.horizontal, 9).padding(.vertical, 7)
+        .background(Color.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func send(_ ask: AskService, scope: AskScope? = nil) {
+        let question = askDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !question.isEmpty else { return }
+        if let scope { askScope = scope }
+        var meetingID: String?
+        if case .review(let meeting) = mode { meetingID = meeting.id }
+        askConversation = ask.ask(question, in: askConversation, origin: "popover", scopeMeetingID: meetingID, scope: askScope).conversation
+    }
+
+    // MARK: Home
+
+    private var idle: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            if let note = transientNote {
+                Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .padding(.horizontal, 14).padding(.top, 8)
+            }
+            if model.includeSystemAudio && !model.screenAccess { screenAccessBanner.padding(.horizontal, 14).padding(.top, 8) }
+            HStack(spacing: 6) {
+                Text(lens == "day" ? "Today" : "Recent").font(.callout.weight(.semibold))
+                if lens == "day" {
+                    Text(Date().formatted(.dateTime.weekday(.abbreviated).month(.abbreviated).day()))
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                Spacer()
+                Picker("Show", selection: $lens) {
+                    Text("Day").tag("day")
+                    Text("Meetings").tag("meetings")
+                }.pickerStyle(.segmented).labelsHidden().fixedSize().controlSize(.small)
+            }.padding(.horizontal, 14).padding(.top, 10).padding(.bottom, 8)
+            if lens == "day" { DayView(model: model) } else { meetings }
+        }
+    }
+
+    @ViewBuilder private var meetings: some View {
+        if model.library.isEmpty {
+            VStack(alignment: .leading, spacing: 6) {
+                Text("No recordings yet").font(.headline)
+                Text("Press Record, or join a call with Auto-record on. Transcripts are saved on this Mac.")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }.padding(.horizontal, 14)
+        } else {
+            ScrollView {
+                LazyVStack(spacing: 2) {
+                    if let status = model.importStatus, model.importActive {
+                        HStack(spacing: 8) {
+                            ProgressView().controlSize(.small)
+                            Text(status).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                            Spacer(minLength: 0)
+                        }.padding(.horizontal, 8).padding(.vertical, 7)
+                    }
+                    ForEach(filteredLibrary) { entry in
+                        RecordingRow(entry: entry, naming: model.namingIDs.contains(entry.id), query: query) {
+                            model.selectedID = entry.id
+                        }
+                        .contextMenu {
+                            Button("Open") { model.selectedID = entry.id }
+                            Button("Move to Trash…", role: .destructive) { pendingDelete = entry }
+                        }
+                    }
+                    if filteredLibrary.isEmpty {
+                        Text("No recordings mention “\(query)”. Press Return to ask instead.").font(.callout).foregroundStyle(.secondary)
+                            .frame(maxWidth: .infinity, alignment: .leading).padding(8)
+                    }
+                }.padding(.horizontal, 6).padding(.bottom, 8)
+            }
+        }
     }
 
     /// Short-lived confirmations from the model ("Recording saved", "MCP configuration copied").
@@ -263,35 +299,42 @@ struct RecorderView: View {
                 .padding(8).background(.orange.opacity(0.10), in: RoundedRectangle(cornerRadius: 8))
                 .padding(.horizontal, 16).padding(.bottom, 8)
             }
+            if !onScreen.isEmpty {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 5) {
+                        Text("ON SCREEN").font(.caption2.weight(.semibold)).tracking(0.6).foregroundStyle(.tertiary)
+                        ForEach(onScreen, id: \.self) { label in
+                            Text(label).font(.caption).lineLimit(1)
+                                .padding(.horizontal, 8).padding(.vertical, 2)
+                                .background(Color.primary.opacity(0.06), in: Capsule())
+                        }
+                    }.padding(.horizontal, 16)
+                }
+                .padding(.bottom, 8)
+                .help("Read from these windows during this meeting. It is kept with the meeting, not with the day.")
+            }
             Divider()
 
             TranscriptView(meeting: meeting, live: true, followLive: $followLive, editor: editor(meeting), focus: model.focusRequest)
 
-            Divider()
-            HStack {
-                if model.phase == "preview" {
-                    Label("Synthetic preview · no audio device is recording", systemImage: "info.circle")
-                        .font(.caption).foregroundStyle(.secondary)
-                } else {
-                    Button(role: .destructive) { Task { await model.stop() } } label: {
-                        HStack { Image(systemName: "stop.fill"); Text(model.phase == "finalizing" ? "Saving transcript…" : "Stop recording") }
-                            .frame(maxWidth: .infinity).padding(.vertical, 4)
-                    }
-                    .buttonStyle(.borderedProminent).tint(.red).controlSize(.large)
-                    .keyboardShortcut("r", modifiers: .command)
-                    .disabled(model.phase != "recording")
-                    if model.phase == "finalizing", model.finalizationProgress >= 0.35 {
-                        TimelineView(.periodic(from: .now, by: 1)) { context in
-                            if meeting.canResume(at: context.date) {
-                                Button { Task { await model.start(resuming: meeting.id) } } label: {
-                                    Label("Resume", systemImage: "play.fill")
-                                }.controlSize(.small)
-                            }
-                        }
-                    }
-                }
-            }.padding(.horizontal, 16).padding(.vertical, 12)
+            if model.phase == "preview" {
+                Divider()
+                Label("Synthetic preview · no audio device is recording", systemImage: "info.circle")
+                    .font(.caption).foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 16).padding(.vertical, 10)
+            }
         }
+    }
+
+    /// The windows read during this meeting, latest first.
+    private var onScreen: [String] {
+        var seen: [String] = []
+        for moment in model.screenMoments.reversed() {
+            let label = [moment.app, moment.window].compactMap { $0?.isEmpty == false ? $0 : nil }.joined(separator: " · ")
+            if !label.isEmpty, !seen.contains(label) { seen.append(label) }
+            if seen.count == 4 { break }
+        }
+        return seen
     }
 
     // MARK: Review
@@ -300,8 +343,8 @@ struct RecorderView: View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
                 if !embedded {
-                    Button { model.selectedID = nil } label: { Label("Recent", systemImage: "chevron.left") }
-                        .buttonStyle(.borderless).accessibilityLabel("Back to recent recordings")
+                    Button { model.selectedID = nil } label: { Label("Back", systemImage: "chevron.left") }
+                        .buttonStyle(.borderless).accessibilityLabel("Back to the day")
                 }
                 Spacer()
                 Menu {
@@ -408,85 +451,15 @@ struct RecorderView: View {
     private func beginRename(_ meeting: Meeting) { titleDraft = meeting.title; editingTitle = true }
 }
 
-// MARK: - Status header
+// MARK: - Settings
 
-private struct StatusHeader: View {
+/// Everything that is set once: the gear in the footer.
+struct SettingsMenu: View {
     @ObservedObject var model: AppModel
     @Binding var showingVoices: Bool
     let openPlaud: () -> Void
-    let openWindow: (() -> Void)?
 
     var body: some View {
-        HStack(alignment: .center, spacing: 10) {
-            indicator.frame(width: 18)
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 6) {
-                    Text(headline).font(.headline)
-                    if model.phase == "recording", let started = model.meeting?.startedAt {
-                        TimelineView(.periodic(from: .now, by: 1)) { context in
-                            Text(AppModel.timestamp(context.date.timeIntervalSince(started)))
-                                .font(.headline.monospacedDigit()).foregroundStyle(.red)
-                        }
-                    }
-                }
-                Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.tail)
-            }
-            Spacer(minLength: 8)
-            if let openWindow {
-                Button(action: openWindow) { Image(systemName: "macwindow.on.rectangle") }
-                    .buttonStyle(.borderless).foregroundStyle(.secondary)
-                    .help("Keep open in a floating window").accessibilityLabel("Open in a floating window")
-            }
-            settings
-        }
-    }
-
-    @ViewBuilder private var indicator: some View {
-        switch model.phase {
-        case "recording":
-            Image(systemName: "record.circle.fill").foregroundStyle(.red).symbolEffect(.bounce, value: model.meeting?.startedAt)
-        case "finalizing":
-            ProgressView(value: model.finalizationProgress).progressViewStyle(.circular).controlSize(.small)
-        case "starting":
-            ProgressView().controlSize(.small)
-        case "error":
-            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-        case "preview":
-            Image(systemName: "waveform").foregroundStyle(.teal)
-        default:
-            if model.speechReady { Circle().stroke(.tertiary, lineWidth: 1).frame(width: 8, height: 8) }
-            else { ProgressView().controlSize(.small) }
-        }
-    }
-
-    private var headline: String {
-        switch model.phase {
-        case "recording": return "Recording"
-        case "starting": return "Starting"
-        case "finalizing": return "Saving transcript"
-        case "preview": return "Caption preview"
-        case "error": return "Couldn’t record"
-        default: return model.speechReady ? "Ready" : "Getting ready"
-        }
-    }
-
-    private var detail: String {
-        switch model.phase {
-        case "recording":
-            let trigger = model.meeting?.recordingTrigger ?? "manual"
-            let source = model.systemAudioBlocked ? "Mic only, system audio blocked"
-                : model.microphoneIssue != nil ? "Call audio only, mic unavailable"
-                : model.includeSystemAudio ? "Mic + system audio" : "Mic only"
-            return trigger.hasPrefix("call:") ? "\(trigger.dropFirst(5)) call · started automatically · \(source)" : "\(source) · saved on this Mac"
-        case "starting": return model.message
-        case "finalizing": return model.message
-        case "preview": return "No audio device is recording"
-        case "error": return "See the recording below for what happened"
-        default: return model.speechReady ? model.autoStatus : "Loading the speech model, about 15 seconds"
-        }
-    }
-
-    private var settings: some View {
         Menu {
             Section("Recording") {
                 Toggle("Auto-record calls", isOn: $model.autoRecordCalls).disabled(model.busy)
@@ -501,11 +474,40 @@ private struct StatusHeader: View {
                     set: { UserDefaults.standard.set($0, forKey: "echoCancellation"); model.objectWillChange.send() }))
                     .disabled(model.busy)
                     .help("Apple voice processing removes the call playing through your speakers from the mic. Turn off only if your mic sounds wrong.")
-                Toggle("Capture the screen", isOn: $model.screenCaptureEnabled).disabled(model.busy)
-                if model.screenState.isCapturing {
-                    Toggle("Pause screen capture", isOn: $model.screenCapturePaused)
-                }
                 Toggle("Start and stop with ⌥⌘R", isOn: $model.globalShortcut)
+            }
+            Section("Screen") {
+                Picker("Read the screen", selection: Binding(
+                    get: { model.screenMode },
+                    set: { mode in
+                        model.screenMode = mode
+                        // Window text comes from Accessibility; without it only pictures of windows can be read.
+                        if mode != .off, !ScreenReader.accessibilityAllowed { ScreenReader.askForAccessibility() }
+                    })) {
+                    ForEach(ScreenReadingMode.allCases) { Text($0.label).tag($0) }
+                }.disabled(model.busy)
+                    .help("Keeps the text of the window you are in, by application, as you move between windows. No video or pictures are stored. Password managers, Messages and private browser windows are never read.")
+                if model.screenMode != .off {
+                    Text(model.screenState.label)
+                    if model.screenCapturePaused {
+                        Button("Resume screen reading") { model.resumeScreen() }
+                    } else if model.screenState.isCapturing {
+                        Menu("Pause screen reading") {
+                            Button("For 15 minutes") { model.pauseScreen(minutes: 15) }
+                            Button("For an hour") { model.pauseScreen(minutes: 60) }
+                            Button("Until I resume") { model.pauseScreen() }
+                        }
+                    }
+                }
+                if model.screenMode == .allDay {
+                    Picker("Keep screen history", selection: Binding(get: { model.screenHistoryDays }, set: { model.screenHistoryDays = $0 })) {
+                        Text("Today only").tag(1)
+                        Text("7 days").tag(7)
+                        Text("30 days").tag(30)
+                        Text("Until I delete it").tag(0)
+                    }
+                    Button("Screen history…") { ScreenHistoryWindow.open(model: model) }
+                }
             }
             Section("Speakers") {
                 Button("Remembered voices…") { showingVoices = true }
@@ -519,6 +521,7 @@ private struct StatusHeader: View {
                 Button("Save & release Note Pro…") { openPlaud() }
             }
             #endif
+            CodexSettingsSection()
             Section("Connect an LLM") {
                 Button("Copy MCP config") { model.copyMCPConfig() }
             }
@@ -530,7 +533,7 @@ private struct StatusHeader: View {
             Section("Status") {
                 Text(model.speechStatus)
                 Text(model.voiceStatus)
-                Text("NVIDIA speech + \(GeneratorModel.bundled.displayName) titles · entirely on this Mac")
+                Text("Speech and search run on this Mac · AI lines, titles and answers are written by Codex")
             }
         } label: { Image(systemName: "gearshape") }
             .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()

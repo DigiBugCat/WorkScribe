@@ -21,10 +21,10 @@ struct MeetingSynthesis {
             try Task.checkCancellation()
             var window = Array(uncovered[start..<min(start + windowSize, uncovered.count)])
             let notes = (meeting.notes ?? []).map(\.shorthand)
-            while !window.isEmpty, try !EvidenceBudget.synthesisFits(NotePrompt.topics(window, notes: notes)) { window.removeLast() }
+            while !window.isEmpty, !EvidenceBudget.synthesisFits(NotePrompt.topics(window, notes: notes)) { window.removeLast() }
             guard !window.isEmpty else { continue }
             calls += 1
-            let generated = try await model.generate(TextRequest(NotePrompt.topics(window, notes: notes), cacheablePrefix: NotePrompt.topicsHead, maxTokens: 500, stop: NotePrompt.endMarker))
+            let generated = try await model.generate(TextRequest(NotePrompt.topics(window, notes: notes), maxTokens: 500, stop: NotePrompt.endMarker))
             topics += groundedTopics(generated.text, excerpts: window).filter { bullet in
                 Grounding.supported(bullet.text, evidence: window.filter { bullet.refs.contains($0.id) }.map(\.chunk.text))
             }
@@ -35,7 +35,7 @@ struct MeetingSynthesis {
             try Task.checkCancellation()
             if !Commitments.needsRephrasing(candidate) || calls >= EngineConstants.synthesisCalls { actions.append(ActionItem(owner: candidate.owner, text: candidate.task)); continue }
             calls += 1
-            let generated = try await model.generate(TextRequest(Commitments.rephrasePrompt(candidate), cacheablePrefix: Commitments.rephraseHead, maxTokens: 40))
+            let generated = try await model.generate(TextRequest(Commitments.rephrasePrompt(candidate), maxTokens: 40))
             actions.append(ActionItem(owner: candidate.owner, text: Commitments.rephrased(generated.text, candidate: candidate)))
         }
         return MeetingSummary(topics: topics.map { bullet in
@@ -47,7 +47,7 @@ struct MeetingSynthesis {
         guard !facts.isEmpty, model.isAvailable else { return nil }
         for _ in 0..<2 {
             guard !Task.isCancelled,
-                  let result = try? await model.generate(TextRequest(BriefPolicy.prompt(meeting), cacheablePrefix: BriefPolicy.promptHead, maxTokens: 120)) else { return nil }
+                  let result = try? await model.generate(TextRequest(BriefPolicy.prompt(meeting), maxTokens: 120)) else { return nil }
             if let brief = BriefPolicy.clean(result.text, evidence: facts) { return brief }
         }
         return nil

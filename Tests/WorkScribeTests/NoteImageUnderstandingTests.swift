@@ -8,7 +8,6 @@ import WorkScribeCore
 final class NoteImageUnderstandingTests: XCTestCase {
     private actor ImageTextModel: TextModel {
         nonisolated let displayName = "Fixture E4B"
-        nonisolated let backend = TextBackend.llama
         nonisolated let isAvailable = true
         var instruction = ""
         func generate(_ request: TextRequest) async throws -> TextGeneration {
@@ -16,7 +15,7 @@ final class NoteImageUnderstandingTests: XCTestCase {
             return TextGeneration(text: "* **Chart:** Revenue increased to forty dollars.", stats: TextStats())
         }
         nonisolated func stream(_ request: TextRequest) -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
-        func prewarm(_ request: TextRequest?) async {}
+        func prewarm() async {}
         func release() async {}
     }
     func testImageObservationReachesResidentTextModel() async throws {

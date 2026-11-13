@@ -1,8 +1,8 @@
 import Foundation
 
-// Screen awareness records meeting-scoped video and visual scenes. A scene has a representative frame,
-// a vision embedding, and optional lazy OCR. The existing ScreenMoment wire format remains compatible.
-// Capture, embedding and OCR live in the app target; temporal policy is platform-neutral.
+// Screen awareness keeps what was on screen as text: stretches of time ("moments") in one window,
+// with that window's words. Deciding when to look and what may be kept is `ScreenWatch`; reading a
+// window lives in the app target. No video, picture or frame is stored.
 
 /// One recognized line, with its box in normalized image coordinates (Vision's: origin bottom-left, 0…1).
 public struct ScreenTextLine: Codable, Equatable, Sendable {
@@ -13,7 +13,7 @@ public struct ScreenTextLine: Codable, Equatable, Sendable {
     }
 }
 
-/// A visual scene. Older recordings may contain text-derived moments without an embedding.
+/// A stretch of time in one window, and the text it showed.
 public struct ScreenMoment: Codable, Identifiable, Equatable, Sendable {
     public var id: String
     /// Meeting seconds, on the same clock as `Segment.start` (0 = `Meeting.startedAt`).
@@ -33,8 +33,12 @@ public struct ScreenMoment: Codable, Identifiable, Equatable, Sendable {
     public var embeddingModelID: String?
     public var representativeTime: Double?
     public var keyframe: String?
-    /// nil = deferred; reading/complete/failed. A representative is frozen before its one OCR attempt.
+    /// "complete" once the moment's text has been read (always, for moments made by `ScreenWatcher`).
     public var ocrState: String?
+    /// The page or document the window showed, when the app says.
+    public var url: String?
+    /// Where the text came from: "accessibility" (the app's own words) or "ocr" (read off a picture of the window).
+    public var source: String?
 
     public init(id: String = UUID().uuidString, start: Double, end: Double, text: String, lines: [ScreenTextLine]? = nil,
                 app: String? = nil, bundleID: String? = nil, window: String? = nil, thumbnail: String? = nil, frames: Int = 1) {
@@ -79,6 +83,25 @@ public enum ScreenFiles {
     public static let moments = "screen-moments.json"
     public static let thumbnails = "screen"
     public static func thumbnail(_ momentID: String) -> String { "\(thumbnails)/\(momentID).jpg" }
+    /// Serializes writes of a meeting's moments with the deletion of its raw data.
+    public static let mutationLock = NSRecursiveLock()
+}
+
+/// Which of a meeting's screen moments bear on a question.
+public enum ScreenSceneRetrieval {
+    public static func ranked(_ scenes: [ScreenMoment], question: String, vector: [Float]? = nil,
+                              modelID: String? = nil, at time: Double? = nil, limit: Int = 3) -> [ScreenMoment] {
+        let lexical = (try? LexicalMatcher().similarities(notes: [question], chunks: scenes.map(\.searchText)).first) ?? []
+        return scenes.enumerated().compactMap { i, scene -> (ScreenMoment, Double)? in
+            let wordScore = i < lexical.count ? lexical[i] : 0
+            var meaning = 0.0
+            if let vector, let stored = scene.embedding, stored.count == vector.count,
+               scene.embeddingModelID == modelID { meaning = Double(VectorMath.dot(stored, vector)) }
+            let nearby = time.map { $0 >= scene.start && $0 <= scene.end + 10 } ?? false
+            guard nearby || wordScore > 0.1 || meaning > 0.35 else { return nil }
+            return (scene, max(wordScore, meaning) + (nearby ? 1 : 0))
+        }.sorted { $0.1 == $1.1 ? $0.0.start < $1.0.start : $0.1 > $1.1 }.prefix(limit).map(\.0)
+    }
 }
 
 extension MeetingStore {
@@ -142,6 +165,17 @@ public enum ScreenPrivacy {
         guard let bundleID, !bundleID.isEmpty else { return false }
         return list.contains { $0.caseInsensitiveCompare(bundleID) == .orderedSame }
     }
+
+    /// The Mac's own dialogs and overlays (a permission alert, a password prompt, the Dock, Spotlight). When one of
+    /// them comes to the front it is not an application the person is working in: it is neither read nor listed.
+    public static let systemUIBundleIDs: [String] = [
+        "com.apple.UserNotificationCenter", "com.apple.notificationcenterui", "com.apple.SecurityAgent",
+        "com.apple.coreservices.uiagent", "com.apple.loginwindow", "com.apple.dock", "com.apple.controlcenter",
+        "com.apple.systemuiserver", "com.apple.Spotlight", "com.apple.screencaptureui", "com.apple.ScreenContinuity",
+        "com.apple.LocalAuthentication.UIService", "com.apple.AuthenticationServicesCore.AuthenticationServicesAgent",
+        "com.apple.WindowManager", "com.apple.screensaver",
+    ]
+    public static func isSystemUI(_ bundleID: String?) -> Bool { isDenied(bundleID, list: systemUIBundleIDs) }
 }
 
 // MARK: Live context

@@ -133,12 +133,10 @@ class RuntimeTests(unittest.TestCase):
 
     def test_only_product_model_families_are_installed(self):
         entries = {name for name, _, _ in doctor.specs()}
-        self.assertIn('models/gemma-4-E4B-it-Q4_0.gguf', entries)
-        self.assertIn('models/vision/mmproj-gemma-4-E4B-it-Q8_0.gguf', entries)
+        self.assertIn('models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf', entries)
+        self.assertIn('models/Nemotron-3-Diarization.q8_0.gguf', entries)
         for name in entries:
             self.assertTrue(name in {
-                'models/gemma-4-E4B-it-Q4_0.gguf',
-                'models/vision/mmproj-gemma-4-E4B-it-Q8_0.gguf',
                 'models/nemotron-3.5-asr-streaming-0.6b.q8_0.gguf',
                 'models/Nemotron-3-Diarization.q8_0.gguf',
             } or name.startswith(('models/embeddinggemma-2-coreml/', 'models/wespeaker_v2.mlmodelc/')), name)
@@ -148,8 +146,112 @@ class RuntimeTests(unittest.TestCase):
             self.assertTrue(doctor.product_asset(name), name)
         for name in ['models/Qwen3.5-2B-Q4_K_M.gguf', 'models/gemma-4-E2B_q4_0-it.gguf',
                      'models/qwen3-4b-instruct-2507-mlx/model.safetensors', 'speaker/weights',
-                     'models/vision/gemma-4-E2B-it-Q4_0.gguf', 'unrelated/data']:
+                     'models/vision/gemma-4-E2B-it-Q4_0.gguf', 'unrelated/data',
+                     'models/gemma-4-E4B-it-Q4_0.gguf', 'models/vision/mmproj-gemma-4-E4B-it-Q8_0.gguf',
+                     'models/vision/bin/image-caption', 'models/vision/lib/libllama.dylib']:
             self.assertFalse(doctor.product_asset(name), name)
+
+    def retired_home(self, root):
+        """A runtime home that still holds the retired text model and image helper beside other files."""
+        home = root/'home'
+        (home/'models/vision/bin').mkdir(parents=True); (home/'models/vision/lib').mkdir()
+        (home/'models/gemma-4-E4B-it-Q4_0.gguf').write_bytes(b'text model')
+        (home/'models/gemma-4-E4B-it-Q4_0.gguf.partial').write_bytes(b'half a download')
+        (home/'models/vision/mmproj-gemma-4-E4B-it-Q8_0.gguf').write_bytes(b'projector')
+        (home/'models/vision/bin/image-caption').write_bytes(b'helper')
+        (home/'models/vision/lib/libllama.dylib').write_bytes(b'library')
+        (home/'models/Qwen3.5-2B-Q4_K_M.gguf').write_bytes(b'older model')
+        (home/'models/Nemotron-3-Diarization.q8_0.gguf').write_bytes(b'speech model')
+        return home
+
+    def test_a_plain_repair_keeps_retired_files_another_checkout_may_still_use(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); home = self.retired_home(root)
+            with patch.object(doctor, 'HOME', home), patch.object(doctor, 'CACHE', root/'cache'), \
+                    patch.object(doctor, 'ROOT', root/'checkout'), \
+                    patch.dict(os.environ, {'WORKSCRIBE_MIGRATE_LEGACY': '0'}), \
+                    patch.object(sys, 'argv', ['doctor']), \
+                    patch.object(doctor, 'install_nemo', side_effect=RuntimeError('offline')), \
+                    patch.object(doctor, 'install', side_effect=RuntimeError('offline')), \
+                    patch.object(doctor.subprocess, 'run', side_effect=RuntimeError('offline')), \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                doctor.main()
+            self.assertEqual((home/'models/gemma-4-E4B-it-Q4_0.gguf').read_bytes(), b'text model')
+            self.assertEqual((home/'models/vision/bin/image-caption').read_bytes(), b'helper')
+            self.assertIn('--remove-retired', output.getvalue())
+
+    def test_remove_retired_deletes_the_text_model_and_image_helper_when_asked(self):
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); home = self.retired_home(root)
+            (home/'checksums.json').write_text(json.dumps({
+                'models/gemma-4-E4B-it-Q4_0.gguf': 'old', 'models/vision/bin/image-caption': 'old'}))
+            # A whole repair run, offline: ROOT is moved so nothing is written into the checkout.
+            with patch.object(doctor, 'HOME', home), patch.object(doctor, 'CACHE', root/'cache'), \
+                    patch.object(doctor, 'ROOT', root/'checkout'), \
+                    patch.dict(os.environ, {'WORKSCRIBE_MIGRATE_LEGACY': '0'}), \
+                    patch.object(sys, 'argv', ['doctor', '--remove-retired']), \
+                    patch.object(doctor, 'install_nemo', side_effect=RuntimeError('offline')), \
+                    patch.object(doctor, 'install', side_effect=RuntimeError('offline')), \
+                    patch.object(doctor.subprocess, 'run', side_effect=RuntimeError('offline')), \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertTrue(doctor.main())  # Active assets cannot be fetched here.
+            self.assertFalse((home/'models/gemma-4-E4B-it-Q4_0.gguf').exists())
+            self.assertFalse((home/'models/gemma-4-E4B-it-Q4_0.gguf.partial').exists())
+            self.assertFalse((home/'models/vision').exists())
+            self.assertIn('models/vision: removed', output.getvalue())
+            # Nothing else is deleted: an older leftover stays, and so does a current model whose
+            # replacement failed.
+            self.assertEqual((home/'models/Qwen3.5-2B-Q4_K_M.gguf').read_bytes(), b'older model')
+            self.assertEqual((home/'models/Nemotron-3-Diarization.q8_0.gguf').read_bytes(), b'speech model')
+            self.assertEqual(set(json.loads((home/'checksums.json').read_text())), {'models/Nemotron-3-Diarization.q8_0.gguf'})
+            self.assertFalse((root/'checkout').exists())
+
+    def test_check_names_retired_files_without_deleting_or_requiring_them(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); home = self.retired_home(root)
+            with patch.object(doctor, 'HOME', home), patch.object(doctor, 'CACHE', root/'cache'), \
+                    patch.object(sys, 'argv', ['doctor', '--check']), \
+                    patch.object(doctor, 'download', side_effect=AssertionError('network')), \
+                    contextlib.redirect_stdout(io.StringIO()) as output:
+                self.assertTrue(doctor.main())  # Active assets are intentionally absent.
+            self.assertEqual((home/'models/gemma-4-E4B-it-Q4_0.gguf').read_bytes(), b'text model')
+            self.assertEqual((home/'models/gemma-4-E4B-it-Q4_0.gguf.partial').read_bytes(), b'half a download')
+            self.assertEqual((home/'models/vision/bin/image-caption').read_bytes(), b'helper')
+            self.assertIn('models/vision: no longer used', output.getvalue())
+            # Every mention says how to delete it; none reports it missing, wrong or needing attention.
+            for line in output.getvalue().splitlines():
+                if 'gemma-4-E4B' in line or 'models/vision' in line or 'image-caption' in line:
+                    self.assertIn('no longer used', line)
+
+    def test_retired_cleanup_stays_inside_the_runtime_home(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder); outside = root/'outside'
+            (outside/'vision/bin').mkdir(parents=True); (outside/'vision/bin/image-caption').write_bytes(b'elsewhere')
+            (outside/'model.gguf').write_bytes(b'elsewhere')
+            # Retired names that are links: the link goes, what it points at stays.
+            linked = root/'linked'; (linked/'models').mkdir(parents=True)
+            (linked/'models/vision').symlink_to(outside/'vision', target_is_directory=True)
+            (linked/'models/gemma-4-E4B-it-Q4_0.gguf').symlink_to(outside/'model.gguf')
+            with patch.object(doctor, 'HOME', linked), contextlib.redirect_stdout(io.StringIO()):
+                doctor.remove_retired()
+            self.assertFalse((linked/'models/vision').is_symlink())
+            self.assertFalse((linked/'models/gemma-4-E4B-it-Q4_0.gguf').is_symlink())
+            # A link inside the retired folder is not followed either.
+            nested = root/'nested'; (nested/'models/vision').mkdir(parents=True)
+            (nested/'models/vision/lib').symlink_to(outside/'vision', target_is_directory=True)
+            with patch.object(doctor, 'HOME', nested), contextlib.redirect_stdout(io.StringIO()):
+                doctor.remove_retired()
+            self.assertFalse((nested/'models/vision').exists())
+            # A models folder that lives elsewhere is not the runtime home: nothing in it is deleted.
+            (outside/'models/vision').mkdir(parents=True); (outside/'models/vision/weights').write_bytes(b'elsewhere')
+            (outside/'models/gemma-4-E4B-it-Q4_0.gguf').write_bytes(b'elsewhere')
+            away = root/'away'; away.mkdir(); (away/'models').symlink_to(outside/'models', target_is_directory=True)
+            with patch.object(doctor, 'HOME', away), contextlib.redirect_stdout(io.StringIO()) as output:
+                doctor.remove_retired()
+            self.assertIn('left in place', output.getvalue())
+            for kept in ['vision/bin/image-caption', 'model.gguf', 'models/vision/weights', 'models/gemma-4-E4B-it-Q4_0.gguf']:
+                self.assertEqual((outside/kept).read_bytes(), b'elsewhere', kept)
 
     def test_check_ignores_retired_receipts_without_removing_files(self):
         import json
@@ -173,15 +275,16 @@ class RuntimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder); source = root/'old'; home = root/'home'
             (source/'models').mkdir(parents=True)
-            active = 'gemma-4-E4B-it-Q4_0.gguf'
-            retired = 'Qwen3.5-2B-Q4_K_M.gguf'
+            active = 'Nemotron-3-Diarization.q8_0.gguf'
             (source/'models'/active).write_bytes(b'product fixture')
-            (source/'models'/retired).write_bytes(b'old fixture')
+            for retired in ['Qwen3.5-2B-Q4_K_M.gguf', 'gemma-4-E4B-it-Q4_0.gguf']:
+                (source/'models'/retired).write_bytes(b'old fixture')
             with patch.object(doctor, 'HOME', home):
                 doctor.migrate(source, product_only=True)
             self.assertEqual((home/'models'/active).read_bytes(), b'product fixture')
-            self.assertFalse((home/'models'/retired).exists())
-            self.assertEqual((source/'models'/retired).read_bytes(), b'old fixture')
+            for retired in ['Qwen3.5-2B-Q4_K_M.gguf', 'gemma-4-E4B-it-Q4_0.gguf']:
+                self.assertFalse((home/'models'/retired).exists())
+                self.assertEqual((source/'models'/retired).read_bytes(), b'old fixture')
 
     def test_documented_downloads_match_installer_pins(self):
         import json
@@ -241,5 +344,8 @@ class RuntimeTests(unittest.TestCase):
                 self.assertTrue(doctor.main())
             self.assertIn('missing',out.getvalue())
             self.assertIn('Models need attention',out.getvalue())
+            # The retired text model and image helper are not requirements of a fresh setup.
+            for retired in ['gemma-4-E4B', 'mmproj', 'models/vision', 'image-caption']:
+                self.assertNotIn(retired, out.getvalue())
 
 if __name__ == '__main__': unittest.main()
