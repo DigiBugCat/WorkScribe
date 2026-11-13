@@ -6,7 +6,11 @@ import type { Note } from './types';
 import { SurfaceStore } from './surface-store';
 import { surfaceDecorations, type SurfaceHost } from '../ui/surfaces';
 
-export interface EditorSession { id: string; document: NoteDocument; notes: Map<string, Note> }
+export interface EditorSession {
+  id: string; document: NoteDocument; notes: Map<string, Note>;
+  /** A note that is not a meeting's. It has a session so the editor can decorate it; it is never synced. */
+  ordinary?: boolean;
+}
 export interface EditorHost {
   surfaces?(state: EditorState): SurfaceHost;
   session(state: EditorState): EditorSession | null;

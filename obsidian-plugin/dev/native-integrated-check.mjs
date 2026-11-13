@@ -9,7 +9,7 @@ const root = resolve('../.artifacts/native-integrated'), vault = join(root,'ui-v
 rmSync(root,{recursive:true,force:true});
 mkdirSync(join(vault,'.obsidian/plugins/workscribe'),{recursive:true}); mkdirSync(profile,{recursive:true});
 const output=resolve('../docs/research/finish');mkdirSync(output,{recursive:true});
-const server = await startMockServer({imageEvidence:{text:'iPhone 12 mini: 2,900 ms; iPhone 15 Pro: 420 ms',caption:'Main-thread image decoding delays the iPhone 12 mini launch.',method:'gemma4+vision-ocr',seconds:3.614},vault,discovery:join(root,'api.json'),live:true,quiet:true,speed:1});
+const server = await startMockServer({imageEvidence:{text:'iPhone 12 mini: 2,900 ms; iPhone 15 Pro: 420 ms',caption:'Main-thread image decoding delays the iPhone 12 mini launch.',method:'codex+vision-ocr',seconds:3.614},vault,discovery:join(root,'api.json'),live:true,quiet:true,speed:1});
 for(const name of ['main.js','manifest.json','styles.css']) copyFileSync(resolve(name),join(vault,'.obsidian/plugins/workscribe',name));
 writeFileSync(join(vault,'.obsidian/plugins/workscribe/data.json'),JSON.stringify({apiJsonPath:server.discoveryPath,autoOpenLiveView:true}));
 writeFileSync(join(vault,'.obsidian/community-plugins.json'),JSON.stringify(['workscribe']));
@@ -62,7 +62,7 @@ try {
  await page.locator('.ws-evidence-header summary').filter({hasText:'What else it read'}).click();
  await page.waitForFunction(()=>document.querySelector('.ws-evidence-header')?.innerText.includes('2,900 ms'));
  result.trace=await page.locator('.ws-evidence-header').innerText();
- assert.match(result.trace,/2,900 ms/);assert.match(result.trace,/Gemma \+ OCR/);assert.match(result.trace,/3.6 s/);
+ assert.match(result.trace,/2,900 ms/);assert.match(result.trace,/Described by Codex/);assert.match(result.trace,/3.6 s/);
  assert.equal(await page.locator('.ws-evidence-header .ws-trace').count(),1);
  await page.screenshot({path:join(output,'integrated-image-why.png')});await page.keyboard.press('Escape');
  await page.screenshot({path:join(root,'after.png')});

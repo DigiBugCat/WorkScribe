@@ -9,6 +9,18 @@ export interface NoteDocument {
 const markdown = parser.configure(GFM);
 
 /** UTF-16 offsets, shared by CM6 and NSString. No anchors are written into Markdown. */
+/**
+ * Where the text a person wrote under an AI line is right now, with the line break before it, so it can be
+ * removed when they hand the line back. Null unless that range still holds exactly the owned text: after an
+ * edit the ledger has not caught up with, removing nothing is the only safe answer.
+ */
+export function ownedRange(blocks: {id: string; owned?: {from: number; to: number; text: string}}[], id: string, source: string): {from: number; to: number} | null {
+  const owned = blocks.find(b => b.id === id)?.owned;
+  if (!owned || owned.from < 0 || owned.from > owned.to || owned.to > source.length) return null;
+  if (source.slice(owned.from, owned.to) !== owned.text) return null;
+  return { from: owned.from > 0 && source[owned.from - 1] === '\n' ? owned.from - 1 : owned.from, to: owned.to };
+}
+
 export function parseBlocks(source: string): Omit<Block, "id">[] {
   const front = source.match(/^---\r?\n[\s\S]*?\r?\n---(?:\r?\n|$)/)?.[0].length ?? 0;
   const tree = markdown.parse(source.slice(0, front).replace(/[^\r\n]/g, " ") + source.slice(front));
